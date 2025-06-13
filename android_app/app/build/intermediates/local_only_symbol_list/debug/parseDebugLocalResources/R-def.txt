@@ -9,8 +9,6 @@ color teal_700
 color white
 drawable ic_launcher_background
 drawable ic_launcher_foreground
-id main
-layout activity_sign_up
 mipmap ic_launcher
 mipmap ic_launcher_round
 string app_name

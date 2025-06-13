@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.example.day_together.app-mergeDebugResources-71:/values-v30/values-v30.xml",
+            "outputFile": "com.example.day_together.app-mergeDebugResources-72:/values-v30/values-v30.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\kus09\\.gradle\\caches\\8.11.1\\transforms\\917fd36b7d908b4940727b436e064c46\\transformed\\material3-release\\res\\values-v30\\values-v30.xml",
+                    "source": "C:\\Users\\kus09\\.gradle\\caches\\8.11.1\\transforms\\63dbaaec6dbdd17d0c4716e61c49b1b4\\transformed\\material3-release\\res\\values-v30\\values-v30.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",
