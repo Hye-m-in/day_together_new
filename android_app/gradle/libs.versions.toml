@@ -1,4 +1,7 @@
 [versions]
+
+# implementation(libs.coil) 추가 후 libs.versions.toml 파일 정보 등록
+coil = "2.6.0"
 agp = "8.9.3"
 kotlin = "2.0.21"
 coreKtx = "1.16.0"
@@ -20,6 +23,10 @@ volley = "1.2.1"
 firebaseFunctionsKtx = "21.2.1"
 
 [libraries]
+
+# implementation(libs.coil) 추가 후 libs.versions.toml 파일 정보 등록
+coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

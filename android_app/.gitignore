@@ -1,5 +1,77 @@
-# Default ignored files
+# From original team gitignore
 /shelf/
-/.idea/workspace.xml
-/app/build
-/app/
+
+
+
+# Android Studio / IntelliJ
+*.iml
+.idea/
+misc.xml
+deploymentTargetDropDown.xml
+render.experimental.xml
+# assetWizardSettings.xml is sometimes ignored, sometimes not. If you share project, better to version it.
+# Consider if .idea/assetWizardSettings.xml should be versioned or ignored.
+# If a team shares code style, run configurations etc. then more .idea files might be versioned.
+# For now, ignoring most of .idea/ is a common practice for individual or less strict team settings.
+
+# Gradle
+.gradle/
+build/
+
+# Local configuration files (sdk path, etc)
+# IMPORTANT: DO NOT COMMIT SENSITIVE DATA LIKE API KEYS HERE
+local.properties
+
+# Log/OS Files
+*.log
+.DS_Store
+
+# Android Studio generated files and folders
+captures/
+.externalNativeBuild/
+*.cxx/ # Note the trailing slash to specify it's a directory, if that's the intent
+# Or just .cxx if it's referring to files with .cxx extension from your local version.
+# Assuming .cxx/ from remote is more specific for build artifacts.
+
+# Built application files
+*.apk
+*.aab
+*.ap_
+*.a_
+*.dex
+*.zip
+output.json
+
+# Keystore files
+# IMPORTANT: DO NOT COMMIT YOUR RELEASE KEYSTORE
+*.jks
+*.keystore
+
+# Google Services (e.g. APIs or Firebase)
+# If you have a google-services.json file and it's not meant to be public, keep this line.
+# If it's a sample app or the file contains no secrets, you might version it.
+google-services.json
+
+# Android Profiling
+*.hprof
+*.trace
+
+# Lint
+lint/reports/
+lint/intermediates/
+
+# Deprecated entries from your local (already covered or not standard)
+# /local.properties (covered by local.properties)
+# /.idea/caches (covered by .idea/)
+# /.idea/libraries (covered by .idea/)
+# /.idea/modules.xml (covered by .idea/)
+# /.idea/workspace.xml (covered by .idea/)
+# /.idea/navEditor.xml (covered by .idea/)
+# .externalNativeBuild (already present without leading slash, which is more common)
+# .cxx (covered by .cxx/ or if it was meant for files, it's different from .cxx/ directory)
+
+# Ensure these from your local version are considered if not covered above:
+# (Most seem covered by .idea/ or other general rules)
+# /.idea/assetWizardSettings.xml # Added a comment above about this.
+
+/build
