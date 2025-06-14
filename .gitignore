@@ -6,6 +6,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+*.lock
+.gradle/
+build/
+local.properties
+
+
 # — 환경변수 및 민감정보
 .env
 API.env
