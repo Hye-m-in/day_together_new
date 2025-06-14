@@ -2,9 +2,12 @@ package com.example.day_together
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,6 +15,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.day_together.ui.theme.Day_togetherTheme
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+
+private lateinit var googleSignInClient: GoogleSignInClient
+private lateinit var googleSignInLauncher: ActivityResultLauncher<Intent>
 
 class LoginActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,6 +32,37 @@ class LoginActivity : ComponentActivity() {
             startActivity(Intent(this, MainActivity::class.java))
             finish()
             return
+        }
+
+
+        // Google Sign-In 옵션 설정
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(getString(R.string.web_client_id)) // firebase console → OAuth 2.0 클라이언트 ID
+            .requestEmail()
+            .build()
+        googleSignInClient = GoogleSignIn.getClient(this, gso)
+
+        // LaunchActivityResult 등록
+        googleSignInLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                val account = task.getResult(ApiException::class.java)!!
+                AuthManager.loginWithGoogleIdToken(account.idToken!!) { success, msg ->
+                    if (success) {
+                        Toast.makeText(this, "구글 로그인 성공", Toast.LENGTH_SHORT).show()
+                        startActivity(Intent(this, MainActivity::class.java))
+                        finish()
+                    } else {
+                        Toast.makeText(this, "로그인 실패: $msg", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("GOOGLE_SIGNIN_ERROR", "예외 발생", e)
+                Toast.makeText(this, "구글 로그인 예외: ${e.message}", Toast.LENGTH_LONG).show()
+
+            }
         }
 
         setContent {
@@ -68,6 +109,13 @@ class LoginActivity : ComponentActivity() {
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(onClick = {
+                        val signInIntent = googleSignInClient.signInIntent
+                        googleSignInLauncher.launch(signInIntent)
+                    }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Google로 로그인")
+                    }
 
                     Button(onClick = {
                         startActivity(Intent(this@LoginActivity, SignUpActivity::class.java))

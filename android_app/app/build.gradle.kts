@@ -72,4 +72,12 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.13.0"))
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-messaging")
+
+    // Retrofit + OkHttp
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    // Google 로그인
+    implementation("com.google.android.gms:play-services-auth:21.3.0")
 }
