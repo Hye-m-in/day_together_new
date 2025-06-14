@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">daytogether</string>
+    <string name="app_name">day_together</string>
+    <string name="web_client_id">498422146257-uvu0vjql7muhttt801e6t31fa4mopgrk.apps.googleusercontent.com</string>
 </resources>

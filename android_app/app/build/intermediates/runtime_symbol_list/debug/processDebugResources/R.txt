@@ -4150,6 +4150,7 @@ int string tab 0x7f100110
 int string template_percent 0x7f100111
 int string tooltip_description 0x7f100112
 int string tooltip_label 0x7f100113
+int string web_client_id 0x7f100114
 int style AlertDialog_AppCompat 0x7f110000
 int style AlertDialog_AppCompat_Light 0x7f110001
 int style Animation_AppCompat_Dialog 0x7f110002
@@ -7380,3 +7381,4 @@ int styleable include_constraintSet 0
 int xml backup_rules 0x7f130000
 int xml data_extraction_rules 0x7f130001
 int xml image_share_filepaths 0x7f130002
+int xml network_security_config 0x7f130003
