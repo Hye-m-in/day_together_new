@@ -1,0 +1,6 @@
+# python_app/requirements.txt
+fastapi
+uvicorn[standard]
+firebase-admin
+google-auth
+python-dotenv            # (선택) 환경변수 관리를 위해
