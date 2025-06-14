@@ -10,6 +10,7 @@ __pycache__/
 .env
 API.env
 firebase-service-account*.json
+python_app/app/serviceAccountKey.json
 
 # — 편집기/IDE 설정
 .vscode/
