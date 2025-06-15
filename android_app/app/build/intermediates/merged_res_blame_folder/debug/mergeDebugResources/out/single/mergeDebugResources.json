@@ -1,66 +1,234 @@
 [
     {
-        "merged": "com.example.day_together.app-debug-74:/xml_backup_rules.xml.flat",
-        "source": "com.example.day_together.app-main-76:/xml/backup_rules.xml"
+        "merged": "com.example.day_together.app-debug-82:/font_gothical_regular.ttf.flat",
+        "source": "com.example.day_together.app-main-84:/font/gothical_regular.ttf"
     },
     {
-        "merged": "com.example.day_together.app-debug-74:/drawable_ic_launcher_foreground.xml.flat",
-        "source": "com.example.day_together.app-main-76:/drawable/ic_launcher_foreground.xml"
+        "merged": "com.example.day_together.app-debug-82:/font_gothical_thin.ttf.flat",
+        "source": "com.example.day_together.app-main-84:/font/gothical_thin.ttf"
     },
     {
-        "merged": "com.example.day_together.app-debug-74:/mipmap-hdpi_ic_launcher.webp.flat",
-        "source": "com.example.day_together.app-main-76:/mipmap-hdpi/ic_launcher.webp"
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_cloud2.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_cloud2.xml"
     },
     {
-        "merged": "com.example.day_together.app-debug-74:/mipmap-xxxhdpi_ic_launcher.webp.flat",
-        "source": "com.example.day_together.app-main-76:/mipmap-xxxhdpi/ic_launcher.webp"
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_file.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_file.xml"
     },
     {
-        "merged": "com.example.day_together.app-debug-74:/mipmap-hdpi_ic_launcher_round.webp.flat",
-        "source": "com.example.day_together.app-main-76:/mipmap-hdpi/ic_launcher_round.webp"
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_calendar.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_calendar.xml"
     },
     {
-        "merged": "com.example.day_together.app-debug-74:/drawable_ic_launcher_background.xml.flat",
-        "source": "com.example.day_together.app-main-76:/drawable/ic_launcher_background.xml"
+        "merged": "com.example.day_together.app-debug-82:/mipmap-mdpi_ic_launcher.webp.flat",
+        "source": "com.example.day_together.app-main-84:/mipmap-mdpi/ic_launcher.webp"
     },
     {
-        "merged": "com.example.day_together.app-debug-74:/mipmap-xhdpi_ic_launcher_round.webp.flat",
-        "source": "com.example.day_together.app-main-76:/mipmap-xhdpi/ic_launcher_round.webp"
+        "merged": "com.example.day_together.app-debug-82:/mipmap-xxxhdpi_ic_launcher_round.webp.flat",
+        "source": "com.example.day_together.app-main-84:/mipmap-xxxhdpi/ic_launcher_round.webp"
     },
     {
-        "merged": "com.example.day_together.app-debug-74:/mipmap-xhdpi_ic_launcher.webp.flat",
-        "source": "com.example.day_together.app-main-76:/mipmap-xhdpi/ic_launcher.webp"
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_custom_arrow_left.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_custom_arrow_left.xml"
     },
     {
-        "merged": "com.example.day_together.app-debug-74:/mipmap-xxhdpi_ic_launcher.webp.flat",
-        "source": "com.example.day_together.app-main-76:/mipmap-xxhdpi/ic_launcher.webp"
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_cloud_happy.png.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_cloud_happy.png"
     },
     {
-        "merged": "com.example.day_together.app-debug-74:/mipmap-mdpi_ic_launcher_round.webp.flat",
-        "source": "com.example.day_together.app-main-76:/mipmap-mdpi/ic_launcher_round.webp"
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_cloud5.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_cloud5.xml"
     },
     {
-        "merged": "com.example.day_together.app-debug-74:/mipmap-mdpi_ic_launcher.webp.flat",
-        "source": "com.example.day_together.app-main-76:/mipmap-mdpi/ic_launcher.webp"
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_more_options.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_more_options.xml"
     },
     {
-        "merged": "com.example.day_together.app-debug-74:/mipmap-anydpi-v26_ic_launcher.xml.flat",
-        "source": "com.example.day_together.app-main-76:/mipmap-anydpi-v26/ic_launcher.xml"
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_message.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_message.xml"
     },
     {
-        "merged": "com.example.day_together.app-debug-74:/mipmap-xxxhdpi_ic_launcher_round.webp.flat",
-        "source": "com.example.day_together.app-main-76:/mipmap-xxxhdpi/ic_launcher_round.webp"
+        "merged": "com.example.day_together.app-debug-82:/font_gothical_semibold.ttf.flat",
+        "source": "com.example.day_together.app-main-84:/font/gothical_semibold.ttf"
     },
     {
-        "merged": "com.example.day_together.app-debug-74:/xml_data_extraction_rules.xml.flat",
-        "source": "com.example.day_together.app-main-76:/xml/data_extraction_rules.xml"
+        "merged": "com.example.day_together.app-debug-82:/mipmap-hdpi_ic_launcher_round.webp.flat",
+        "source": "com.example.day_together.app-main-84:/mipmap-hdpi/ic_launcher_round.webp"
     },
     {
-        "merged": "com.example.day_together.app-debug-74:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
-        "source": "com.example.day_together.app-main-76:/mipmap-anydpi-v26/ic_launcher_round.xml"
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_send_arrow.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_send_arrow.xml"
     },
     {
-        "merged": "com.example.day_together.app-debug-74:/mipmap-xxhdpi_ic_launcher_round.webp.flat",
-        "source": "com.example.day_together.app-main-76:/mipmap-xxhdpi/ic_launcher_round.webp"
+        "merged": "com.example.day_together.app-debug-82:/mipmap-xhdpi_ic_launcher_round.webp.flat",
+        "source": "com.example.day_together.app-main-84:/mipmap-xhdpi/ic_launcher_round.webp"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_settings.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_settings.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_cloud1.png.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/cloud1.png"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_profile_placeholder.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_profile_placeholder.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_clip_attach.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_clip_attach.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/mipmap-xxhdpi_ic_launcher_round.webp.flat",
+        "source": "com.example.day_together.app-main-84:/mipmap-xxhdpi/ic_launcher_round.webp"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_cloud3.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_cloud3.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/font_gothical_medium.ttf.flat",
+        "source": "com.example.day_together.app-main-84:/font/gothical_medium.ttf"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_year_month_picker.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_year_month_picker.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "com.example.day_together.app-main-84:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_cloud6.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_cloud6.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_sad.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_sad.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/mipmap-xxhdpi_ic_launcher.webp.flat",
+        "source": "com.example.day_together.app-main-84:/mipmap-xxhdpi/ic_launcher.webp"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "com.example.day_together.app-main-84:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_custom_arrow_right.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_custom_arrow_right.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_message_invite.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_message_invite.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/mipmap-xxxhdpi_ic_launcher.webp.flat",
+        "source": "com.example.day_together.app-main-84:/mipmap-xxxhdpi/ic_launcher.webp"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/mipmap-mdpi_ic_launcher_round.webp.flat",
+        "source": "com.example.day_together.app-main-84:/mipmap-mdpi/ic_launcher_round.webp"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/font_gothical_bold.ttf.flat",
+        "source": "com.example.day_together.app-main-84:/font/gothical_bold.ttf"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/mipmap-xhdpi_ic_launcher.webp.flat",
+        "source": "com.example.day_together.app-main-84:/mipmap-xhdpi/ic_launcher.webp"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_launcher_background.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_launcher_background.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/font_gothical_light.ttf.flat",
+        "source": "com.example.day_together.app-main-84:/font/gothical_light.ttf"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_group.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_group.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_camera.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_camera.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_logo_naver.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_logo_naver.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/mipmap-hdpi_ic_launcher.webp.flat",
+        "source": "com.example.day_together.app-main-84:/mipmap-hdpi/ic_launcher.webp"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/font_gothical_extralight.ttf.flat",
+        "source": "com.example.day_together.app-main-84:/font/gothical_extralight.ttf"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/xml_data_extraction_rules.xml.flat",
+        "source": "com.example.day_together.app-main-84:/xml/data_extraction_rules.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_gallery.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_gallery.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/font_gothical_black.ttf.flat",
+        "source": "com.example.day_together.app-main-84:/font/gothical_black.ttf"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_placeholder_image.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_placeholder_image.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_home.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_home.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_logo_kakao.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_logo_kakao.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_cloud1.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_cloud1.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_cloud_sad.png.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_cloud_sad.png"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/xml_backup_rules.xml.flat",
+        "source": "com.example.day_together.app-main-84:/xml/backup_rules.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_cloud2.png.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/cloud2.png"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_mic.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_mic.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_cloud4.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_cloud4.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/font_gothical_extrabold.ttf.flat",
+        "source": "com.example.day_together.app-main-84:/font/gothical_extrabold.ttf"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_happy.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_happy.xml"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_search.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_search.xml"
     }
 ]

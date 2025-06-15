@@ -1,5 +1,15 @@
 package com.example.day_together
 
+import com.example.day_together.ui.home.HomeScreen
+
+import androidx.compose.runtime.Composable
+import androidx.navigation.NavHostController
+import com.example.day_together.ui.theme.Day_togetherTheme
+import com.example.day_together.navigation.AppNavigation
+
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import com.example.day_together.ui.navigation.Routes
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
@@ -24,6 +34,8 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             Day_togetherTheme {
+
+
                 val context = this@MainActivity
                 val invitedChatRoomId = remember { mutableStateOf<String?>(null) }
 
@@ -125,4 +137,31 @@ fun InvitationDialog(
             }
         }
     )
+}
+
+
+
+
+// android- ui 작업 코드
+@Composable
+fun AppNavigationHost(navController: NavHostController, modifier: Modifier = Modifier) {
+    NavHost(
+        navController = navController,
+        startDestination = Routes.HOME,
+        modifier = modifier
+    ) {
+        composable(Routes.HOME) {
+            HomeScreen(appNavController = navController)
+        }
+        composable(Routes.MESSAGE) {
+            Text("메세지 화면입니다.")
+        }
+        composable(Routes.GALLERY) {
+            Text("갤러리 화면입니다.")
+        }
+        composable(Routes.SETTINGS) {
+            Text("설정 화면입니다.")
+
+        }
+    }
 }
