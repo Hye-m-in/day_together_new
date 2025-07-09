@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.day_together.auth.AuthManager
 import com.example.day_together.ui.theme.Day_togetherTheme
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase

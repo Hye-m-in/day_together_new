@@ -801,6 +801,21 @@ attr logo
 attr logoAdjustViewBounds
 attr logoDescription
 attr logoScaleType
+attr lottie_autoPlay
+attr lottie_colorFilter
+attr lottie_enableMergePathsForKitKatAndAbove
+attr lottie_fallbackRes
+attr lottie_fileName
+attr lottie_imageAssetsFolder
+attr lottie_loop
+attr lottie_progress
+attr lottie_rawRes
+attr lottie_renderMode
+attr lottie_repeatCount
+attr lottie_repeatMode
+attr lottie_scale
+attr lottie_speed
+attr lottie_url
 attr marginHorizontal
 attr marginLeftSystemWindowInsets
 attr marginRightSystemWindowInsets
@@ -2100,6 +2115,8 @@ color mtrl_textinput_disabled_color
 color mtrl_textinput_filled_box_default_background_color
 color mtrl_textinput_focused_box_stroke_color
 color mtrl_textinput_hovered_box_stroke_color
+color nid_progress_dialog_background
+color nid_progress_dialog_text
 color notification_action_color_filter
 color notification_icon_bg_color
 color primary_dark_material_dark
@@ -3018,6 +3035,7 @@ drawable abc_textfield_search_material
 drawable abc_vector_test
 drawable avd_hide_password
 drawable avd_show_password
+drawable bottom_background_img
 drawable btn_checkbox_checked_mtrl
 drawable btn_checkbox_checked_to_unchecked_mtrl_animation
 drawable btn_checkbox_unchecked_mtrl
@@ -3026,6 +3044,8 @@ drawable btn_radio_off_mtrl
 drawable btn_radio_off_to_on_mtrl_animation
 drawable btn_radio_on_mtrl
 drawable btn_radio_on_to_off_mtrl_animation
+drawable close_btn_img
+drawable close_btn_img_black
 drawable common_full_open_on_phone
 drawable common_google_signin_btn_icon_dark
 drawable common_google_signin_btn_icon_dark_focused
@@ -3076,6 +3096,7 @@ drawable ic_passkey
 drawable ic_password
 drawable ic_search_black_24
 drawable indeterminate_static
+drawable login_btn_img
 drawable m3_avd_hide_password
 drawable m3_avd_show_password
 drawable m3_bottom_sheet_drag_handle
@@ -3134,7 +3155,9 @@ drawable mtrl_switch_thumb_unchecked_pressed
 drawable mtrl_switch_track
 drawable mtrl_switch_track_decoration
 drawable mtrl_tabs_default_indicator
+drawable naver_icon
 drawable navigation_empty_icon
+drawable nid_progress_dialog_shape
 drawable notification_action_background
 drawable notification_bg
 drawable notification_bg_low
@@ -3234,6 +3257,7 @@ id animateToEnd
 id animateToStart
 id antiClockwise
 id anticipate
+id app_download_banner
 id arc
 id asConfigured
 id async
@@ -3241,6 +3265,7 @@ id auto
 id autoComplete
 id autoCompleteToEnd
 id autoCompleteToStart
+id automatic
 id barrier
 id baseline
 id beginOnFirstDraw
@@ -3370,6 +3395,7 @@ id graph_wrap
 id group_divider
 id grouping
 id groups
+id hardware
 id header_title
 id hide_graphics_layer_in_inspector_tag
 id hide_ime_id
@@ -3409,6 +3435,7 @@ id line3
 id linear
 id listMode
 id list_item
+id lottie_layer_name
 id m3_side_sheet
 id marquee
 id masked
@@ -3479,6 +3506,8 @@ id navigation_header_container
 id never
 id neverCompleteToEnd
 id neverCompleteToStart
+id nid_progress_dialog_animation
+id nid_progress_dialog_message
 id noScroll
 id noState
 id none
@@ -3507,6 +3536,8 @@ id open_search_view_toolbar_container
 id outline
 id outward
 id overshoot
+id package_icon
+id package_name
 id packed
 id parallax
 id parent
@@ -3523,12 +3554,15 @@ id pooling_container_listener_holder_tag
 id position
 id postLayout
 id pressed
+id progressBar
 id progress_circular
 id progress_horizontal
 id radio
 id ratio
 id rectangles
 id report_drawn
+id restart
+id reverse
 id reverseSawtooth
 id right
 id rightToLeft
@@ -3573,6 +3607,7 @@ id snackbar_action
 id snackbar_text
 id snap
 id snapMargins
+id software
 id south
 id spacer
 id special_effects_controller_view_tag
@@ -3663,7 +3698,11 @@ id view_tree_saved_state_registry_owner
 id view_tree_view_model_store_owner
 id visible
 id visible_removing_fragment_view_tag
+id webView
+id webviewEndKey
+id webviewNaviBar
 id west
+id wholeView
 id wide
 id withText
 id with_icon
@@ -3790,6 +3829,7 @@ layout abc_search_dropdown_item_icons_2line
 layout abc_search_view
 layout abc_select_dialog_material
 layout abc_tooltip
+layout activity_oauth_webview
 layout browser_actions_context_menu_page
 layout browser_actions_context_menu_row
 layout custom_dialog
@@ -3861,12 +3901,14 @@ layout mtrl_picker_text_input_date
 layout mtrl_picker_text_input_date_range
 layout mtrl_search_bar
 layout mtrl_search_view
+layout nid_progress_dialog
 layout notification_action
 layout notification_action_tombstone
 layout notification_template_custom_big
 layout notification_template_icon_group
 layout notification_template_part_chronometer
 layout notification_template_part_time
+layout package_list_item
 layout select_dialog_item_material
 layout select_dialog_multichoice_material
 layout select_dialog_singlechoice_material
@@ -4125,6 +4167,14 @@ string mtrl_switch_track_decoration_path
 string mtrl_switch_track_path
 string mtrl_timepicker_cancel
 string mtrl_timepicker_confirm
+string naveroauthlogin_string_browser_app_issue
+string naveroauthlogin_string_getting_token
+string naveroauthlogin_string_group_id_not_available
+string naveroauthlogin_string_msg_naverapp_download_desc
+string naveroauthlogin_string_msg_naverapp_download_link
+string naveroauthlogin_string_network_state_not_available
+string naveroauthlogin_string_token_invalid
+string naveroauthlogin_string_update_naverapp
 string navigation_menu
 string not_selected
 string password_toggle_content_description
@@ -4135,6 +4185,7 @@ string path_password_strike_through
 string project_id
 string range_end
 string range_start
+string retry
 string search_menu_title
 string searchbar_scrolling_view_behavior
 string searchview_clear_text_content_description
@@ -4151,6 +4202,7 @@ string tab
 string template_percent
 string tooltip_description
 string tooltip_label
+string use_application
 string web_client_id
 style AlertDialog_AppCompat
 style AlertDialog_AppCompat_Light
@@ -4702,6 +4754,7 @@ style Theme_AppCompat_Light_Dialog_MinWidth
 style Theme_AppCompat_Light_DialogWhenLarge
 style Theme_AppCompat_Light_NoActionBar
 style Theme_AppCompat_NoActionBar
+style Theme_AppCompat_Transparent_NoActionBar
 style Theme_Day_together
 style Theme_Design
 style Theme_Design_BottomSheetDialog
@@ -5363,6 +5416,7 @@ styleable LinearLayoutCompat_Layout android_layout_gravity android_layout_width 
 styleable LinearProgressIndicator indeterminateAnimationType indicatorDirectionLinear trackStopIndicatorSize
 styleable ListPopupWindow android_dropDownHorizontalOffset android_dropDownVerticalOffset
 styleable LoadingImageView circleCrop imageAspectRatio imageAspectRatioAdjust
+styleable LottieAnimationView lottie_autoPlay lottie_colorFilter lottie_enableMergePathsForKitKatAndAbove lottie_fallbackRes lottie_fileName lottie_imageAssetsFolder lottie_loop lottie_progress lottie_rawRes lottie_renderMode lottie_repeatCount lottie_repeatMode lottie_scale lottie_speed lottie_url
 styleable MaterialAlertDialog backgroundInsetBottom backgroundInsetEnd backgroundInsetStart backgroundInsetTop backgroundTint
 styleable MaterialAlertDialogTheme materialAlertDialogBodyTextStyle materialAlertDialogButtonSpacerVisibility materialAlertDialogTheme materialAlertDialogTitleIconStyle materialAlertDialogTitlePanelStyle materialAlertDialogTitleTextStyle
 styleable MaterialAutoCompleteTextView android_inputType android_popupElevation dropDownBackgroundTint simpleItemLayout simpleItemSelectedColor simpleItemSelectedRippleColor simpleItems

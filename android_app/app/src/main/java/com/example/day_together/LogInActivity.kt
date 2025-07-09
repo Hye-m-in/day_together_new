@@ -1,5 +1,6 @@
 package com.example.day_together
 
+import android.app.Activity  // <--- 추가됨
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -12,13 +13,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.day_together.auth.AuthManager
+import com.example.day_together.auth.NaverAuthManager
 import com.example.day_together.ui.theme.Day_togetherTheme
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import com.navercorp.nid.NaverIdLoginSDK
 
 private lateinit var googleSignInClient: GoogleSignInClient
 private lateinit var googleSignInLauncher: ActivityResultLauncher<Intent>
@@ -65,10 +70,14 @@ class LoginActivity : ComponentActivity() {
             }
         }
 
+        // <--- ADDED: Naver SDK 초기화
+        NaverAuthManager.initialize(this)
+
         setContent {
             Day_togetherTheme {
                 var email by remember { mutableStateOf("") }
                 var password by remember { mutableStateOf("") }
+                val context = LocalContext.current
 
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("로그인", style = MaterialTheme.typography.headlineMedium)
@@ -116,6 +125,32 @@ class LoginActivity : ComponentActivity() {
                     }, modifier = Modifier.fillMaxWidth()) {
                         Text("Google로 로그인")
                     }
+
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(
+                        onClick = {
+                            val activity = context as LoginActivity
+                            // startLogin 콜백 시그니처를 (Boolean, String?, String?) -> Unit 으로 맞춥니다.
+                            NaverAuthManager.startLogin(activity) { success, token, errorMsg ->
+                                if (success) {
+                                    // token 파라미터로 토큰을 받아옵니다.
+                                    Log.d("NAVER_TOKEN", token ?: "")
+                                    Toast.makeText(context, "네이버 로그인 성공", Toast.LENGTH_SHORT).show()
+                                    context.startActivity(Intent(context, MainActivity::class.java))
+                                    activity.finish()
+                                } else {
+                                    Toast.makeText(context, "네이버 로그인 실패: $errorMsg", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Naver로 로그인")
+                    }
+
+
 
                     Button(onClick = {
                         startActivity(Intent(this@LoginActivity, SignUpActivity::class.java))

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <color name="nid_progress_dialog_background">#48484B</color>
+    <color name="nid_progress_dialog_text">#DADDE0</color>
     <style name="Theme.AppCompat.DayNight" parent="Theme.AppCompat"/>
     <style name="Theme.AppCompat.DayNight.DarkActionBar" parent="Theme.AppCompat"/>
     <style name="Theme.AppCompat.DayNight.Dialog" parent="Theme.AppCompat.Dialog"/>

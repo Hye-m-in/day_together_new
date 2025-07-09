@@ -25,3 +25,52 @@ python_app/app/serviceAccountKey.json
 # — MacOS, Windows 임시파일
 .DS_Store
 Thumbs.db
+
+# 환경변수 파일
+app/.env
+.env
+
+# Android Gradle Properties (키를 여기에 뒀다면)
+app/gradle.properties
+gradle.properties
+
+# Android 빌드 결과물
+**/build
+**/app/build
+
+
+# IntelliJ / Android Studio 설정
+.idea/
+*.iml
+
+# ─ Android 빌드 디렉터리
+/android_app/app/build/
+/android_app/app/**/build/
+/android_app/app/.gradle/
+/android_app/.gradle/
+
+# ─ Kotlin/Java 컴파일 캐시
+**/*.class
+**/.gradle/
+/android_app/app/src/**/*.dex
+**/R.jar
+
+# ─ Android Studio 설정
+.android/
+.idea/
+*.iml
+
+# ─ macOS / Windows 임시파일
+.DS_Store
+Thumbs.db
+
+# ─ Python 캐시, env, 키파일
+python_app/app/__pycache__/
+python_app/app/serviceAccountKey.json
+python_app/app/.env
+python_app/.env
+python_app/app/services/__pycache__/
+
+# ─ Gradle properties (if contains secrets)
+android_app/gradle.properties
+gradle.properties

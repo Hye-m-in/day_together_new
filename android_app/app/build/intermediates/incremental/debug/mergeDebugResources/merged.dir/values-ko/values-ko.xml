@@ -197,11 +197,21 @@
     <string name="mtrl_picker_toggle_to_year_selection">탭하여 연도 뷰로 전환</string>
     <string name="mtrl_timepicker_cancel">취소</string>
     <string name="mtrl_timepicker_confirm">확인</string>
+    <string name="naveroauthlogin_string_browser_app_issue">브라우저 앱이 있어야 합니다.</string>
+    <string name="naveroauthlogin_string_getting_token">네이버 아이디로 로그인 중입니다.</string>
+    <string name="naveroauthlogin_string_group_id_not_available">단체아이디는 네이버 아이디로 로그인이 지원되지 않습니다. 개인아이디로 로그인 해 주세요.</string>
+    <string name="naveroauthlogin_string_msg_naverapp_download_desc">네이버 앱으로 더욱 간편하게 로그인!</string>
+    <string name="naveroauthlogin_string_msg_naverapp_download_link">앱 다운로드</string>
+    <string name="naveroauthlogin_string_network_state_not_available">네트워크에 접속할 수 없습니다. 네트워크 연결상태를 확인해 주세요.</string>
+    <string name="naveroauthlogin_string_token_invalid">간편로그인이 해제되어 재로그인이 필요합니다.</string>
+    <string name="naveroauthlogin_string_update_naverapp">네이버 앱 업데이트 후
+이용할 수 있는 서비스입니다.</string>
     <string msgid="542007171693138492" name="navigation_menu">"탐색 메뉴"</string>
     <string msgid="6610465462668679431" name="not_selected">"선택되지 않음"</string>
     <string name="password_toggle_content_description">비밀번호 표시</string>
     <string msgid="5941395253238309765" name="range_end">"범위 끝"</string>
     <string msgid="7097486360902471446" name="range_start">"범위 시작"</string>
+    <string name="retry">재시도</string>
     <string msgid="6264217191555673260" name="search_menu_title">"검색"</string>
     <string name="searchview_clear_text_content_description">텍스트 삭제</string>
     <string name="searchview_navigation_content_description">뒤로</string>
@@ -216,4 +226,5 @@
     <string msgid="5946805113151406391" name="template_percent">"<ns1:g id="PERCENTAGE">%1$d</ns1:g>퍼센트"</string>
     <string msgid="3765533235322692011" name="tooltip_description">"도움말"</string>
     <string msgid="3124740595719787496" name="tooltip_label">"도움말 표시"</string>
+    <string name="use_application">사용할 어플리케이션</string>
 </resources>

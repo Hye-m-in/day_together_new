@@ -1,3 +1,8 @@
+// 상단에 이 두 줄이 이미 있어야 합니다:
+val naverClientId: String by project
+val naverClientSecret: String by project
+
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -6,9 +11,15 @@ plugins {
     id("com.google.gms.google-services")
 }
 
+
 android {
     namespace = "com.example.day_together"
     compileSdk = 35
+
+    // ← 이 부분을 꼭 추가하세요
+    buildFeatures {
+        buildConfig = true
+    }
 
     defaultConfig {
         applicationId = "com.example.day_together"
@@ -18,6 +29,19 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField(
+            "String",
+            "NAVER_CLIENT_ID",
+            "\"$naverClientId\""
+        )
+        buildConfigField(
+            "String",
+            "NAVER_CLIENT_SECRET",
+            "\"$naverClientSecret\""
+        )
+
+
     }
 
     buildTypes {
@@ -80,4 +104,7 @@ dependencies {
 
     // Google 로그인
     implementation("com.google.android.gms:play-services-auth:21.3.0")
+
+    // Naver 로그인
+    implementation ("com.navercorp.nid:oauth:5.10.0")
 }

@@ -197,11 +197,22 @@
     <string name="mtrl_picker_toggle_to_year_selection">輕觸即可切換至年份檢視畫面</string>
     <string name="mtrl_timepicker_cancel">取消</string>
     <string name="mtrl_timepicker_confirm">確定</string>
+    <string name="naveroauthlogin_string_browser_app_issue">Your device must have a browser app.</string>
+    <string name="naveroauthlogin_string_getting_token">正在使用NAVER ID登入</string>
+    <string name="naveroauthlogin_string_group_id_not_available">群組帳號不支持NAVER ID登入，請使用個人帳號登入。</string>
+    <string name="naveroauthlogin_string_msg_naverapp_download_desc">通過NAVER App 便捷登錄</string>
+    <string name="naveroauthlogin_string_msg_naverapp_download_link">下載APP</string>
+    <string name="naveroauthlogin_string_network_state_not_available">網絡有問題，無法登入。
+您要再試嗎？</string>
+    <string name="naveroauthlogin_string_token_invalid">快速登入已解除，須重新登入。</string>
+    <string name="naveroauthlogin_string_update_naverapp">更新NAVER App
+即可使用。</string>
     <string msgid="542007171693138492" name="navigation_menu">"導覽選單"</string>
     <string msgid="6610465462668679431" name="not_selected">"未選取"</string>
     <string name="password_toggle_content_description">顯示密碼</string>
     <string msgid="5941395253238309765" name="range_end">"範圍終點"</string>
     <string msgid="7097486360902471446" name="range_start">"範圍起點"</string>
+    <string name="retry">再試</string>
     <string msgid="6264217191555673260" name="search_menu_title">"搜尋"</string>
     <string name="searchview_clear_text_content_description">清除文字</string>
     <string name="searchview_navigation_content_description">返回</string>
@@ -216,4 +227,5 @@
     <string msgid="5946805113151406391" name="template_percent">"百分之 <ns1:g id="PERCENTAGE">%1$d</ns1:g>。"</string>
     <string msgid="3765533235322692011" name="tooltip_description">"工具提示"</string>
     <string msgid="3124740595719787496" name="tooltip_label">"顯示工具提示"</string>
+    <string name="use_application">開啟方式</string>
 </resources>
