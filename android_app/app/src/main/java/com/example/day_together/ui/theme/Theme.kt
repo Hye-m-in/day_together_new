@@ -16,33 +16,23 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-
 private val LightColorScheme = lightColorScheme(
     primary = ButtonActiveBackground,
     onPrimary = ButtonActiveText,
-
     secondary = AnniversaryBoardBackground,
     onSecondary = TextPrimary,
-
     tertiary = NavIconUnselected,
     onTertiary = TextPrimary,
-
     background = ScreenBackground,
     onBackground = TextPrimary,
-
     surface = ScreenBackground,
     onSurface = TextPrimary,
-
     surfaceVariant = Brown100,
     onSurfaceVariant = TextPrimary,
-
     outline = SelectedMonthlyBorder,
-
     error = ErrorRed,
     onError = Color.White
 )
-
-// TODO: 다크 테마 디자인이 확정되면 DarkColorScheme을 구체적으로 정의합니다.
 
 private val DarkColorScheme = darkColorScheme(
     primary = NavIconUnselected,
@@ -60,8 +50,7 @@ private val DarkColorScheme = darkColorScheme(
 @Composable
 fun Day_togetherTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -69,7 +58,6 @@ fun Day_togetherTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
@@ -77,17 +65,14 @@ fun Day_togetherTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-
             window.statusBarColor = colorScheme.background.toArgb()
-
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = AppTypography,
+        typography = AppTypography, // AppTypography로 되어있다고 가정
         content = content
     )
 }
-

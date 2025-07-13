@@ -72,10 +72,6 @@
         "source": "com.example.day_together.app-main-84:/drawable/cloud1.png"
     },
     {
-        "merged": "com.example.day_together.app-debug-82:/drawable_ic_profile_placeholder.xml.flat",
-        "source": "com.example.day_together.app-main-84:/drawable/ic_profile_placeholder.xml"
-    },
-    {
         "merged": "com.example.day_together.app-debug-82:/drawable_ic_clip_attach.xml.flat",
         "source": "com.example.day_together.app-main-84:/drawable/ic_clip_attach.xml"
     },
@@ -126,6 +122,10 @@
     {
         "merged": "com.example.day_together.app-debug-82:/mipmap-xxxhdpi_ic_launcher.webp.flat",
         "source": "com.example.day_together.app-main-84:/mipmap-xxxhdpi/ic_launcher.webp"
+    },
+    {
+        "merged": "com.example.day_together.app-debug-82:/drawable_ic_add_photo.xml.flat",
+        "source": "com.example.day_together.app-main-84:/drawable/ic_add_photo.xml"
     },
     {
         "merged": "com.example.day_together.app-debug-82:/mipmap-mdpi_ic_launcher_round.webp.flat",

@@ -49,7 +49,7 @@ class ChatActivity : ComponentActivity() {
 
         // 사용자 이름 불러오기
         val uid = auth.currentUser?.uid ?: return
-        db.collection("members")
+        db.collection("users")
             .document(uid)
             .get()
             .addOnSuccessListener { document ->
@@ -132,7 +132,7 @@ class ChatActivity : ComponentActivity() {
             .document(user.uid)
             .collection("invitations")
             .whereEqualTo("status", "accepted")
-            .limit(1) // 여러 개일 수 있으니 제한 두기
+            .limit(1)
             .get()
             .addOnSuccessListener { documents ->
                 val chatRoomId = documents.firstOrNull()?.getString("chatRoomId")

@@ -17,4 +17,9 @@
     <string name="google_storage_bucket" translatable="false">daytogether-62c15.firebasestorage.app</string>
     <string name="project_id" translatable="false">daytogether-62c15</string>
     <style name="Theme.Day_together" parent="android:Theme.Material.Light.NoActionBar"/>
+    <style name="Theme.Day_together.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowIsTranslucent">true</item>
+    </style>
 </resources>

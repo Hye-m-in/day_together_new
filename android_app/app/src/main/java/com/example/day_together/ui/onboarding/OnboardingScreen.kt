@@ -17,11 +17,11 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.pager.*
-import com.example.day_together.R // R 클래스 경로 확인
-import com.example.day_together.ui.auth.LoginScreen // LoginScreen 임포트
+import com.example.day_together.R
+import com.example.day_together.ui.auth.LoginScreen
 import com.example.day_together.ui.theme.Day_togetherTheme
-import com.example.day_together.ui.theme.PagerIndicatorActive // Color.kt에 정의된 색상
-import com.example.day_together.ui.theme.PagerIndicatorInactive // Color.kt에 정의된 색상
+import com.example.day_together.ui.theme.PagerIndicatorActive
+import com.example.day_together.ui.theme.PagerIndicatorInactive
 
 data class OnboardingPageItem(
     val imageRes: Int,
@@ -31,9 +31,10 @@ data class OnboardingPageItem(
 
 @OptIn(ExperimentalPagerApi::class)
 @Composable
-fun OnboardingScreen(navController: NavController) {
-
-    val pagerState = rememberPagerState()
+fun OnboardingScreen(
+    navController: NavController,
+    pagerState: PagerState
+) {
     val onboardingPages = listOf(
         OnboardingPageItem(
             imageRes = R.drawable.ic_cloud_sad,
@@ -46,7 +47,6 @@ fun OnboardingScreen(navController: NavController) {
             description = "하루함께가 건네는 한 줄 질문으로\n서로의 하루를 채워 보세요"
         )
     )
-
 
     Day_togetherTheme {
         Column(
@@ -127,14 +127,6 @@ fun OnboardingPageContent(item: OnboardingPageItem) {
         )
 
         Spacer(modifier = Modifier.weight(0.25f))
-    }
-}
-
-@Preview(showBackground = true, widthDp = 390, heightDp = 844)
-@Composable
-fun OnboardingScreenPreview() {
-    Day_togetherTheme {
-        OnboardingScreen(navController = rememberNavController())
     }
 }
 

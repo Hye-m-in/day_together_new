@@ -6,6 +6,6 @@ import java.util.UUID
 data class CalendarEvent(
     val id: String = UUID.randomUUID().toString(),
     val description: String,
-    val date: LocalDate // 홈 화면에서 사용하는 날짜 정보 저장
-
+    val date: LocalDate,
+    val isPriority: Boolean = false // D-Day 우선순위 필드, 가족기념일 우선
 )

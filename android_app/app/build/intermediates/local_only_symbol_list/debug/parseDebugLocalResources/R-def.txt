@@ -10,6 +10,7 @@ color teal_700
 color white
 drawable cloud1
 drawable cloud2
+drawable ic_add_photo
 drawable ic_calendar
 drawable ic_camera
 drawable ic_clip_attach
@@ -37,7 +38,6 @@ drawable ic_message_invite
 drawable ic_mic
 drawable ic_more_options
 drawable ic_placeholder_image
-drawable ic_profile_placeholder
 drawable ic_sad
 drawable ic_search
 drawable ic_send_arrow
@@ -63,5 +63,6 @@ string google_crash_reporting_api_key
 string google_storage_bucket
 string project_id
 style Theme.Day_together
+style Theme.Day_together.NoActionBar
 xml backup_rules
 xml data_extraction_rules
