@@ -1,5 +1,10 @@
 package com.example.day_together.ui.auth
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
+import android.widget.Toast
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -15,55 +20,55 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.PreviewParameter
-import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
+import com.example.day_together.MainActivity
 import com.example.day_together.R
-import com.example.day_together.navigation.AppDestinations
-import com.example.day_together.ui.theme.Day_togetherTheme
-import com.example.day_together.ui.theme.ButtonActiveBackground
-import com.example.day_together.ui.theme.ButtonActiveText
-import com.example.day_together.ui.theme.ButtonDisabledBackground
-import com.example.day_together.ui.theme.ButtonDisabledText
-import com.example.day_together.ui.theme.ErrorRed
-import com.example.day_together.ui.theme.TextPrimary
-
-
-data class LoginScreenState(
-    val email: String = "",
-    val password: String = "",
-    val emailError: String? = null,
-    val fromOnboarding: Boolean = false,
-    val simulateFilled: Boolean = false
-)
+import com.example.day_together.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
     navController: NavController,
     fromOnboarding: Boolean = false,
-    initialEmail: String = "",
-    initialPassword: String = "",
-    initialEmailError: String? = null
+    authViewModel: AuthViewModel = viewModel()
 ) {
-    var email by remember { mutableStateOf(initialEmail) }
-    var password by remember { mutableStateOf(initialPassword) }
-    var emailError by remember { mutableStateOf(initialEmailError) }
-
+    val uiState by authViewModel.uiState.collectAsState()
+    val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
-    val isLoginButtonEnabled = email.isNotBlank() && password.isNotBlank()
+
+    LaunchedEffect(key1 = uiState.isLoginSuccess) {
+        if (uiState.isLoginSuccess) {
+            Toast.makeText(context, "로그인 성공!", Toast.LENGTH_SHORT).show()
+
+            val intent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            }
+            context.startActivity(intent)
+
+            // 안전한 방식으로 현재 액티비티 종료
+            context.findActivity()?.finish()
+        }
+    }
+
+    LaunchedEffect(key1 = uiState.loginError) {
+        uiState.loginError?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            authViewModel.clearLoginError()
+        }
+    }
 
     Day_togetherTheme {
         Column(
@@ -78,11 +83,9 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(if (fromOnboarding) 80.dp else 120.dp))
 
-
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
-
             ) {
 
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -92,13 +95,13 @@ fun LoginScreen(
                     ) {
                         Text(
                             text = "ID(Email)",
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                             color = TextPrimary,
                             modifier = Modifier.weight(1f)
                         )
-                        if (emailError != null) {
+                        if (uiState.loginError != null) {
                             Text(
-                                text = emailError!!,
+                                text = uiState.loginError!!,
                                 color = ErrorRed,
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                                 modifier = Modifier.padding(start = 8.dp)
@@ -107,11 +110,8 @@ fun LoginScreen(
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     OutlinedTextField(
-                        value = email,
-                        onValueChange = {
-                            email = it
-                            emailError = null
-                        },
+                        value = uiState.loginEmail,
+                        onValueChange = authViewModel::onLoginEmailChange,
                         placeholder = { Text("이메일 주소를 입력해주세요") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
@@ -122,10 +122,10 @@ fun LoginScreen(
                         keyboardActions = KeyboardActions(onNext = {
                             focusManager.moveFocus(FocusDirection.Down)
                         }),
-                        isError = emailError != null,
+                        isError = uiState.loginError != null,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = if (emailError != null) ErrorRed else MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = if (emailError != null) ErrorRed else MaterialTheme.colorScheme.outline,
+                            focusedBorderColor = if (uiState.loginError != null) ErrorRed else MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = if (uiState.loginError != null) ErrorRed else MaterialTheme.colorScheme.outline,
                             errorBorderColor = ErrorRed,
                             focusedTextColor = TextPrimary,
                             unfocusedTextColor = TextPrimary,
@@ -136,18 +136,17 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = "Password",
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                         color = TextPrimary,
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
+                        value = uiState.loginPassword,
+                        onValueChange = authViewModel::onLoginPasswordChange,
                         placeholder = { Text("비밀번호를 입력해주세요") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
@@ -158,8 +157,8 @@ fun LoginScreen(
                         ),
                         keyboardActions = KeyboardActions(onDone = {
                             focusManager.clearFocus()
-                            if (isLoginButtonEnabled) {
-                                // TODO: 로그인 시도
+                            if (uiState.loginEmail.isNotBlank() && uiState.loginPassword.isNotBlank()) {
+                                authViewModel.login()
                             }
                         }),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -174,9 +173,11 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
                 Button(
-                    onClick = { /* ... */ },
-                    enabled = isLoginButtonEnabled,
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    onClick = authViewModel::login,
+                    enabled = uiState.loginEmail.isNotBlank() && uiState.loginPassword.isNotBlank() && !uiState.isLoading,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = ButtonActiveBackground,
@@ -185,7 +186,7 @@ fun LoginScreen(
                         disabledContentColor = ButtonDisabledText
                     )
                 ) {
-                    Text("로그인", style = MaterialTheme.typography.labelLarge)
+                    Text(if (uiState.isLoading) "로그인 중..." else "로그인", style = MaterialTheme.typography.labelLarge)
                 }
                 Spacer(modifier = Modifier.height(40.dp))
                 Text(
@@ -198,8 +199,8 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally)
                 ) {
-                    SocialLoginIconButton(iconRes = R.drawable.ic_logo_naver, text = "네이버") { /* ... */ }
-                    SocialLoginIconButton(iconRes = R.drawable.ic_logo_kakao, text = "카카오") { /* ... */ }
+                    SocialLoginIconButton(iconRes = R.drawable.ic_logo_naver, text = "네이버") { }
+                    SocialLoginIconButton(iconRes = R.drawable.ic_logo_kakao, text = "카카오") { }
                 }
             }
             Column(
@@ -209,7 +210,9 @@ fun LoginScreen(
             ) {
                 ClickableText(
                     text = AnnotatedString("회원가입"),
-                    onClick = { navController.navigate(AppDestinations.SIGNUP_ROUTE) },
+                    onClick = {
+                        context.startActivity(Intent(context, SignUpActivity::class.java))
+                    },
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = TextPrimary,
                         textDecoration = TextDecoration.Underline
@@ -217,7 +220,9 @@ fun LoginScreen(
                 )
                 ClickableText(
                     text = AnnotatedString("아이디/비밀번호 찾기"),
-                    onClick = { navController.navigate(AppDestinations.FIND_ACCOUNT_ROUTE) },
+                    onClick = {
+                        context.startActivity(Intent(context, FindAccountActivity::class.java))
+                    },
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = TextPrimary,
                         textDecoration = TextDecoration.Underline
@@ -247,45 +252,9 @@ fun SocialLoginIconButton(
     }
 }
 
-// --- Preview 함수 ---
-
-
-class LoginScreenStateProvider : PreviewParameterProvider<LoginScreenState> {
-    override val values = sequenceOf(
-        LoginScreenState(), // 기본 (비활성 버튼)
-        LoginScreenState(email = "test", emailError = "올바르지 않은 이메일 형식입니다."),
-        LoginScreenState(email = "test@example.com", password = "password123", simulateFilled = true)
-    )
-}
-
-@Preview(showBackground = true, name = "Login States (From Onboarding)", widthDp = 390, heightDp = 844)
-@Composable
-fun LoginScreenAllStatesFromOnboardingPreview(
-    @PreviewParameter(LoginScreenStateProvider::class) state: LoginScreenState
-) {
-    Day_togetherTheme {
-        LoginScreen(
-            navController = rememberNavController(),
-            fromOnboarding = true,
-            initialEmail = state.email,
-            initialPassword = if (state.simulateFilled) state.password else "",
-            initialEmailError = state.emailError
-        )
-    }
-}
-
-@Preview(showBackground = true, name = "Login States (Standalone)", widthDp = 390, heightDp = 844)
-@Composable
-fun LoginScreenAllStatesStandalonePreview(
-    @PreviewParameter(LoginScreenStateProvider::class) state: LoginScreenState
-) {
-    Day_togetherTheme {
-        LoginScreen(
-            navController = rememberNavController(),
-            fromOnboarding = false,
-            initialEmail = state.email,
-            initialPassword = if (state.simulateFilled) state.password else "",
-            initialEmailError = state.emailError
-        )
-    }
+// Context에서 Activity를 안전하게 찾아오는 헬퍼 함수
+private fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

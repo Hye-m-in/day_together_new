@@ -15,6 +15,9 @@ import com.example.day_together.ui.auth.SignUpScreen
 import com.example.day_together.ui.home.HomeScreen
 import com.example.day_together.ui.onboarding.OnboardingScreen
 import com.example.day_together.ui.splash.SplashScreen
+import com.google.accompanist.pager.ExperimentalPagerApi
+import com.google.accompanist.pager.rememberPagerState
+
 
 object AppDestinations {
     const val SPLASH_ROUTE = "splash"
@@ -26,6 +29,7 @@ object AppDestinations {
     const val EDIT_PROFILE_ROUTE = "edit_profile"
 }
 
+@OptIn(ExperimentalPagerApi::class)
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
@@ -49,7 +53,9 @@ fun AppNavigation() {
 
         composable(AppDestinations.ONBOARDING_ROUTE) {
             Log.d("AppNavigation", "Current Route: ${AppDestinations.ONBOARDING_ROUTE}")
-            OnboardingScreen(navController = navController)
+            // pagerState 생성, OnboardingScreen에 전달
+            val pagerState = rememberPagerState()
+            OnboardingScreen(navController = navController, pagerState = pagerState)
         }
 
         composable(AppDestinations.LOGIN_ROUTE) {

@@ -19,7 +19,7 @@ object ChatRoomManager {
     ) {
         val tasks = invitedUserId.map { idOrEmail ->
             if (idOrEmail.contains("@")) {
-                db.collection("members").whereEqualTo("email", idOrEmail).limit(1).get()
+                db.collection("users").whereEqualTo("email", idOrEmail).limit(1).get() // 수정된 부분
                     .continueWith { task ->
                         task.result?.documents?.firstOrNull()?.id
                     }
@@ -57,15 +57,15 @@ object ChatRoomManager {
                                     }
                                     onComplete(true, null) }
                                 .addOnFailureListener {
-                                    e -> onComplete(false, "유저 업데이트 실패: ${e.message}") }
+                                        e -> onComplete(false, "유저 업데이트 실패: ${e.message}") }
                         }
                         .addOnFailureListener {
-                            e -> onComplete(false, "초대 업데이트 실패: ${e.message}") }
+                                e -> onComplete(false, "초대 업데이트 실패: ${e.message}") }
                 }.addOnFailureListener {
-                    e -> onComplete(false, "채팅방 조회 실패: ${e.message}") }
+                        e -> onComplete(false, "채팅방 조회 실패: ${e.message}") }
             }
             .addOnFailureListener {
-                e -> onComplete(false, "사용자 확인 실패: ${e.message}") }
+                    e -> onComplete(false, "사용자 확인 실패: ${e.message}") }
     }
 
     // 초대 수락

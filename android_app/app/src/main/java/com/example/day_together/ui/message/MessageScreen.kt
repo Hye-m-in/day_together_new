@@ -361,7 +361,7 @@ fun ChatMessageBubble(message: MessageItem) {
         }
         if (!message.isSentByMe) {
             Image(
-                painter = painterResource(id = R.drawable.ic_profile_placeholder),
+                painter = painterResource(id = R.drawable.ic_add_photo),
                 contentDescription = "${message.senderName} Avatar",
                 modifier = Modifier.size(30.dp).clip(CircleShape)
             )

@@ -126,7 +126,7 @@ fun EditProfileScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.ic_profile_placeholder),
+                    painter = painterResource(id = R.drawable.ic_add_photo),
                     contentDescription = "프로필 이미지",
                     modifier = Modifier
                         .size(100.dp)

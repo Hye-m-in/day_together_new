@@ -75,10 +75,10 @@ com.example.day_together.app-profileinstaller-1.4.0-73 C:\Users\pathtomelog\.gra
 com.example.day_together.app-ui-unit-release-74 C:\Users\pathtomelog\.gradle\caches\8.11.1\transforms\ea0b52149be83b9134d13ef4fa86b89f\transformed\ui-unit-release\res
 com.example.day_together.app-lifecycle-process-2.8.7-75 C:\Users\pathtomelog\.gradle\caches\8.11.1\transforms\f94a55a9f4701637a1cbee031e2fcdab\transformed\lifecycle-process-2.8.7\res
 com.example.day_together.app-lifecycle-livedata-core-ktx-2.8.7-76 C:\Users\pathtomelog\.gradle\caches\8.11.1\transforms\fedeb4586cdd33094182a2518b09a7ec\transformed\lifecycle-livedata-core-ktx-2.8.7\res
-com.example.day_together.app-res-77 C:\Users\pathtomelog\day_together_new\android_app\app\build\generated\res\processDebugGoogleServices
-com.example.day_together.app-resValues-78 C:\Users\pathtomelog\day_together_new\android_app\app\build\generated\res\resValues\debug
-com.example.day_together.app-packageDebugResources-79 C:\Users\pathtomelog\day_together_new\android_app\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
-com.example.day_together.app-packageDebugResources-80 C:\Users\pathtomelog\day_together_new\android_app\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
-com.example.day_together.app-debug-81 C:\Users\pathtomelog\day_together_new\android_app\app\build\intermediates\merged_res\debug\mergeDebugResources
-com.example.day_together.app-debug-82 C:\Users\pathtomelog\day_together_new\android_app\app\src\debug\res
-com.example.day_together.app-main-83 C:\Users\pathtomelog\day_together_new\android_app\app\src\main\res
+com.example.day_together.app-res-77 C:\Users\pathtomelog\AndroidProjects\android_app\app\build\generated\res\processDebugGoogleServices
+com.example.day_together.app-resValues-78 C:\Users\pathtomelog\AndroidProjects\android_app\app\build\generated\res\resValues\debug
+com.example.day_together.app-packageDebugResources-79 C:\Users\pathtomelog\AndroidProjects\android_app\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
+com.example.day_together.app-packageDebugResources-80 C:\Users\pathtomelog\AndroidProjects\android_app\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
+com.example.day_together.app-debug-81 C:\Users\pathtomelog\AndroidProjects\android_app\app\build\intermediates\merged_res\debug\mergeDebugResources
+com.example.day_together.app-debug-82 C:\Users\pathtomelog\AndroidProjects\android_app\app\src\debug\res
+com.example.day_together.app-main-83 C:\Users\pathtomelog\AndroidProjects\android_app\app\src\main\res

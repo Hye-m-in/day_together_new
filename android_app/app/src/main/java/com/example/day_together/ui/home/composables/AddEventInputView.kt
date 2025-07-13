@@ -36,6 +36,8 @@ fun AddEventInputView(
     targetDate: LocalDate,
     eventDescription: String,
     isEditing: Boolean,
+    isPriority: Boolean, // 디데이 우선 설정 파라미터
+    onPriorityChange: (Boolean) -> Unit, // 디데이 우선 설정 파라미터
     onDescriptionChange: (String) -> Unit,
     onSave: () -> Unit,
     onCancel: () -> Unit,
@@ -124,6 +126,23 @@ fun AddEventInputView(
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = TextPrimary)
                 )
 
+                // 디데이 설정 스위치 UI 추가
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "D-Day 설정",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Switch(
+                        checked = isPriority,
+                        onCheckedChange = onPriorityChange
+                    )
+                }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

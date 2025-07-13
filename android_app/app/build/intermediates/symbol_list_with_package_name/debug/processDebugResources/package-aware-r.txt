@@ -3077,6 +3077,7 @@ drawable design_password_eye
 drawable design_snackbar_background
 drawable googleg_disabled_color_18
 drawable googleg_standard_color_18
+drawable ic_add_photo
 drawable ic_arrow_back_black_24
 drawable ic_calendar
 drawable ic_call_answer
@@ -3124,7 +3125,6 @@ drawable ic_other_sign_in
 drawable ic_passkey
 drawable ic_password
 drawable ic_placeholder_image
-drawable ic_profile_placeholder
 drawable ic_sad
 drawable ic_search
 drawable ic_search_black_24
@@ -4769,6 +4769,7 @@ style Theme_AppCompat_Light_DialogWhenLarge
 style Theme_AppCompat_Light_NoActionBar
 style Theme_AppCompat_NoActionBar
 style Theme_Day_together
+style Theme_Day_together_NoActionBar
 style Theme_Design
 style Theme_Design_BottomSheetDialog
 style Theme_Design_Light

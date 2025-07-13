@@ -1,5 +1,6 @@
 package com.example.day_together
 
+import com.example.day_together.data.repository.FakeRepository
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
@@ -9,6 +10,9 @@ object AuthManager {
 
     val db = FirebaseService.db
     val auth = FirebaseService.auth
+
+    // FakeRepository 인스턴스 생성 해서 테스트 중에 사용
+    val fakeRepository = FakeRepository()
 
     //회원가입
     fun registerUser(
@@ -74,6 +78,8 @@ object AuthManager {
     //로그아웃
     fun logoutUser() {
         auth.signOut()
+        // 가짜 로그인 상태도 함께 로그아웃 처리
+        fakeRepository.logout()
     }
 
     fun getCurrentUserId(): String? {
@@ -81,7 +87,8 @@ object AuthManager {
     }
 
     fun isUserLoggedIn(): Boolean {
-        return auth.currentUser != null
+        // TODO: [테스트용 코드] 실제 Firebase와 연동 전 반드시 '|| fakeRepository.getFakeLoginStatus()' 부분을 삭제해야 필요!
+        return auth.currentUser != null || fakeRepository.getFakeLoginStatus()
     }
 
     // 에러 유형 메세지 매핑

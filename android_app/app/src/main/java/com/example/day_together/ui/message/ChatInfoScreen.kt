@@ -28,7 +28,7 @@ import com.example.day_together.ui.dialogs.InviteMemberDialog
 data class FamilyMember(
     val id: String,
     val name: String,
-    val profileImageRes: Int = R.drawable.ic_profile_placeholder
+    val profileImageRes: Int = R.drawable.ic_add_photo
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -87,7 +87,7 @@ fun ChatInfoScreen(navController: NavController) {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.ic_profile_placeholder),
+                        painter = painterResource(id = R.drawable.ic_add_photo),
                         contentDescription = "내 프로필 이미지",
                         modifier = Modifier
                             .size(80.dp)
