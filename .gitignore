@@ -74,3 +74,32 @@ python_app/app/services/__pycache__/
 # ─ Gradle properties (if contains secrets)
 android_app/gradle.properties
 gradle.properties
+
+# — pytest 캐시
+.pytest_cache/
+
+# — coverage 리포트
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# — mypy, flake8 같은 정적분석 캐시
+.mypy_cache/
+.pyre/
+__pypackages__/
+
+# — pip wheel 메타데이터
+pip-wheel-metadata/
+
+# — 로그 파일
+*.log
+
+# — Docker 관련
+docker-compose.override.yml
+**/Dockerfile
+**/docker-compose*.yml
+
+# — 에디터 임시파일 (혹시 vim, Emacs도 쓰신다면)
+*~
+*.swp
