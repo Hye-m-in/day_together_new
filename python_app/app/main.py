@@ -5,11 +5,13 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from firebase_admin import auth as fb_auth
+#from firebase_admin import auth as fb_auth
+from .services.firebase_client import db, fb_auth
+
 import google.auth.transport.requests
 import google.oauth2.id_token
 
-from .firebase_admin_init import default_app  # 초기화만 호출됨
+from .services.firebase_admin_init import default_app  # 초기화만 호출됨
 from .schemas import GoogleTokenRequest, NaverTokenRequest, TokenResponse  # <<< 수정: TokenRequest → NaverTokenRequest로 분리
 
 # Naver 검증 로직 인라인
@@ -68,19 +70,37 @@ def google_login(body: GoogleTokenRequest):
 
 @app.post("/naver-login", response_model=TokenResponse)
 async def naver_login(body: NaverTokenRequest):  # <<< 수정: TokenRequest → NaverTokenRequest
+    print("[DEBUG] /naver-login 호출됨, body:", body)
     """
     1) Android 클라이언트가 보낸 Naver access token 검증
     2) Firebase Admin SDK로 해당 uid에 대한 커스텀 토큰 생성
     3) 커스텀 토큰을 JSON으로 반환
     """
+
+    #1. 액세스 토큰 유효성 체크
     if not body.access_token:
         raise HTTPException(status_code=400, detail="access_token이 필요합니다.")
 
     profile = await verify_naver_token(body.access_token)
     if not profile:
         raise HTTPException(status_code=401, detail="유효하지 않은 Naver 토큰입니다.")
-
+    
+    #2. Firestore에 프로필 저장
     uid = f"naver:{profile['id']}"
+    user_ref = db.collection("users").document(uid)
+    user_ref.set({
+        "email":         profile.get("email"),
+        "name":          profile.get("name"),
+        "nickname":      profile.get("nickname"),
+        "profile_image": profile.get("profile_image"),
+        # 필요 시 추가 필드…
+    }, merge=True)
+
+    #*잘 저장되었는지 로그 남기기*
+    print(f"[DEBUG] Firestore 저장 완료: users/{uid}")
+
+
+    #Firestore 저장 후에 커스텀 토큰 생성
     custom_token_bytes = fb_auth.create_custom_token(uid)
     custom_token = custom_token_bytes.decode("utf-8")
     return TokenResponse(custom_token=custom_token)
