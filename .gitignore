@@ -66,7 +66,7 @@ Thumbs.db
 
 # ─ Python 캐시, env, 키파일
 python_app/app/__pycache__/
-python_app/app/serviceAccountKey.json
+python_app/app/services/serviceAccountKey.json
 python_app/app/.env
 python_app/.env
 python_app/app/services/__pycache__/
