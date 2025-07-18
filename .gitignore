@@ -1,5 +1,7 @@
 # — 파이썬 가상환경
 venv/
+.env/
+.venv/
 
 # — 파이썬 캐시 파일
 __pycache__/
@@ -9,7 +11,7 @@ __pycache__/
 # — 환경변수 및 민감정보
 .env
 API.env
-firebase-service-account*.json
+python_app/app/services/serviceAccountKey*.json
 
 # — 편집기/IDE 설정
 .vscode/
@@ -18,3 +20,33 @@ firebase-service-account*.json
 # — MacOS, Windows 임시파일
 .DS_Store
 Thumbs.db
+
+# — 안드로이드 스튜디오 프로젝트 관련 설정
+android_app/.gradle
+android_app/local.properties
+android_app/.idea/
+android_app/build/
+android_app/captures/
+android_app/.cxx/
+android_app/*.iml
+android_app/.DS_Store
+android_app/.externalNativeBuild
+android_app/.navigation/
+android_app/app/release/
+
+# — Kotlin/Java 빌드 파일
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+*.jar
+*.war
+*.ear
+
+# — 로그 파일
+*.log
+
+# — 기타 임시 파일
+*.tmp
+*.temp
