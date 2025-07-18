@@ -12,7 +12,7 @@ __pycache__/
 .env
 API.env
 python_app/app/services/serviceAccountKey*.json
-
+android_app/app/google-services.json
 # — 편집기/IDE 설정
 .vscode/
 .idea/
@@ -22,17 +22,23 @@ python_app/app/services/serviceAccountKey*.json
 Thumbs.db
 
 # — 안드로이드 스튜디오 프로젝트 관련 설정
-android_app/.gradle
-android_app/local.properties
-android_app/.idea/
+# === 안드로이드 스튜디오 필수 제외 목록 ===
+android_app/.gradle/
 android_app/build/
+android_app/local.properties
 android_app/captures/
+android_app/.idea/
+android_app/.externalNativeBuild/
 android_app/.cxx/
-android_app/*.iml
 android_app/.DS_Store
-android_app/.externalNativeBuild
 android_app/.navigation/
+android_app/.settings/
+android_app/app/build/
 android_app/app/release/
+android_app/app/debug/
+android_app/app/proguard/
+android_app/app/proguard-rules.pro
+android_app/gradle/wrapper/gradle-wrapper.jar
 
 # — Kotlin/Java 빌드 파일
 *.apk
@@ -44,9 +50,54 @@ android_app/app/release/
 *.war
 *.ear
 
+# === Kotlin 및 Java 관련 캐시파일 ===
+*.kt~
+*.class~
+*.java~
+
+
+# === Android keystore (서명키 파일, 절대 제외 필수!) ===
+*.jks
+*.keystore
+
+# === 네이티브 빌드 산출물 ===
+*.so
+*.dll
+*.dylib
+
 # — 로그 파일
 *.log
 
 # — 기타 임시 파일
 *.tmp
 *.temp
+
+# === Gradle 임시 파일 ===
+.gradle/
+gradle-app.setting
+
+# === Android Studio 특정 파일 ===
+*.hprof
+
+# === Crashlytics 관련 ===
+android-app/app/src/main/assets/crashlytics-build.properties
+fabric.properties
+
+# === JetBrains 개인 설정 ===
+workspace.xml
+tasks.xml
+misc.xml
+runConfigurations.xml
+dictionaries/
+
+# === 테스트 출력 파일 ===
+android-app/app/reports/
+android-app/app/test-results/
+
+# === 릴리즈 버전 생성물 ===
+release/
+
+# === 기타 민감 정보 ===
+secrets.properties
+local.properties
+key.properties
