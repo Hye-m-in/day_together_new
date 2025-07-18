@@ -107,4 +107,6 @@ dependencies {
 
     // Naver 로그인
     implementation ("com.navercorp.nid:oauth:5.10.0")
+
+    implementation ("com.jakewharton.retrofit:retrofit2-kotlin-coroutines-adapter:0.9.2")
 }

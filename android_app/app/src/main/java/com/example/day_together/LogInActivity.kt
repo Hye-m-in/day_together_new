@@ -16,21 +16,33 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
 import com.example.day_together.auth.AuthManager
 import com.example.day_together.auth.NaverAuthManager
+import com.example.day_together.model.TokenRequest
+import com.example.day_together.model.TokenResponse
+import com.example.day_together.network.ApiClient
+import com.example.day_together.network.AuthApi
 import com.example.day_together.ui.theme.Day_togetherTheme
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import com.google.firebase.auth.FirebaseAuth
 import com.navercorp.nid.NaverIdLoginSDK
+import kotlinx.coroutines.launch
 
 private lateinit var googleSignInClient: GoogleSignInClient
 private lateinit var googleSignInLauncher: ActivityResultLauncher<Intent>
 
+
 class LoginActivity : ComponentActivity() {
+
+    private lateinit var authApi: AuthApi
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        authApi = ApiClient.service
 
         // 이미 로그인되어 있으면 바로 MainActivity 이동
         if (AuthManager.isUserLoggedIn()) {
@@ -38,7 +50,6 @@ class LoginActivity : ComponentActivity() {
             finish()
             return
         }
-
 
         // Google Sign-In 옵션 설정
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -78,6 +89,7 @@ class LoginActivity : ComponentActivity() {
                 var email by remember { mutableStateOf("") }
                 var password by remember { mutableStateOf("") }
                 val context = LocalContext.current
+                val activity = context as Activity
 
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("로그인", style = MaterialTheme.typography.headlineMedium)
@@ -131,15 +143,46 @@ class LoginActivity : ComponentActivity() {
 
                     Button(
                         onClick = {
-                            val activity = context as LoginActivity
-                            // startLogin 콜백 시그니처를 (Boolean, String?, String?) -> Unit 으로 맞춥니다.
                             NaverAuthManager.startLogin(activity) { success, token, errorMsg ->
-                                if (success) {
+                                if (success && token != null) {
                                     // token 파라미터로 토큰을 받아옵니다.
-                                    Log.d("NAVER_TOKEN", token ?: "")
-                                    Toast.makeText(context, "네이버 로그인 성공", Toast.LENGTH_SHORT).show()
-                                    context.startActivity(Intent(context, MainActivity::class.java))
-                                    activity.finish()
+                                    Log.d("NAVER_LOGIN", "네이버 토큰 받음: $token")
+
+                                    AuthManager.handleNaverToken(token) { ok, err->
+                                        if (ok) {
+                                            Toast.makeText(context, "네이버 로그인 성공", Toast.LENGTH_SHORT).show()
+                                            context.startActivity(Intent(context, MainActivity::class.java))
+                                            activity.finish()
+                                        } else {
+                                            Toast.makeText(context, "네이버 로그인 실패: $err", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+
+//                                    lifecycleScope.launch {
+//                                        try {
+//                                            // 1) 서버에 access_token 보내기
+//                                            val req = TokenRequest(accessToken = token)
+//                                            val res: TokenResponse = authApi.naverLogin(req)
+//
+//                                            // 2) FirebaseAuth 커스텀 토큰으로 로그인
+//                                            FirebaseAuth.getInstance()
+//                                                .signInWithCustomToken(res.custom_token)
+//                                                .addOnCompleteListener { task ->
+//                                                    if (task.isSuccessful) {
+//                                                        Toast.makeText(context, "네이버 로그인 성공", Toast.LENGTH_SHORT).show()
+//                                                        context.startActivity(Intent(context, MainActivity::class.java))
+//                                                        activity.finish()
+//                                                    } else {
+//                                                        Toast.makeText(context, "네이버 로그인 실패: $errorMsg", Toast.LENGTH_LONG).show()
+//                                                    }
+//                                                }
+//
+//                                        } catch (e: Exception) {
+//                                            Toast.makeText(context,"API 호출 실패 : ${e.message}", Toast.LENGTH_LONG).show()
+//
+//                                        }
+//                                    }
+
                                 } else {
                                     Toast.makeText(context, "네이버 로그인 실패: $errorMsg", Toast.LENGTH_LONG).show()
                                 }
