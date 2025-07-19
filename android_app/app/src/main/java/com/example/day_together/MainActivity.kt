@@ -3,6 +3,7 @@ package com.example.day_together
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -15,6 +16,9 @@ import androidx.compose.ui.unit.dp
 import com.example.day_together.ui.theme.Day_togetherTheme
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.tasks.await
+import com.google.firebase.messaging.FirebaseMessaging
+
 
 class MainActivity : ComponentActivity() {
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
@@ -29,100 +33,73 @@ class MainActivity : ComponentActivity() {
 
                 // Firestore에서 초대 여부 확인
                 LaunchedEffect(Unit) {
-                    checkInvitationAndSetState(invitedChatRoomId)
-                }
+                    val userId = AuthManager.getCurrentUserId()
+                    if (userId != null) {
+                        val invitationSnapshot = Firebase.firestore
+                            .collection("users").document(userId)
+                            .collection("invitations")
+                            .whereEqualTo("status", "pending")
+                            .limit(1)
+                            .get()
+                            .await()
 
-                Scaffold {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                val userId = AuthManager.getCurrentUserId()
-                                if (userId != null) {
-                                    FirebaseService.db.collection("members").document(userId).get()
-                                        .addOnSuccessListener { doc ->
-                                            val invitedChatRoomId = doc.getString("invitedChatRoomId")
-                                            if (invitedChatRoomId != null) {
-                                                val intent = Intent(this@MainActivity, InvitationActivity::class.java)
-                                                intent.putExtra("chatRoomId", invitedChatRoomId)
-                                                startActivity(intent)
-                                            } else {
-                                                // 이미 채팅방에 참여 중이라면 ChatActivity로
-                                                val intent = Intent(this@MainActivity, ChatActivity::class.java)
-                                                startActivity(intent)
-                                            }
-                                        }
-                                }
-                            }
-                        ) {
-                            Text("채팅하러 가기")
+                        val invitation = invitationSnapshot.documents.firstOrNull()
+                        val pendingRoomId = invitation?.getString("chatRoomId")
+
+                        if(!pendingRoomId.isNullOrEmpty()){
+                            invitedChatRoomId.value = pendingRoomId
                         }
-
+                        // FCM 토큰 등록
+                        registerFcmTokenToFirestore()
                     }
+                }
 
-                    // 초대 다이얼로그 표시
-                    invitedChatRoomId.value?.let { chatRoomId ->
-                        InvitationDialog(
-                            onAccept = {
-                                ChatRoomManager.acceptInvitation(chatRoomId) { success, message ->
-                                    if (success) {
-                                        val intent = Intent(context, ChatActivity::class.java)
-                                        intent.putExtra("chatRoomId", chatRoomId)
-                                        context.startActivity(intent)
-                                    } else {
-                                        Toast.makeText(
-                                            context,
-                                            message ?: "입장 실패",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                }
-                                invitedChatRoomId.value = null
-                            },
-                            onDismiss = {
-                                invitedChatRoomId.value = null
+                HomeScreen(
+                    invitedChatRoomId = invitedChatRoomId,
+                    onAcceptInvitation = { chatRoomId ->
+                        ChatRoomManager.acceptInvitation(chatRoomId) { success, message ->
+                            if (success) {
+                                val intent = Intent(context, ChatActivity::class.java)
+                                intent.putExtra("chatRoomId", chatRoomId)
+                                context.startActivity(intent)
+                            } else {
+                                Toast.makeText(context, message ?: "입장 실패", Toast.LENGTH_SHORT).show()
                             }
-                        )
+                        }
+                        invitedChatRoomId.value = null
+                    },
+                    onDismissInvitation = {
+                        invitedChatRoomId.value = null
                     }
-                }
+                )
             }
         }
     }
 
-    private fun checkInvitationAndSetState(state: MutableState<String?>) {
-        val userId = AuthManager.getCurrentUserId() ?: return
+    fun registerFcmTokenToFirestore() {
+        val user = FirebaseService.auth.currentUser ?: return
+        val uid = user.uid
 
-        Firebase.firestore.collection("members").document(userId).get()
-            .addOnSuccessListener { document ->
-                val invitedChatRoomId = document.getString("invitedChatRoomId")
-                if (!invitedChatRoomId.isNullOrEmpty()) {
-                    state.value = invitedChatRoomId
+        // FCM 토큰 가져오기
+        FirebaseMessaging.getInstance().token
+            .addOnCompleteListener { task ->
+                val token = task.result
+
+                if (task.isSuccessful && !token.isNullOrBlank()) {
+                    Log.d("FCM", "FCM 토큰: $token")
+
+                    // users 컬렉션의 해당 사용자 문서에 fcm token필드 없데이트
+                    Firebase.firestore.collection("users").document(uid)
+                        .update("fcmToken", token)
+                        .addOnSuccessListener {
+                            Log.d("FCM", "FCM 토큰 저장 성공")
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("FCM", "FCM 토큰 저장 실패: ${e.message}")
+                        }
+                } else {
+                    Log.w("FCM", "FCM 토큰 가져오기 실패", task.exception)
                 }
             }
     }
-}
-
-@Composable
-fun InvitationDialog(
-    onAccept: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("초대 도착") },
-        text = { Text("가족 채팅방에 초대받았습니다. 입장하시겠습니까?") },
-        confirmButton = {
-            Button(onClick = onAccept) {
-                Text("입장하기")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("나중에")
-            }
-        }
-    )
 }
