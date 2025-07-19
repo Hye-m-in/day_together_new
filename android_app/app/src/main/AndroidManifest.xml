@@ -27,5 +27,6 @@
         <activity android:name=".ChatActivity"/>
         <activity android:name=".SignUpActivity"/>
         <activity android:name=".MainActivity"/>
+        <activity android:name=".InvitationActivity"/>
     </application>
 </manifest>
