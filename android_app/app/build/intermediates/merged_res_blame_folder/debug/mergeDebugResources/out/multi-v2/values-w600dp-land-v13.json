@@ -4,7 +4,7 @@
             "outputFile": "com.example.day_together.app-mergeDebugResources-80:/values-w600dp-land-v13/values-w600dp-land-v13.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\pathtomelog\\.gradle\\caches\\8.11.1\\transforms\\6f93fd11d5c9c200b1759d2a29f24bb8\\transformed\\material-1.12.0\\res\\values-w600dp-land-v13\\values-w600dp-land-v13.xml",
+                    "source": "C:\\Users\\pathtome\\.gradle\\caches\\8.11.1\\transforms\\6f93fd11d5c9c200b1759d2a29f24bb8\\transformed\\material-1.12.0\\res\\values-w600dp-land-v13\\values-w600dp-land-v13.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",
