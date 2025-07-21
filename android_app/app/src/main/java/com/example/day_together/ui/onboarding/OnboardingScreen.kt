@@ -23,12 +23,20 @@ import com.example.day_together.ui.theme.Day_togetherTheme
 import com.example.day_together.ui.theme.PagerIndicatorActive
 import com.example.day_together.ui.theme.PagerIndicatorInactive
 
+/**
+ * 온보딩 각 페이지에 표시될 내용을 담는 데이터 클래스
+ */
 data class OnboardingPageItem(
     val imageRes: Int,
     val title: String,
     val description: String
 )
 
+/**
+ * 앱 첫 실행 시 보여주는 온보딩 화면의 전체 UI
+ * @param navController 화면 이동 컨트롤러
+ * @param pagerState 좌우로 넘기는 페이지의 상태를 관리
+ */
 @OptIn(ExperimentalPagerApi::class)
 @Composable
 fun OnboardingScreen(
@@ -54,18 +62,22 @@ fun OnboardingScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
+            // 좌우로 스와이프 가능한 페이지 뷰
             HorizontalPager(
-                count = 3,
+                count = 3, // 총 3개의 페이지 (온보딩 2개 + 로그인 1개)
                 state = pagerState,
                 modifier = Modifier.weight(1f)
             ) { pageIndex ->
                 when (pageIndex) {
                     0 -> OnboardingPageContent(item = onboardingPages[0])
                     1 -> OnboardingPageContent(item = onboardingPages[1])
-                    2 -> LoginScreen(navController = navController, fromOnboarding = true)
+                    // 세 번째 페이지에는 로그인 화면을 보여줌
+                    // LoginScreen은 자체적으로 Intent를 사용하므로 navController가 필요 없습니다.
+                    2 -> LoginScreen(fromOnboarding = true)
                 }
             }
 
+            // 현재 페이지 위치를 알려주는 인디케이터 (점 3개)
             HorizontalPagerIndicator(
                 pagerState = pagerState,
                 modifier = Modifier
@@ -81,6 +93,9 @@ fun OnboardingScreen(
     }
 }
 
+/**
+ * 온보딩의 각 페이지 내용을 그리는 컴포저블
+ */
 @Composable
 fun OnboardingPageContent(item: OnboardingPageItem) {
     Column(
@@ -129,4 +144,3 @@ fun OnboardingPageContent(item: OnboardingPageItem) {
         Spacer(modifier = Modifier.weight(0.25f))
     }
 }
-
