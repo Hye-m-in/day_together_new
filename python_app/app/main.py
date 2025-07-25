@@ -11,7 +11,7 @@ import google.auth.transport.requests
 import google.oauth2.id_token
 
 from .services.firebase_admin_init import default_app  # 초기화만 호출됨
-from .schemas import GoogleTokenRequest, NaverTokenRequest, TokenResponse  # <<< 수정: TokenRequest → NaverTokenRequest로 분리
+from .models.schemas import GoogleTokenRequest, NaverTokenRequest, TokenResponse  # <<< 수정: TokenRequest → NaverTokenRequest로 분리
 
 # Naver 검증 로직 인라인
 load_dotenv()
