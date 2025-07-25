@@ -41,7 +41,7 @@ android_app/app/proguard-rules.pro
 android_app/gradle/wrapper/gradle-wrapper.jar
 .gradle
 .idea
-.local
+local
 
 # — Kotlin/Java 빌드 파일
 *.apk
