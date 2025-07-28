@@ -44,6 +44,8 @@ class MainActivity : ComponentActivity() {
  * 하단 네비게이션 바를 포함하는 메인 화면의 UI 틀을 구성
  * 이 화면은 AppNavigation에 의해 호출
  *
+ * 온보딩 화면이 끝까지 스와이프 된 경우, 더 이상 온보딩 화면 노출x : 데이터 및 캐시 삭제 필요
+ *
  * @param appNavController 앱의 최상위 NavController
  * 하단 바가 없는 화면(예: 개인정보 수정)으로 이동할 때 사용
  */

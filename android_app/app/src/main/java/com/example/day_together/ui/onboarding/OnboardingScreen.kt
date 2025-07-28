@@ -22,6 +22,7 @@ import com.example.day_together.ui.theme.*
 import com.google.accompanist.pager.*
 
 /**
+ * 온보딩 화면이 끝까지 스와이프 된 경우, 더 이상 온보딩 화면 노출x : 데이터 및 캐시 삭제 필요
  * 온보딩 각 페이지에 표시될 내용을 담는 데이터 클래스
  */
 data class OnboardingPageItem(
@@ -32,6 +33,8 @@ data class OnboardingPageItem(
 
 /**
  * 앱 첫 실행 시 보여주는 온보딩 화면의 전체 UI
+ *
+ *
  * @param navController 화면 이동 컨트롤러
  * @param pagerState 좌우로 넘기는 페이지의 상태를 관리
  */

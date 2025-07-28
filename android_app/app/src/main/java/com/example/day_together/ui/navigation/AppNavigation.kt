@@ -19,6 +19,11 @@ import com.example.day_together.ui.splash.SplashScreen
 import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.rememberPagerState
 
+
+/**
+ * 온보딩 화면이 끝까지 스와이프 된 경우, 더 이상 온보딩 화면 노출x : 데이터 및 캐시 삭제 필요
+ *
+ */
 /**
  * 앱의 전체 화면 경로(Route)를 상수로 정의하는 객체
  */
