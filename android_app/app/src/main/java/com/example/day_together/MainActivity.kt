@@ -1,5 +1,7 @@
 package com.example.day_together
 
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -57,9 +59,12 @@ fun MainScreen(appNavController: NavHostController) {
 
     // DB 초대 관련 로직
     val invitedChatRoomId = remember { mutableStateOf<String?>(null) }
+
+    // 화면이 처음 나타날 때 초대 여부 확인
     LaunchedEffect(Unit) {
         checkInvitationAndSetState(invitedChatRoomId)
     }
+
 
     val bottomNavItems = listOf(
         BottomNavItem.Home, BottomNavItem.Message, BottomNavItem.Gallery, BottomNavItem.Settings
@@ -75,6 +80,7 @@ fun MainScreen(appNavController: NavHostController) {
                 bottomNavItems.forEach { screen ->
                     val isSelected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
                     NavigationBarItem(
+
                         icon = {
                             Icon(
                                 painter = painterResource(id = screen.iconResId),
@@ -82,6 +88,7 @@ fun MainScreen(appNavController: NavHostController) {
                                 tint = if (isSelected) NavIconSelected else NavIconUnselected
                             )
                         },
+
                         selected = isSelected,
                         onClick = {
                             // 하단 탭 클릭 시 '내부' NavController를 사용하여 이동
@@ -98,7 +105,6 @@ fun MainScreen(appNavController: NavHostController) {
             }
         }
     ) { innerPadding ->
-        // 하단 탭 내부 화면들을 정의하는 NavHost. '내부' NavController 사용
         NavHost(
             navController = innerNavController, // '서울 지도' 사용
             startDestination = BottomNavItem.Home.route,
@@ -133,22 +139,10 @@ fun MainScreen(appNavController: NavHostController) {
             }
         )
     }
+
 }
 
 // DB 초대 확인 함수
-// TODO : 실제 구현 필요
 private fun checkInvitationAndSetState(state: MutableState<String?>) {
     // AuthManager.checkInvitation { invitedId -> state.value = invitedId }
-}
-
-// DB 초대 다이얼로그
-@Composable
-fun InvitationDialog(onAccept: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("초대 도착") },
-        text = { Text("가족 채팅방에 초대받았습니다. 입장하시겠습니까?") },
-        confirmButton = { Button(onClick = onAccept) { Text("입장하기") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("나중에") } }
-    )
 }
