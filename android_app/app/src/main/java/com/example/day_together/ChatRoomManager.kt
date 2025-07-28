@@ -3,8 +3,6 @@ package com.example.day_together
 import android.util.Log
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.firestore.FieldValue
-import com.google.firebase.functions.FirebaseFunctions
-import java.util.*
 
 object ChatRoomManager {
 
@@ -19,16 +17,19 @@ object ChatRoomManager {
         onComplete: (Boolean, String?) -> Unit
     ) {
         val resolveTasks = invitedUserId.map { input ->
+            // 이메일과 uid 분기 처리
+            // 해당 이메일 가진 유저 문서 찾기 -> uid 추출
             if (input.contains("@")) {
                 db.collection("users").whereEqualTo("email", input).limit(1).get()
                     .continueWith { task -> task.result?.documents?.firstOrNull()?.id }
-            } else {
+            } else { // uid 그대로 사용
                 Tasks.forResult(input)
             }
         }
 
         Tasks.whenAllSuccess<String>(resolveTasks)
             .addOnSuccessListener { resolvedUids ->
+                // 초대할 유저들의 uid 리스트 변수
                 val finalUids = resolvedUids.filterNotNull()
 
                 if(finalUids.isEmpty()){
@@ -37,8 +38,6 @@ object ChatRoomManager {
                 }
 
                 val chatRoomRef = db.collection("chatRooms").document(chatRoomId)
-
-                // 1. 먼저 chatRoom 문서를 생성 (덮어쓰기 방지 위해 set 대신 set with merge 사용 가능)
                 val batch = db.batch()
 
                 finalUids.forEach { uid ->
@@ -55,6 +54,7 @@ object ChatRoomManager {
                     ))
                 }
 
+                // chatroom 생성
                 batch.set(chatRoomRef, mapOf(
                     "chatRoomId" to chatRoomId,
                     "members" to listOf(inviterUserId), // 초대한 사람은 바로 참여
@@ -62,7 +62,12 @@ object ChatRoomManager {
                     "createdAt" to FieldValue.serverTimestamp()
                 ))
 
-                // 채팅방에 초대한 유저 목록 업데이트
+                // 캘린더 매니저 객체 생성
+                val calendarManager = CalendarManager()
+                // calendar 문서 생성
+                calendarManager.createCalendarDocument(chatRoomId)
+
+                // chatroom에 초대한 유저 추가
                 // chatRoom 문서에 초대한 유저들을 invitedUsers 필드에 추가
                 batch.update(chatRoomRef, "invitedUsers", FieldValue.arrayUnion(*finalUids.toTypedArray()))
 

@@ -88,7 +88,7 @@ class MainActivity : ComponentActivity() {
                 if (task.isSuccessful && !token.isNullOrBlank()) {
                     Log.d("FCM", "FCM 토큰: $token")
 
-                    // users 컬렉션의 해당 사용자 문서에 fcm token필드 없데이트
+                    // users 컬렉션의 해당 사용자 문서에 fcm token필드 업데이트
                     Firebase.firestore.collection("users").document(uid)
                         .update("fcmToken", token)
                         .addOnSuccessListener {
