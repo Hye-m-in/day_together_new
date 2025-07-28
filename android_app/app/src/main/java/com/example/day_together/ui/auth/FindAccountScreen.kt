@@ -24,17 +24,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.day_together.data.repository.AuthResult // AuthResult 클래스 import
 import com.example.day_together.ui.theme.*
 
 /**
  * 아이디/비밀번호 찾기 화면의 전체 UI를 그리는 컴포저블 함수
  *
- *  컴포저블 함수(= 가구 설계도, 화면에 어떻게 보일 것인지 설명)
- *  1. 목적 : ui 설명 및 화면 그리기
- *  2. 어노테이션(=꼬리표 또는 주석) : @Composable 필수
- *  3. 값 반환 없음
- *  4. 다른 @Composable 함수 안에서만 호출 가능
- *  5. 핵심 역할 : 어떻게 보일 것인가?
+ * 컴포저블 함수(= 가구 설계도, 화면에 어떻게 보일 것인지 설명)
+ * 1. 목적 : ui 설명 및 화면 그리기
+ * 2. 어노테이션(=꼬리표 또는 주석) : @Composable 필수
+ * 3. 값 반환 없음
+ * 4. 다른 @Composable 함수 안에서만 호출 가능
+ * 5. 핵심 역할 : 어떻게 보일 것인가?
 
  * @param authViewModel 인증 관련 데이터와 로직을 처리하는 ViewModel
  */
@@ -76,7 +77,7 @@ fun FindAccountScreen(
 
 
 
-    // 부가 효과 처리
+
 
     // `findAccountResult` 상태가 바뀔 때마다 실행되는 코드 블록
     LaunchedEffect(key1 = uiState.findAccountResult) {
@@ -134,7 +135,9 @@ fun FindAccountScreen(
                 Text(
                     text = "비밀번호 찾기",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = TextPrimary),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
                 )
                 // 이름 입력 필드
                 FindAccountTextField(
@@ -165,7 +168,9 @@ fun FindAccountScreen(
                         authViewModel.resetPassword() // ViewModel에 비밀번호 재설정 로직 실행 요청
                     },
                     enabled = isFindPwButtonEnabled, // 버튼 활성화/비활성화 상태
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = ButtonActiveBackground,
@@ -184,7 +189,9 @@ fun FindAccountScreen(
                 Text(
                     text = "아이디 찾기",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = TextPrimary),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
                 )
                 // 이름 입력 필드
                 FindAccountTextField(
@@ -212,7 +219,9 @@ fun FindAccountScreen(
                 Text(
                     text = "(입력하신 메일 주소와 일치하는 아이디를 찾아 해당 메일 주소로 전송합니다)",
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, color = TextPrimary.copy(alpha = 0.7f)),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp),
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -223,7 +232,9 @@ fun FindAccountScreen(
                         authViewModel.findId() // ViewModel에 아이디 찾기 로직 실행 요청
                     },
                     enabled = isFindIdButtonEnabled,
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = ButtonActiveBackground,

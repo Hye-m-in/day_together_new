@@ -16,6 +16,13 @@ import java.time.temporal.ChronoUnit
 import java.util.Date
 import java.util.UUID
 
+
+/**
+ * 데이터를 한 곳(ViewModel)에서만 통제함으로써 코드가 꼬이는 것을 막음
+ * UI 화면이 마음대로 데이터를 바꾸면 앱이 복잡해질수록 어디서 버그가 생기는지 찾기 매우 어려워짐
+ */
+
+
 class HomeViewModel : ViewModel() {
 
     private val repository = FakeRepository()

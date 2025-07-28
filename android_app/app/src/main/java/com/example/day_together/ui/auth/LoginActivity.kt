@@ -8,7 +8,7 @@ import com.example.day_together.ui.theme.Day_togetherTheme
 
 /**
  * 로그인 화면을 띄워주는 액티비티
- * 실제 UI 내용은 LoginScreen.kt 파일에 잇음
+ * 실제 UI 내용은 LoginScreen.kt 파일에 있음
  */
 class LoginActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

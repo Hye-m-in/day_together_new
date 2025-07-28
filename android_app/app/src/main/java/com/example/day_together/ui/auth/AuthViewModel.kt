@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.day_together.data.repository.FakeRepository
+import com.example.day_together.data.repository.AuthResult // Repository의 AuthResult를 import
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -11,8 +12,8 @@ import kotlinx.coroutines.launch
 
 
 /**
- * 데이터를 한 곳(ViewModel)에서만 통제함으로써 코드가 꼬이는 것을 막음.
- * UI 화면이 마음대로 데이터를 바꾸면 앱이 복잡해질수록 어디서 버그가 생기는지 찾기 매우 어려워짐.
+ * 데이터를 한 곳(ViewModel)에서만 통제함으로써 코드가 꼬이는 것을 막음
+ * UI 화면이 마음대로 데이터를 바꾸면 앱이 복잡해질수록 어디서 버그가 생기는지 찾기 매우 어려워짐
  */
 
 /**
@@ -20,19 +21,19 @@ import kotlinx.coroutines.launch
  * UI 상태와 비즈니스 로직을 모두 관리하는 ViewModel
  */
 class AuthViewModel : ViewModel() {
-    
+
     // TODO : 실제  Repository로 교체 필요
     // 데이터 통신을 담당하는 가짜 저장소 (실제 앱에서는 실제 Repository로 교체)
     private val repository = FakeRepository()
 
-    
+
     /**
      * 인증 화면의 모든 UI 상태를 관리하는 StateFlow. View는 이 State를 구독(실시간 상태 감지)하여 UI에 반영
      * StateFlow : 실시간으로 업데이트되는 '상태 게시판'
-     * 게시판(StateFlow)에는 항상 최신 정보(State) 하나만 존재.
-     * 게시판 내용이 변경될 경우, UI화면은 즉시 새로운 내용 확인하고 자신의 화면 업데이트 함.
+     * 게시판(StateFlow)에는 항상 최신 정보(State) 하나만 존재
+     * 게시판 내용이 변경될 경우, UI화면은 즉시 새로운 내용 확인하고 자신의 화면 업데이트 함
      */
-    
+
     // private : ViewModel 내부에서만 수정 가능한 게시판
     private val _uiState = MutableStateFlow(AuthUiState())
     // public : ViewModel 외부에서는 오직 읽기만 가능한 공개용 게시판
@@ -44,10 +45,10 @@ class AuthViewModel : ViewModel() {
      * 이벤트 핸들러
      * -> 사용자 행동을 처리하는 담당자
      * -> UI에서 발생하는 이벤트 처리 및 'UI State' 업데이트
-     * 
+     *
      * Event : 사용자가 앱에서 하는 모든 행동(버튼 클릭, 글자 입력, 화면 스크롤 등)
      * Handler : 행동 발생 시, 처리를 위해 실행되는 함수
-     * 
+     *
      * StateFlow ~ 이벤트 핸들러 흐름
      * 이벤트 발생 -> 핸들러 호출 -> ViewModel의 상태 업데이트 -> 화면 자동 변경
      */
@@ -124,7 +125,7 @@ class AuthViewModel : ViewModel() {
      */
 
     // 로그인 로직 실행
-        fun login() {
+    fun login() {
         // 로그인 로딩 상태 시작
         _uiState.update { it.copy(isLoading = true, isLoginSuccess = false, loginError = null) }
         // 실제 작업 수행
@@ -202,13 +203,10 @@ class AuthViewModel : ViewModel() {
 }
 
 /**
- * AuthUiState, AuthResult 클래스 : 비동기 작업 포함한 앱의 상태 관리하는 도구
- * 
+ * AuthUiState 클래스 : 비동기 작업 포함한 앱의 상태 관리하는 도구
+ *
  * AuthUiState : UI 화면 설계도, 인증 화면에 필요한 모든 정보의 설계도
  * -> 화면에 필요한 모든 데이터(이메일 입력 값, 비밀번호 입력 값, 로딩 중 여부, 에러메시지 등)를 'data class'에 모아둠.
- * 
- * AuthResult : 비동기 작업 결과(성공 또는 실패) 알려줌
- * sealed class(봉인된 클래스) : sealed class 자식은 성공 또는 실패로만 한정되어있음.
  */
 data class AuthUiState(
     // 공통 상태
@@ -246,12 +244,3 @@ data class AuthUiState(
     val findAccountResult: AuthResult? = null
 )
 
-/** AuthResult : 비동기 작업 결과(성공 또는 실패) 알려줌
-* sealed class(봉인된 클래스) : sealed class 자식은 성공 또는 실패로만 한정돼있음.
-*/
-sealed class AuthResult {
-    // 작업 성공
-    object Success : AuthResult()
-    // 작업 실패 + 실패 이유 전달
-    data class Failure(val message: String) : AuthResult()
-}

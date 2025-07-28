@@ -4,7 +4,6 @@ import com.google.firebase.firestore.PropertyName
 
 /**
  * 앱 사용자의 정보를 담는 데이터 모델
- * Firestore의 필드명과 변수명을 매핑하기 위해 @PropertyName 어노테이션 사용
  */
 data class User(
     // 사용자의 고유 식별자 (Firebase Auth의 UID)
@@ -19,9 +18,21 @@ data class User(
     @get:PropertyName("email") @set:PropertyName("email")
     var email: String = "",
 
+    // 생년월일 (YYYYMMDD 형식)
+    @get:PropertyName("birthDate") @set:PropertyName("birthDate")
+    var birthDate: String? = null,
+
+    // 생년월일의 음력 여부
+    @get:PropertyName("isLunar") @set:PropertyName("isLunar")
+    var isLunar: Boolean? = null,
+
     // 가족 내 역할 또는 호칭 (예: "아빠", "딸")
     @get:PropertyName("position") @set:PropertyName("position")
     var position: String = "",
+
+    // 프로필 이미지 URL
+    @get:PropertyName("profileImageUrl") @set:PropertyName("profileImageUrl")
+    var profileImageUrl: String = "",
 
     // 푸시 알림을 위한 FCM 토큰
     @get:PropertyName("fcmToken") @set:PropertyName("fcmToken")

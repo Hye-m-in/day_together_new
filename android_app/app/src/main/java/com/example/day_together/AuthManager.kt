@@ -87,7 +87,7 @@ object AuthManager {
     }
 
     fun isUserLoggedIn(): Boolean {
-        // TODO: [테스트용 코드] 실제 Firebase와 연동 전 반드시 '|| fakeRepository.getFakeLoginStatus()' 부분을 삭제해야 필요!
+        // TODO: [테스트용 코드] 실제 Firebase와 연동 전 반드시 '|| fakeRepository.getFakeLoginStatus()' 부분을 삭제해야함
         return auth.currentUser != null || fakeRepository.getFakeLoginStatus()
     }
 

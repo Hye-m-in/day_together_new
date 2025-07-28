@@ -195,7 +195,7 @@ fun LoginScreen(
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
-                // 로그인 버튼 
+                // 로그인 버튼
                 Button(
                     onClick = authViewModel::login, // 클릭 시 ViewModel의 login 함수 실행
                     enabled = uiState.loginEmail.isNotBlank() && uiState.loginPassword.isNotBlank() && !uiState.isLoading, // 활성화 조건

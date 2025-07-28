@@ -11,15 +11,20 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import com.example.day_together.ui.theme.Day_togetherTheme
 import kotlinx.coroutines.delay
 
-const val SPLASH_TIMEOUT = 2000L // 스플래시 화면 지속 시간 2초
+// 스플래시 화면이 표시될 시간 2000ms(2초)
+const val SPLASH_TIMEOUT = 2000L
 
+/**
+ * 스플래시 화면 UI 정의하는 컴포저블 함수
+ * @param onTimeout 스플래시 화면 표시 시간이 끝난 후 호출되는 콜백 함수
+ */
 @Composable
 fun SplashScreen(onTimeout: () -> Unit) {
     Day_togetherTheme {
+        // 화면 전체를 채우는 Column 생성 + 내용 수직/수평 중앙에 배치
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -27,6 +32,7 @@ fun SplashScreen(onTimeout: () -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // 앱 로고 텍스트 표시
             Text(
                 text = "하루\n함께",
                 color = MaterialTheme.colorScheme.primary,
@@ -36,16 +42,11 @@ fun SplashScreen(onTimeout: () -> Unit) {
         }
     }
 
+    // LaunchedEffect : 컴포저블이 처음 화면에 표시될 때 한 번만 실행되는 SideEffect 처리
     LaunchedEffect(Unit) {
         delay(SPLASH_TIMEOUT)
+        // 시간 다 되면, Activity로부터 전달받은 onTimeout콜백함수 호출
         onTimeout()
     }
 }
 
-@Preview(showBackground = true, widthDp = 390, heightDp = 844)
-@Composable
-fun SplashScreenPreview() {
-    Day_togetherTheme {
-        SplashScreen(onTimeout = {})
-    }
-}
