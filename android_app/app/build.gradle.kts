@@ -59,6 +59,7 @@ dependencies {
 
 
     implementation(platform(libs.androidx.compose.bom))
+    //implementation(libs.androidx.navigation.compose.jvmstubs)
     androidTestImplementation(platform(libs.androidx.compose.bom))
 
 
@@ -72,7 +73,6 @@ dependencies {
 
     val navVersion = "2.7.7"
     implementation("androidx.navigation:navigation-compose:$navVersion")
-
 
 
     val accompanistVersion = "0.34.0"

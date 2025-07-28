@@ -148,26 +148,3 @@ private fun checkInvitationAndSetState(state: MutableState<String?>) {
             }
         }
 }
-
-// DB 초대 다이얼로그
-@Composable
-fun InvitationDialog(
-    onAccept: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("초대 도착") },
-        text = { Text("가족 채팅방에 초대받았습니다. 입장하시겠습니까?") },
-        confirmButton = {
-            Button(onClick = onAccept) {
-                Text("입장하기")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("나중에")
-            }
-        }
-    )
-}

@@ -17,6 +17,7 @@ render.experimental.xml
 # Gradle
 .gradle/
 build/
+/android_app/app/build/
 
 # Local configuration files (sdk path, etc)
 # IMPORTANT: DO NOT COMMIT SENSITIVE DATA LIKE API KEYS HERE

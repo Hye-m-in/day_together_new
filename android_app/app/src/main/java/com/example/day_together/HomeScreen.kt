@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.day_together.ChatRoomManager.auth
 import com.example.day_together.ChatRoomManager.db
+import com.example.day_together.ui.auth.LoginActivity
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
