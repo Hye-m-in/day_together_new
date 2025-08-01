@@ -3,8 +3,8 @@ package com.example.day_together.ui.auth
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.day_together.data.repository.FakeRepository
-import com.example.day_together.data.repository.AuthResult // Repository의 AuthResult를 import
+import com.example.day_together.data.repository.AppRepository
+import com.example.day_together.data.repository.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -22,9 +22,7 @@ import kotlinx.coroutines.launch
  */
 class AuthViewModel : ViewModel() {
 
-    // TODO : 실제  Repository로 교체 필요
-    // 데이터 통신을 담당하는 가짜 저장소 (실제 앱에서는 실제 Repository로 교체)
-    private val repository = FakeRepository()
+    private val repository: AppRepository = AppRepository()
 
 
     /**

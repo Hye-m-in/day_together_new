@@ -2,7 +2,7 @@ package com.example.day_together.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.day_together.data.repository.FakeRepository
+import com.example.day_together.data.repository.AppRepository
 import com.example.day_together.data.repository.UserSettings
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,7 +30,7 @@ sealed class SettingsEvent {
 
 // 3. ViewModel
 class SettingsViewModel(
-    private val repository: FakeRepository = FakeRepository() // todo : 실제 레포지토리로 변경
+    private val repository: AppRepository = AppRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())

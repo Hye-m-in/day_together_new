@@ -6,7 +6,7 @@ import com.example.day_together.data.model.Anniversary
 import com.example.day_together.data.model.CalendarEvent
 import com.example.day_together.data.model.Question
 import com.example.day_together.data.model.User
-import com.example.day_together.data.repository.FakeRepository
+import com.example.day_together.data.repository.AppRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,7 +25,7 @@ import java.util.UUID
 
 class HomeViewModel : ViewModel() {
 
-    private val repository = FakeRepository()
+    private val repository = AppRepository()
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()

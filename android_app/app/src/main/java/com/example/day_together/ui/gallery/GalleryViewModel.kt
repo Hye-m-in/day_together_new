@@ -2,7 +2,7 @@ package com.example.day_together.ui.gallery
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.day_together.data.repository.FakeRepository
+import com.example.day_together.data.repository.AppRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,7 +39,7 @@ data class GalleryUiState(
 
 
 class GalleryViewModel(
-    private val repository: FakeRepository = FakeRepository() // TODO: 실제 레포지토리로 변경 필요
+    private val repository: AppRepository = AppRepository()
 ) : ViewModel() {
 
     // 1. 상태(State) 관리

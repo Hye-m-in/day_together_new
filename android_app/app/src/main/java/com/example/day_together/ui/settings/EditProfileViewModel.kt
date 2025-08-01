@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.day_together.data.model.User
 import com.example.day_together.data.repository.AuthResult
-import com.example.day_together.data.repository.FakeRepository
+import com.example.day_together.data.repository.AppRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,7 +46,7 @@ data class EditProfileUiState(
  * 개인정보 수정 화면의 UI 상태와 비즈니스 로직을 관리하는 ViewModel
  */
 class EditProfileViewModel(
-    private val repository: FakeRepository = FakeRepository()
+    private val repository: AppRepository = AppRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(EditProfileUiState())
