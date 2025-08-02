@@ -11,7 +11,7 @@ class FindAccountActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             Day_togetherTheme {
-                FindAccountScreen(navController = rememberNavController())
+                //FindAccountScreen(navController = rememberNavController())
             }
         }
     }

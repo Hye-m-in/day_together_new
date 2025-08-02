@@ -36,6 +36,9 @@ import androidx.navigation.NavController
 import com.example.day_together.MainActivity
 import com.example.day_together.R
 import com.example.day_together.ui.theme.*
+import com.navercorp.nid.NaverIdLoginSDK
+import android.util.Log
+import com.example.day_together.NaverAuthManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,6 +48,15 @@ fun LoginScreen(
     authViewModel: AuthViewModel = viewModel()
 ) {
     val uiState by authViewModel.uiState.collectAsState()
+
+    val token = NaverIdLoginSDK.getAccessToken()
+    if(token != null) {
+        authViewModel.loginWithNaver(token)
+    } else {
+        Log.e("LoginScreen", "Naver 액세스 토큰이 null임")
+    }
+
+
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
@@ -144,7 +156,7 @@ fun LoginScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(6.dp))
-                    OutlinedTextField(
+                    /*OutlinedTextField(
                         value = uiState.loginPassword,
                         onValueChange = authViewModel::onLoginPasswordChange,
                         placeholder = { Text("비밀번호를 입력해주세요") },
@@ -168,11 +180,11 @@ fun LoginScreen(
                             unfocusedTextColor = TextPrimary,
                             cursorColor = MaterialTheme.colorScheme.primary
                         )
-                    )
+                    )*/
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
-                Button(
+                /*Button(
                     onClick = authViewModel::login,
                     enabled = uiState.loginEmail.isNotBlank() && uiState.loginPassword.isNotBlank() && !uiState.isLoading,
                     modifier = Modifier
@@ -187,7 +199,7 @@ fun LoginScreen(
                     )
                 ) {
                     Text(if (uiState.isLoading) "로그인 중..." else "로그인", style = MaterialTheme.typography.labelLarge)
-                }
+                }*/
                 Spacer(modifier = Modifier.height(40.dp))
                 Text(
                     "SNS 계정으로 로그인",
@@ -199,7 +211,28 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally)
                 ) {
-                    SocialLoginIconButton(iconRes = R.drawable.ic_logo_naver, text = "네이버") { }
+                    val context = LocalContext.current
+                    // 네이버 로그인
+                    SocialLoginIconButton(
+                        iconRes = R.drawable.ic_logo_naver,
+                        text = "네이버") {
+                        //accesstoken으로 viewmodel 호출
+                        val activity = context as? Activity ?: return@SocialLoginIconButton
+
+                        NaverAuthManager.startLogin(
+                            activity = activity,
+                            onResult = {success, token, errorMsg ->
+                                if(success && !token.isNullOrEmpty()) {
+                                    //성공 -> viewModel에 전달함
+                                    Log.d("LoginScreen", "🟢 Naver accessToken: $token")  // ✅ 이거 추가!
+                                    authViewModel.loginWithNaver(token)
+                                } else {
+                                    //실패 로그 출력
+                                    Log.e("LoginScreen", "Naver로그인 실패 : $errorMsg")
+                                }
+                            }
+                        )
+                    }
                     SocialLoginIconButton(iconRes = R.drawable.ic_logo_kakao, text = "카카오") { }
                 }
             }

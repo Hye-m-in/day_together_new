@@ -251,7 +251,7 @@ fun SignUpScreen(
                     )
                 }
 
-                Button(
+                /*Button(
                     onClick = authViewModel::signUp,
                     enabled = isSignUpButtonEnabled,
                     modifier = Modifier
@@ -266,7 +266,7 @@ fun SignUpScreen(
                     )
                 ) {
                     Text(if (uiState.isLoading) "가입 중..." else "회원가입", style = MaterialTheme.typography.labelLarge)
-                }
+                }*/
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }

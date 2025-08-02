@@ -9,7 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.day_together.ui.auth.FindAccountScreen
+//import com.example.day_together.ui.auth.FindAccountScreen
 import com.example.day_together.ui.auth.LoginScreen
 import com.example.day_together.ui.auth.SignUpScreen
 import com.example.day_together.ui.home.HomeScreen
@@ -70,7 +70,7 @@ fun AppNavigation() {
 
         composable(AppDestinations.FIND_ACCOUNT_ROUTE) {
             Log.d("AppNavigation", "Current Route: ${AppDestinations.FIND_ACCOUNT_ROUTE}")
-            FindAccountScreen(navController = navController)
+            //FindAccountScreen(navController = navController)
         }
 
         composable(AppDestinations.MAIN_ROUTE) {

@@ -3,7 +3,9 @@ package com.example.day_together.ui.auth
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.day_together.data.repository.AuthRepository
 import com.example.day_together.data.repository.FakeRepository
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -16,7 +18,11 @@ import kotlinx.coroutines.launch
 class AuthViewModel : ViewModel() {
 
     // 데이터 통신을 담당하는 가짜 저장소
-    private val repository = FakeRepository()
+    //private val repository = FakeRepository()
+    //TODO:가짜 저장소 뺄 수 있게 수정하기 -> 일단은 실제 저장소 AuthRepository() 만들어놨습니다. 서버 통신해서 구글/네이버 로그인 되는지 확인해야해요
+
+    //실제 서버 호출을 담당할 레포지토리
+    private val repository = AuthRepository()
 
     // 인증 화면들의 모든 UI 상태를 담는 StateFlow
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -76,54 +82,101 @@ class AuthViewModel : ViewModel() {
 
     // --- 로직 실행 함수들 ---
 
-    fun login() {
-        _uiState.update { it.copy(isLoading = true, isLoginSuccess = false, loginError = null) }
+//    fun login() {
+//        _uiState.update { it.copy(isLoading = true, isLoginSuccess = false, loginError = null) }
+//        viewModelScope.launch {
+//            val result = repository.login(email = _uiState.value.loginEmail, password = _uiState.value.loginPassword)
+//            _uiState.update {
+//                when(result) {
+//                    is AuthResult.Success -> it.copy(isLoading = false, isLoginSuccess = true)
+//                    is AuthResult.Failure -> it.copy(isLoading = false, loginError = result.message)
+//                }
+//            }
+//
+//        }
+//    }
+
+
+    /** Google 로그인 */
+    fun loginWithGoogle(idToken: String) {
+        _uiState.update { it.copy(isLoading = true, loginError = null) }
         viewModelScope.launch {
-            val result = repository.login(email = _uiState.value.loginEmail, password = _uiState.value.loginPassword)
-            _uiState.update {
-                when(result) {
-                    is AuthResult.Success -> it.copy(isLoading = false, isLoginSuccess = true)
-                    is AuthResult.Failure -> it.copy(isLoading = false, loginError = result.message)
-                }
+            try {
+                val res = repository.loginWithGoogle(idToken)
+                FirebaseAuth.getInstance()
+                    .signInWithCustomToken(res.custom_token)
+                    .addOnCompleteListener { task ->
+                        if(task.isSuccessful) {
+                            _uiState.update { it.copy(isLoading = false, isLoginSuccess = true) }
+                        } else {
+                            _uiState.update { it.copy(isLoading = false, loginError = task.exception?.message) }
+                        }
+                    }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, loginError = e.message) }
             }
         }
     }
 
-    fun signUp() {
-        _uiState.update { it.copy(isLoading = true, signUpResult = null) }
+    /** Naver 로그인 */
+    fun loginWithNaver(accessToken: String) {
+        _uiState.update { it.copy(isLoading = true, loginError = null) }
         viewModelScope.launch {
-            val result = repository.signUp(
-                name = _uiState.value.signUpName,
-                email = _uiState.value.signUpEmail,
-                password = _uiState.value.signUpPassword
-            )
-            if (result is AuthResult.Success) {
-                repository.login(_uiState.value.signUpEmail, _uiState.value.signUpPassword)
-                _uiState.update { it.copy(isLoading = false, signUpResult = result, isSignUpAndLoginSuccess = true) }
-            } else {
-                _uiState.update { it.copy(isLoading = false, signUpResult = result) }
+            try {
+                val res = repository.loginWithNaver(accessToken)
+                FirebaseAuth.getInstance()
+                    .signInWithCustomToken(res.custom_token)
+                    .addOnCompleteListener { task ->
+                        if(task.isSuccessful) {
+                            _uiState.update { it.copy(isLoading = false, isLoginSuccess = true) }
+                        } else {
+                            _uiState.update { it.copy(isLoading = false, loginError = task.exception?.message) }
+                        }
+                    }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, loginError = e.message) }
             }
         }
     }
 
-    fun resetPassword() {
-        _uiState.update { it.copy(isLoading = true, findAccountResult = null) }
-        viewModelScope.launch {
-            val result = repository.resetPassword(_uiState.value.findPwEmail)
-            _uiState.update { it.copy(isLoading = false, findAccountResult = result) }
-        }
-    }
 
-    fun findId() {
-        _uiState.update { it.copy(isLoading = true, findAccountResult = null) }
-        viewModelScope.launch {
-            val result = repository.findId(
-                name = _uiState.value.findIdName,
-                email = _uiState.value.findIdEmail
-            )
-            _uiState.update { it.copy(isLoading = false, findAccountResult = result) }
-        }
-    }
+
+
+//    fun signUp() {
+//        _uiState.update { it.copy(isLoading = true, signUpResult = null) }
+//        viewModelScope.launch {
+//            val result = repository.signUp(
+//                name = _uiState.value.signUpName,
+//                email = _uiState.value.signUpEmail,
+//                password = _uiState.value.signUpPassword
+//            )
+//            if (result is AuthResult.Success) {
+//                repository.login(_uiState.value.signUpEmail, _uiState.value.signUpPassword)
+//                _uiState.update { it.copy(isLoading = false, signUpResult = result, isSignUpAndLoginSuccess = true) }
+//            } else {
+//                _uiState.update { it.copy(isLoading = false, signUpResult = result) }
+//            }
+//        }
+//    }
+//
+//    fun resetPassword() {
+//        _uiState.update { it.copy(isLoading = true, findAccountResult = null) }
+//        viewModelScope.launch {
+//            val result = repository.resetPassword(_uiState.value.findPwEmail)
+//            _uiState.update { it.copy(isLoading = false, findAccountResult = result) }
+//        }
+//    }
+//
+//    fun findId() {
+//        _uiState.update { it.copy(isLoading = true, findAccountResult = null) }
+//        viewModelScope.launch {
+//            val result = repository.findId(
+//                name = _uiState.value.findIdName,
+//                email = _uiState.value.findIdEmail
+//            )
+//            _uiState.update { it.copy(isLoading = false, findAccountResult = result) }
+//        }
+//    }
 
     // --- 상태 초기화 함수들 ---
     fun clearLoginError() { _uiState.update { it.copy(loginError = null, isLoginSuccess = false) } }

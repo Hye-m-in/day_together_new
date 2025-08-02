@@ -27,7 +27,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.day_together.ui.theme.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FindAccountScreen(
     navController: NavController,
@@ -196,4 +196,4 @@ private fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> null
-}
+}*/

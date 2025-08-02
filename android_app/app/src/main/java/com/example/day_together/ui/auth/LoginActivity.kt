@@ -7,6 +7,8 @@ import androidx.navigation.compose.rememberNavController
 import com.example.day_together.ui.theme.Day_togetherTheme
 
 class LoginActivity : ComponentActivity() {
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
