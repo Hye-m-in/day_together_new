@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.example.day_together">
 
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.INTERNET"/>
@@ -21,21 +21,22 @@
         android:theme="@style/Theme.Day_together"
         tools:targetApi="31">
 
+
+        <!-- 앱의 시작점을 MainActivity -->
         <activity
-            android:name=".ui.splash.SplashActivity"
+            android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.Day_together.NoActionBar">
+            android:theme="@style/Theme.Day_together">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".MainActivity" />
+
+
+
+        <!-- ChatActivity는 별도의 Activity로 유지될 수 있으므로 남겨둠 (푸시 알림 클릭 등) -->
         <activity android:name=".ChatActivity" />
-        <activity android:name=".ui.onboarding.OnboardingActivity" />
-        <activity android:name=".ui.auth.LoginActivity" />
-        <activity android:name=".ui.auth.SignUpActivity" />
-        <activity android:name=".ui.auth.FindAccountActivity" />
 
     </application>
 </manifest>

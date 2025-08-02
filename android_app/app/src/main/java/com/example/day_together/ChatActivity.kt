@@ -2,12 +2,15 @@ package com.example.day_together
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -20,6 +23,7 @@ import com.google.firebase.firestore.Query
 import com.google.android.gms.tasks.Tasks
 import java.util.*
 
+// 채팅 메세지 데이터 클래스
 data class ChatMessage(
     val content: String,
     val sender: String,
@@ -27,7 +31,6 @@ data class ChatMessage(
 )
 
 class ChatActivity : ComponentActivity() {
-
     private val db = FirebaseService.db
     private val auth = FirebaseService.auth
     private var currentUserName: String = ""
@@ -36,64 +39,90 @@ class ChatActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // 로그인 여부 확인
         if (auth.currentUser == null) {
             Toast.makeText(this, "로그인 상태가 아닙니다", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
 
-        val messages = mutableStateListOf<ChatMessage>()
-        var chatRoomId by mutableStateOf<String?>(null)
-        var showInviteDialog by mutableStateOf(false)
-        var invitedUserIdInput by mutableStateOf("")
-
         // 사용자 이름 불러오기
-        val uid = auth.currentUser?.uid ?: return
+        val uid = auth.currentUser!!.uid
         db.collection("users")
-            .document(uid)
-            .get()
+            .document(uid).get()
             .addOnSuccessListener { document ->
                 currentUserName = document.getString("name") ?: "Unknown"
             }
 
-        // 채팅방 ID 가져오기 및 메시지 리스닝
-        fetchAcceptedChatRoomId(
-            onFound = { id ->
-                chatRoomId = id
-                listenForMessages(id, messages)
-            },
-            onNotFound = {
-                chatRoomId = null
-            }
-        )
-
         setContent {
             Day_togetherTheme {
+                val chatRoomId = remember { mutableStateOf<String?>(null) } // 현재 채팅방 ID
+                val isMessagesLoading = remember { mutableStateOf(true) }   // 메세지 로딩 상태
+                val messages = remember { mutableStateListOf<ChatMessage>() }     // 메세지 목록
+                val showInviteDialog = remember { mutableStateOf(false) }   // 초대 다이얼로그 표시 여부
+                val invitedUserIdInput = remember { mutableStateOf("") }    // 초대할 사용자 입력 값
+
+                // 최초 진입 시 chatRoomId 확인 및 메세지 수신 시작
+                LaunchedEffect(Unit) {
+                    fetchAcceptedChatRoomId(
+                        onFound = {
+                            chatRoomId.value = it
+                            listenForMessages(it, messages, isMessagesLoading)  // 메세지 실시간 수신 시작
+                        },
+                        onNotFound = {
+                            chatRoomId.value = null
+                            isMessagesLoading.value = false
+                        }
+                    )
+                }
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Box(modifier = Modifier.padding(innerPadding)) {
-                        if (chatRoomId != null) {
-                            ChatScreen(
-                                messages = messages,
-                                onSend = { sendMessage(chatRoomId!!, it, currentUserName) },
-                                currentUserName = currentUserName,
-                                onInviteClick = { showInviteDialog = true }
-                            )
+                        if (chatRoomId.value != null) {  // 채팅방 존재하는 경우
+                            when {
+                                isMessagesLoading.value -> {
+                                    // 메세지 로딩 표시
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(16.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator()
+                                    }
+                                }
 
-                            if (showInviteDialog) {
+                                else -> {
+                                    // 채팅 화면 UI 출력
+                                    ChatScreen(
+                                        messages = messages,
+                                        currentUserName = currentUserName,
+                                        onSend = {
+                                            sendMessage(chatRoomId.value!!, it, currentUserName)
+                                        },
+                                        onInviteClick = {
+                                            showInviteDialog.value = true
+                                        }
+                                    )
+                                }
+                            }
+
+
+                            // 초대 다이얼로그가 활성화된 경우
+                            if (showInviteDialog.value) {
                                 InviteDialog(
-                                    invitedUserIdInput = invitedUserIdInput,
-                                    onValueChange = { invitedUserIdInput = it },
-                                    onDismiss = { showInviteDialog = false },
+                                    invitedUserIdInput = invitedUserIdInput.value,
+                                    onValueChange = { invitedUserIdInput.value = it },
+                                    onDismiss = { showInviteDialog.value = false },
                                     onInvite = {
-                                        showInviteDialog = false
-                                        val inviterId = auth.currentUser?.uid ?: return@InviteDialog
-                                        val invitees = invitedUserIdInput
-                                            .split(",")
-                                            .map { it.trim() }
-                                            .filter { it.isNotBlank() }
+                                        val invitees = invitedUserIdInput.value.split(",").map { it.trim() }.filter { it.isNotBlank() }
+                                        if (invitees.isEmpty()) return@InviteDialog
 
+                                        val inviterId = auth.currentUser?.uid ?: return@InviteDialog
+                                        showInviteDialog.value = false
+
+                                        //기존 firestore에 초대 저장
                                         ChatRoomManager.inviteMembers(
-                                            chatRoomId = chatRoomId!!,
+                                            chatRoomId = chatRoomId.value!!,
                                             inviterUserId = inviterId,
                                             invitedUserId = invitees,
                                             onComplete = { success, error ->
@@ -104,18 +133,34 @@ class ChatActivity : ComponentActivity() {
                                                         Toast.LENGTH_SHORT
                                                     ).show()
                                                 }
+
+                                                // 초대 성공하면 cloud function 호출(푸시 알림 발송)
+                                                if (success) {
+                                                    sendFamilyInvites(
+                                                        emails = invitees,
+                                                        roomName = "가족 채팅방",
+                                                    ) { successFunc, errMsg ->
+                                                        runOnUiThread {
+                                                            if (!successFunc) {
+                                                                Toast.makeText(this@ChatActivity, "Cloud Function 실패: $errMsg", Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        }
+                                                    }
+                                                }
                                             }
                                         )
                                     }
                                 )
                             }
                         } else {
+                            // 채팅방 생성되지 않은 경우
                             EmptyChatRoomScreen(onInviteClick = {
-                                showInviteDialog = true
+                                showInviteDialog.value = true
+                                // 채팅방 생성 후 메세지 수신 시작
                                 val inviterId = auth.currentUser?.uid ?: return@EmptyChatRoomScreen
                                 createNewChatRoom(inviterId) { newRoomId ->
-                                    chatRoomId = newRoomId
-                                    listenForMessages(newRoomId, messages)
+                                    chatRoomId.value = newRoomId
+                                    listenForMessages(newRoomId, messages, isMessagesLoading)
                                 }
                             })
                         }
@@ -125,22 +170,51 @@ class ChatActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * 수락된 초대가 있는지 확인한 뒤 채팅방 ID를 가져오는 함수.
+     * 초대받은 경우 invitations 컬렉션에서 status=accepted를 검색하고,
+     * 없을 경우 자신이 만든 채팅방(chatRooms 컬렉션에서 members 배열에 uid 포함)을 검색함.
+     */
     private fun fetchAcceptedChatRoomId(onFound: (String) -> Unit, onNotFound: () -> Unit) {
         val user = auth.currentUser ?: return onNotFound()
 
         db.collection("users")
+            //초대받은 경우: invitatoins에서 accepted 찾기
             .document(user.uid)
             .collection("invitations")
             .whereEqualTo("status", "accepted")
-            .limit(1)
+            .limit(1) // 여러 개일 수 있으니 제한 두기. 첫 번째만 가져오기
             .get()
             .addOnSuccessListener { documents ->
                 val chatRoomId = documents.firstOrNull()?.getString("chatRoomId")
-                if (chatRoomId != null) onFound(chatRoomId) else onNotFound()
+                if (chatRoomId != null){
+                    Log.d("DEBUG", "chatRoomId from members: $chatRoomId")
+                onFound(chatRoomId)}
+                else {
+                    //초대받은 채팅방이 없다면, 내가 만든 채팅방 조회
+                    db.collection("chatRooms")
+                        .whereArrayContains("members", user.uid)
+                        .limit(1)
+                        .get()
+                        .addOnSuccessListener { chatRooms ->
+                            val ownChatRoomId = chatRooms.firstOrNull()?.id
+                            if (ownChatRoomId != null) {
+                                Log.d("DEBUG", "chatRoomId from members: $ownChatRoomId")
+                                onFound(ownChatRoomId)
+                            } else {
+                                onNotFound()
+                            }
+                        }
+                        .addOnFailureListener {
+                            onNotFound()
+                        }
+                }
             }
             .addOnFailureListener { onNotFound() }
     }
 
+    // 새로운 채팅방을 생성하는 함수.
+    // 현재 로그인된 사용자를 멤버로 추가하고, invitedUsers는 빈 리스트로 초기화.
     private fun createNewChatRoom(inviterUserId: String, onComplete: (String) -> Unit) {
         val newChatRoomRef = db.collection("chatRooms").document()
         val chatRoomId = newChatRoomRef.id
@@ -159,8 +233,10 @@ class ChatActivity : ComponentActivity() {
             }
     }
 
+
+    // 채팅방에 메시지 전송
     private fun sendMessage(chatRoomId: String, text: String, sender: String) {
-        if (sender.isBlank()) return
+        if (text.isBlank() || sender.isBlank()) return
 
         val message = hashMapOf(
             "sender" to sender,
@@ -173,7 +249,10 @@ class ChatActivity : ComponentActivity() {
             .add(message)
     }
 
-    private fun listenForMessages(chatRoomId: String, messages: SnapshotStateList<ChatMessage>) {
+    // 채팅방에서 실시간으로 메세지 수신 및 UI 리스트 업데이트
+    private fun listenForMessages(chatRoomId: String, messages: SnapshotStateList<ChatMessage>, isMessagesLoading: MutableState<Boolean>) {
+        isMessagesLoading.value = true  // 시작할 때 로딩 표시
+
         db.collection("chatRooms")
             .document(chatRoomId)
             .collection("messages")
@@ -187,12 +266,41 @@ class ChatActivity : ComponentActivity() {
                             timestamp = doc.getDate("timestamp") ?: Date()
                         )
                     }
+                    Log.d("DEBUG", "messages loaded: ${newMessages.size}")
                     messages.clear()
                     messages.addAll(newMessages)
+                    isMessagesLoading.value = false  // 메시지 불러오기 끝
+                } else{
+                    Log.d("DEBUG", "No snapshot received.")
                 }
             }
     }
 
+    // 입력된 이메일 리스트로 가족 초대 Cloud Function 호출
+    // 이메일과 채팅방 이름(roomName)을 전달하고 결과 콜백을 통해 성공 여부 반환
+    private fun sendFamilyInvites(
+        emails: List<String>,
+        roomName: String,
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        val user = auth.currentUser ?: return onResult(false, "인증되지 않은 사용자입니다.")
+        user.getIdToken(true).addOnSuccessListener {
+            val data = hashMapOf(
+                "emails" to emails,
+                "roomName" to roomName
+            )
+            com.google.firebase.functions.FirebaseFunctions
+                .getInstance("us-central1")
+                .getHttpsCallable("sendFamilyInvites")
+                .call(data)
+                .addOnSuccessListener { onResult(true, null) }
+                .addOnFailureListener { e -> onResult(false, e.message) }
+        }.addOnFailureListener {
+            onResult(false, "토큰 획득 실패: ${it.message}")
+        }
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun ChatScreen(
         messages: List<ChatMessage>,
@@ -202,53 +310,59 @@ class ChatActivity : ComponentActivity() {
     ) {
         var input by remember { mutableStateOf("") }
 
-        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            if (messages.isEmpty()) {
-                // 빈 채팅방 안내
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("아직 대화가 없습니다.\n가족을 초대해 대화를 시작해보세요.", textAlign = TextAlign.Center)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = onInviteClick) {
-                            Text("가족 초대")
+        Scaffold(
+            // 상단 앱 바 : 타일과 초대 버튼
+            topBar = {
+                TopAppBar(
+                    title = { Text("가족 채팅방") },
+                    actions = {
+                        IconButton(onClick = onInviteClick) {
+                            Icon(Icons.Default.Add, contentDescription = "가족 초대")
                         }
                     }
-                }
-            } else {
-                // 메세지 목록 표시
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(messages.size) { index ->
-                        val msg = messages[index]
-                        MessageBubble(message = msg, isMine = msg.sender == currentUserName)
-                    }
-                }
-
-                // 입력창
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    TextField(
-                        value = input,
-                        onValueChange = { input = it },
-                        modifier = Modifier.weight(1f).padding(8.dp),
-                        placeholder = { Text("메시지를 입력하세요") }
-                    )
-                    Button(onClick = {
-                        if (input.isNotBlank()) {
-                            onSend(input)
-                            input = ""
+                )
+            }
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(16.dp)
+            ) {
+                if (messages.isEmpty()) {
+                    // 메세지가 없을 경우 안내 문구와 초대 버튼 표시
+                    EmptyChatRoomScreen (onInviteClick = onInviteClick)
+                } else {
+                    // 메시지 목록 표시
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        items(messages.size) { index ->
+                            val msg = messages[index]
+                            MessageBubble(message = msg, isMine = msg.sender == currentUserName)
                         }
-                    }) {
-                        Text("전송")
+                    }
+                    // 입력창(항상 하단에 표시)
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        TextField(
+                            value = input,
+                            onValueChange = { input = it },
+                            modifier = Modifier.weight(1f).padding(8.dp),
+                            placeholder = { Text("메시지를 입력하세요") }
+                        )
+                        Button(onClick = {
+                            if (input.isNotBlank()) {
+                                onSend(input)
+                                input = ""
+                            }
+                        }) {
+                            Text("전송")
+                        }
                     }
                 }
             }
         }
     }
 
+    // 채팅 메세지 좌우 정렬해서 화면 출력
     @Composable
     fun MessageBubble(message: ChatMessage, isMine: Boolean) {
         Column(
@@ -277,19 +391,28 @@ class ChatActivity : ComponentActivity() {
         }
     }
 
+    // 채팅방 비어 있을 때 보여주는 안내 UI
     @Composable
     fun EmptyChatRoomScreen(onInviteClick: () -> Unit) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("아직 채팅방이 없습니다.", textAlign = TextAlign.Center)
+                Text(
+                    "아직 대화가 없습니다.\n가족을 초대해 대화를 시작해보세요.",
+                    textAlign = TextAlign.Center
+                )
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(onClick = onInviteClick) {
-                    Text("가족 초대하기")
+                    Text("가족 초대")
                 }
             }
         }
     }
 
+    // 가족 초대용 이메일 입력 다이얼로그
     @Composable
     fun InviteDialog(
         invitedUserIdInput: String,
@@ -302,11 +425,11 @@ class ChatActivity : ComponentActivity() {
             title = { Text("가족 초대") },
             text = {
                 Column {
-                    Text("초대할 사용자의 UID 또는 이메일을 입력하세요")
+                    Text("초대할 사용자의 이메일을 입력하세요")
                     TextField(
                         value = invitedUserIdInput,
                         onValueChange = onValueChange,
-                        placeholder = { Text("예: user123 또는 user@email.com") }
+                        placeholder = { Text("예: user@email.com") }
                     )
                 }
             },

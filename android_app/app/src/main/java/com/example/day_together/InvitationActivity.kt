@@ -3,6 +3,7 @@ package com.example.day_together
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -38,19 +39,20 @@ class InvitationActivity : ComponentActivity() {
                                 if (chatRoomId != null) {
                                     ChatRoomManager.acceptInvitation(chatRoomId) { success, message ->
                                         if (success) {
-                                            val intent = Intent(
-                                                this@InvitationActivity,
-                                                ChatActivity::class.java
-                                            )
+                                            // 성공 시 ChatActivity로 이동
+                                            val intent = Intent(this@InvitationActivity, ChatActivity::class.java)
                                             intent.putExtra("chatRoomId", chatRoomId)
                                             startActivity(intent)
                                             finish()
                                         } else {
+                                            // 실패 시 메시지 무조건 출력
                                             Toast.makeText(
                                                 this@InvitationActivity,
-                                                message ?: "입장 실패",
-                                                Toast.LENGTH_SHORT
+                                                message ?: "알 수 없는 오류로 초대 수락 실패",
+                                                Toast.LENGTH_LONG
                                             ).show()
+
+                                            Log.e("InvitationActivity", "초대 수락 실패: $message")
                                         }
                                     }
                                 }

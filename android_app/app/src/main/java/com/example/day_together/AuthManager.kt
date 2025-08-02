@@ -165,6 +165,7 @@ object AuthManager {
     //로그아웃
     fun logoutUser() {
         auth.signOut()
+
     }
 
     fun getCurrentUserId(): String? {
@@ -172,6 +173,7 @@ object AuthManager {
     }
 
     fun isUserLoggedIn(): Boolean {
+        //실제 로그인 상태 반환
         return auth.currentUser != null
     }
 

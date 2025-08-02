@@ -11,13 +11,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.navigation.NavHostController
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.day_together.navigation.AppNavigation
 import com.example.day_together.ui.gallery.GalleryScreen
 import com.example.day_together.ui.home.HomeScreen
 import com.example.day_together.ui.message.MessageScreen
@@ -33,18 +36,28 @@ class MainActivity : ComponentActivity() {
         setContent {
             Day_togetherTheme {
 
-                MainScreen()
+                AppNavigation()
             }
         }
     }
 }
 
+/**
+ * 하단 네비게이션 바를 포함하는 메인 화면의 UI 틀을 구성
+ * 이 화면은 AppNavigation에 의해 호출
+ *
+ * 온보딩 화면이 끝까지 스와이프 된 경우, 더 이상 온보딩 화면 노출x : 데이터 및 캐시 삭제 필요
+ *
+ * @param appNavController 앱의 최상위 NavController
+ * 하단 바가 없는 화면(예: 개인정보 수정)으로 이동할 때 사용
+ */
 @Composable
-fun MainScreen() {
-    val navController = rememberNavController()
-    val context = androidx.compose.ui.platform.LocalContext.current
+fun MainScreen(appNavController: NavHostController) {
+    // 하단 탭(Home, Message 등) 사이의 화면 전환만을 담당하는 내부 NavController 생성
+    val innerNavController = rememberNavController()
+    val context = LocalContext.current
 
-    // DB 초대 관련 로직을 MainScreen 안으로 가져옴
+    // DB 초대 관련 로직
     val invitedChatRoomId = remember { mutableStateOf<String?>(null) }
 
     // 화면이 처음 나타날 때 초대 여부 확인
@@ -54,16 +67,14 @@ fun MainScreen() {
 
 
     val bottomNavItems = listOf(
-        BottomNavItem.Home,
-        BottomNavItem.Message,
-        BottomNavItem.Gallery,
-        BottomNavItem.Settings
+        BottomNavItem.Home, BottomNavItem.Message, BottomNavItem.Gallery, BottomNavItem.Settings
     )
 
     Scaffold(
         bottomBar = {
             NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                // 현재 화면의 경로를 '내부' NavController에서 가져와야
+                val navBackStackEntry by innerNavController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
 
                 bottomNavItems.forEach { screen ->
@@ -72,7 +83,7 @@ fun MainScreen() {
 
                         icon = {
                             Icon(
-                                painter = painterResource(id = screen.iconResId), // vectorResource -> (아이콘 변경 최신 표시)painterResource
+                                painter = painterResource(id = screen.iconResId),
                                 contentDescription = screen.label,
                                 tint = if (isSelected) NavIconSelected else NavIconUnselected
                             )
@@ -80,8 +91,9 @@ fun MainScreen() {
 
                         selected = isSelected,
                         onClick = {
-                            navController.navigate(screen.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            // 하단 탭 클릭 시 '내부' NavController를 사용하여 이동
+                            innerNavController.navigate(screen.route) {
+                                popUpTo(innerNavController.graph.findStartDestination().id) { saveState = true }
                                 launchSingleTop = true
                                 restoreState = true
                             }
@@ -94,38 +106,32 @@ fun MainScreen() {
         }
     ) { innerPadding ->
         NavHost(
-            navController = navController,
+            navController = innerNavController, // '서울 지도' 사용
             startDestination = BottomNavItem.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(BottomNavItem.Home.route) {
-                HomeScreen(appNavController = navController)
+                HomeScreen(appNavController = appNavController)
             }
             composable(BottomNavItem.Message.route) {
-                MessageScreen(navController = navController)
+                MessageScreen(navController = appNavController)
             }
             composable(BottomNavItem.Gallery.route) {
-                GalleryScreen(navController = navController)
+                GalleryScreen(navController = appNavController)
             }
             composable(BottomNavItem.Settings.route) {
-                SettingsScreen(navController = navController)
+
+                SettingsScreen(appNavController = appNavController)
             }
         }
     }
 
-    // 초대 다이얼로그 로직을 Scaffold 밖에 배치하고 화면 위에 뜨도록
+    // 초대 다이얼로그
     invitedChatRoomId.value?.let { chatRoomId ->
         InvitationDialog(
             onAccept = {
-                ChatRoomManager.acceptInvitation(chatRoomId) { success, message ->
-                    if (success) {
-                        val intent = Intent(context, ChatActivity::class.java)
-                        intent.putExtra("chatRoomId", chatRoomId)
-                        context.startActivity(intent)
-                    } else {
-                        Toast.makeText(context, message ?: "입장 실패", Toast.LENGTH_SHORT).show()
-                    }
-                }
+                // TODO: 실제 로직 연결
+                Toast.makeText(context, "초대를 수락했습니다.", Toast.LENGTH_SHORT).show()
                 invitedChatRoomId.value = null
             },
             onDismiss = {
@@ -138,36 +144,5 @@ fun MainScreen() {
 
 // DB 초대 확인 함수
 private fun checkInvitationAndSetState(state: MutableState<String?>) {
-    val userId = AuthManager.getCurrentUserId() ?: return
-
-    FirebaseService.db.collection("users").document(userId).get()
-        .addOnSuccessListener { document ->
-            val invitedChatRoomId = document.getString("invitedChatRoomId")
-            if (!invitedChatRoomId.isNullOrEmpty()) {
-                state.value = invitedChatRoomId
-            }
-        }
-}
-
-// DB 초대 다이얼로그
-@Composable
-fun InvitationDialog(
-    onAccept: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("초대 도착") },
-        text = { Text("가족 채팅방에 초대받았습니다. 입장하시겠습니까?") },
-        confirmButton = {
-            Button(onClick = onAccept) {
-                Text("입장하기")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("나중에")
-            }
-        }
-    )
+    // AuthManager.checkInvitation { invitedId -> state.value = invitedId }
 }
