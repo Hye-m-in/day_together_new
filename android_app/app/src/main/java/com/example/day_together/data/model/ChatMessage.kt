@@ -3,16 +3,20 @@ package com.example.day_together.data.model
 import com.google.firebase.firestore.PropertyName
 import java.util.Date
 
+/**
+ * 채팅 메시지 한 개를 나타내는 데이터 모델
+ * Firestore의 필드명과 변수명을 매핑하기 위해 @PropertyName 어노테이션 사용
+ */
 data class ChatMessage(
-    // ChatActivity에서 사용하는 메시지 내용
+    // 메시지 내용
     @get:PropertyName("content") @set:PropertyName("content")
     var content: String = "",
 
-    // ChatActivity에서 보내는 사람의 '이름(name)'을 저장하고 있음
+    // 메시지를 보낸 사람의 이름
     @get:PropertyName("sender") @set:PropertyName("sender")
     var sender: String = "",
 
-    // ChatActivity에서 사용하는 메시지 전송 시간
+    // 메시지를 보낸 시간
     @get:PropertyName("timestamp") @set:PropertyName("timestamp")
     var timestamp: Date = Date()
 )

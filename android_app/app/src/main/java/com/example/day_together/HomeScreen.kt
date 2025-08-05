@@ -1,8 +1,6 @@
 package com.example.day_together
 
 import android.annotation.SuppressLint
-import android.content.Context
-import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -21,20 +19,27 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 import com.example.day_together.ChatRoomManager.auth
 import com.example.day_together.ChatRoomManager.db
-import com.example.day_together.ui.auth.LoginActivity
+
+/**
+ * HomeScreen.kt
+ *화면 전환을 위해 NavController 사용
+ * LoginActivity, ChatActivity, InvitationActivity를 직접 호출하지 않고, NavController를 통해 정의된 경로로 이동
+ */
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun HomeScreen(
+    // NavController를 파라미터로 추가해 화면 전환 담당
+    navController: NavController,
     invitedChatRoomId: MutableState<String?>,
     onAcceptInvitation: (String) -> Unit,
     onDismissInvitation: () -> Unit
 ) {
     val context = LocalContext.current
-    val db = FirebaseService.db
-    val auth = FirebaseService.auth
+    
     val currentUserId = auth.currentUser?.uid
 
     Scaffold {
@@ -50,12 +55,13 @@ fun HomeScreen(
                         .addOnSuccessListener { doc ->
                             val invitedId = doc.getString("invitedChatRoomId")
                             if (invitedId != null) {
-                                // 초대 상태가 있는 경우 InvitationActivity로
-                                goToChatOrInvitation(context, invitedId)
+                                // 초대 상태가 있는 경우, NavController를 사용해 화면 이동
+                                goToChatOrInvitation(navController, invitedId)
                             } else {
                                 Toast.makeText(context, "참여 중인 채팅방이 없습니다", Toast.LENGTH_SHORT).show()
-                                val intent = Intent(context, ChatActivity::class.java)
-                                context.startActivity(intent)
+                                // 채팅방 ID가 없으므로 채팅방 목록 화면 등으로 이동하는 로직 필요
+                                // 임시로 "chat_list_route"로 이동하도록 가정
+                                navController.navigate("chat_list_route")
                             }
                         }
                 }
@@ -72,10 +78,18 @@ fun HomeScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier
                     .clickable {
+                        // 로그아웃 로직 유지
                         AuthManager.logoutUser()
-                        val loginIntent = Intent(context, LoginActivity::class.java)
-                        loginIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        context.startActivity(loginIntent) }
+                        
+
+                        // NavController를 사용하여 로그인 화면으로 이동
+                        navController.navigate("login_route") {
+                            // 백스택을 모두 지워서 로그인 화면에서 뒤로가기를 눌렀을 홈 화면으로 다시 돌아오는 것을 방지
+                            popUpTo(navController.graph.startDestinationId) {
+                                inclusive = true
+                            }
+                        }
+                    }
             )
 
             // 초대 다이얼로그 표시
@@ -89,9 +103,10 @@ fun HomeScreen(
     }
 }
 
-// 채팅방 상태에 따라 Chat 또는 Invitation으로 이동
-fun goToChatOrInvitation(context: Context, chatRoomId: String) {
+// 채팅방 상태에 따라 Chat 또는 Invitation으로 이동하는 함수
+fun goToChatOrInvitation(navController: NavController, chatRoomId: String) {
     val uid = auth.currentUser?.uid ?: return
+    val context = navController.context // Toast를 위해 context가 필요하면 NavController에서 얻을 수 있음
 
     val invitationRef = db.collection("users")
         .document(uid)
@@ -102,21 +117,20 @@ fun goToChatOrInvitation(context: Context, chatRoomId: String) {
         .addOnSuccessListener { document ->
             val status = document.getString("status")
             if (status == "accepted") {
-                // 수락된 경우: 채팅 화면으로 이동
-                val intent = Intent(context, ChatActivity::class.java)
-                intent.putExtra("chatRoomId", chatRoomId)
-                context.startActivity(intent)
+                // 수락된 경우: 채팅 화면으로 이동 (경로에 chatRoomId를 전달)
+                // NavHost에 "chat_route/{chatRoomId}" 형태의 경로가 정의되어 있어야 함
+                navController.navigate("chat_route/$chatRoomId")
             } else {
                 // 아직 수락하지 않은 경우: 초대 수락 화면으로 이동
-                val intent = Intent(context, InvitationActivity::class.java)
-                intent.putExtra("chatRoomId", chatRoomId)
-                context.startActivity(intent)
+                // NavHost에 "invitation_route/{chatRoomId}" 형태의 경로가 정의되어 있어야 함
+                navController.navigate("invitation_route/$chatRoomId")
             }
         }
         .addOnFailureListener { e ->
             Toast.makeText(context, "초대 정보 조회 실패: ${e.message}", Toast.LENGTH_SHORT).show()
         }
 }
+
 @Composable
 fun InvitationDialog(
     onAccept: () -> Unit,
@@ -138,4 +152,3 @@ fun InvitationDialog(
         }
     )
 }
-

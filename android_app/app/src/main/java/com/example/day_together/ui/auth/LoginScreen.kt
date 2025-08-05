@@ -3,15 +3,15 @@ package com.example.day_together.ui.auth
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
-import android.content.Intent
 import android.widget.Toast
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -19,11 +19,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -33,36 +33,43 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.day_together.MainActivity
 import com.example.day_together.R
+import com.example.day_together.navigation.AppDestinations
 import com.example.day_together.ui.theme.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * 로그인 화면의 UI를 그리는 컴포저블 함수입
+ * 모든 화면 이동은 NavController로
+ *
+ * @param navController 앱의 화면 전환을 담당하는 NavController
+ * @param fromOnboarding 온보딩 화면에서 넘어왔는지 여부(UI 간격 조절용)
+ * @param authViewModel 인증 관련 로직을 처리하는 ViewModel
+ */
 @Composable
 fun LoginScreen(
     navController: NavController,
     fromOnboarding: Boolean = false,
     authViewModel: AuthViewModel = viewModel()
 ) {
+    // 상태 및 기본 설정
     val uiState by authViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
 
+    // 부가 효과 처리 (Side Effects)
+    // 로그인 성공 시 메인 화면으로 이동하는 로직
     LaunchedEffect(key1 = uiState.isLoginSuccess) {
         if (uiState.isLoginSuccess) {
             Toast.makeText(context, "로그인 성공!", Toast.LENGTH_SHORT).show()
-
-            val intent = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            navController.navigate(AppDestinations.MAIN_ROUTE) {
+                popUpTo(AppDestinations.LOGIN_ROUTE) { inclusive = true }
             }
-            context.startActivity(intent)
-
-            // 안전한 방식으로 현재 액티비티 종료
-            context.findActivity()?.finish()
+            authViewModel.clearLoginError()
         }
     }
 
+    // 로그인 실패 시 에러 메시지 표시 로직
     LaunchedEffect(key1 = uiState.loginError) {
         uiState.loginError?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
@@ -70,6 +77,7 @@ fun LoginScreen(
         }
     }
 
+    // 화면 UI 구성
     Day_togetherTheme {
         Column(
             modifier = Modifier
@@ -80,14 +88,14 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-
             Spacer(modifier = Modifier.height(if (fromOnboarding) 80.dp else 120.dp))
 
+            // 중앙 컨텐츠 (입력 필드, 버튼 등)
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
-
+                // 이메일 입력 섹션
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -115,13 +123,8 @@ fun LoginScreen(
                         placeholder = { Text("이메일 주소를 입력해주세요") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Email,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(onNext = {
-                            focusManager.moveFocus(FocusDirection.Down)
-                        }),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                         isError = uiState.loginError != null,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = if (uiState.loginError != null) ErrorRed else MaterialTheme.colorScheme.primary,
@@ -136,6 +139,7 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
+                // 비밀번호 입력 섹션
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = "Password",
@@ -151,10 +155,7 @@ fun LoginScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Password,
-                            imeAction = ImeAction.Done
-                        ),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = {
                             focusManager.clearFocus()
                             if (uiState.loginEmail.isNotBlank() && uiState.loginPassword.isNotBlank()) {
@@ -172,23 +173,23 @@ fun LoginScreen(
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
+                // 로그인 버튼
                 Button(
                     onClick = authViewModel::login,
                     enabled = uiState.loginEmail.isNotBlank() && uiState.loginPassword.isNotBlank() && !uiState.isLoading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = ButtonActiveBackground,
                         contentColor = ButtonActiveText,
                         disabledContainerColor = ButtonDisabledBackground,
-                        disabledContentColor = ButtonDisabledText
+                        disabledContentColor = TextPrimary.copy(alpha = 0.7f)
                     )
                 ) {
                     Text(if (uiState.isLoading) "로그인 중..." else "로그인", style = MaterialTheme.typography.labelLarge)
                 }
                 Spacer(modifier = Modifier.height(40.dp))
+                // SNS 로그인 섹션
                 Text(
                     "SNS 계정으로 로그인",
                     style = MaterialTheme.typography.bodyMedium,
@@ -199,30 +200,27 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally)
                 ) {
-                    SocialLoginIconButton(iconRes = R.drawable.ic_logo_naver, text = "네이버") { }
-                    SocialLoginIconButton(iconRes = R.drawable.ic_logo_kakao, text = "카카오") { }
+                    SocialLoginIconButton(iconRes = R.drawable.ic_logo_naver, text = "네이버") { /* TODO: 네이버 로그인 구현 */ }
+                    SocialLoginIconButton(iconRes = R.drawable.ic_logo_google, text = "구글") { /* TODO: 구글 로그인 구현 */ }
                 }
             }
+            // 하단 메뉴 (회원가입, 계정 찾기)
             Column(
                 modifier = Modifier.padding(bottom = if (fromOnboarding) 60.dp else 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                ClickableText(
-                    text = AnnotatedString("회원가입"),
-                    onClick = {
-                        context.startActivity(Intent(context, SignUpActivity::class.java))
-                    },
+                Text(
+                    text = "회원가입",
+                    modifier = Modifier.clickable { navController.navigate(AppDestinations.SIGNUP_ROUTE) },
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = TextPrimary,
                         textDecoration = TextDecoration.Underline
                     )
                 )
-                ClickableText(
-                    text = AnnotatedString("아이디/비밀번호 찾기"),
-                    onClick = {
-                        context.startActivity(Intent(context, FindAccountActivity::class.java))
-                    },
+                Text(
+                    text = "아이디/비밀번호 찾기",
+                    modifier = Modifier.clickable { navController.navigate(AppDestinations.FIND_ACCOUNT_ROUTE) },
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = TextPrimary,
                         textDecoration = TextDecoration.Underline
@@ -233,28 +231,51 @@ fun LoginScreen(
     }
 }
 
-
+/**
+ * SNS 로그인 아이콘과 텍스트를 함께 보여주는 컴포저블
+ *
+ * @param iconRes 보여줄 아이콘 이미지의 리소스 ID
+ * @param text 아이콘 아래에 표시할 텍스트
+ * @param onClick 버튼 클릭 시 실행될 동작
+ */
 @Composable
 fun SocialLoginIconButton(
     @DrawableRes iconRes: Int,
-    text: String,
+    text: String, // text 파라미터 받도록 추가
     onClick: () -> Unit
 ) {
-    IconButton(
-        onClick = onClick,
-        modifier = Modifier.size(68.dp)
+    // Column을 사용하여 아이콘과 텍스트를 세로로 배치
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable(onClick = onClick)
     ) {
         Image(
             painter = painterResource(id = iconRes),
             contentDescription = "$text 로그인",
-            modifier = Modifier.fillMaxSize(0.75f)
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = TextPrimary.copy(alpha = 0.8f)
         )
     }
 }
 
-// Context에서 Activity를 안전하게 찾아오는 헬퍼 함수
+/**
+ * Context에서 현재 실행 중인 Activity를 찾는 확장 함수
+ */
 private fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> null
 }
+
+
+/**
+ * LoginActivity.kt 파일 삭제 : intent -> navcontroller 사용 방식으로 변경함
+ * loginscreen.kt 파일 내 반영 완료
+ */
