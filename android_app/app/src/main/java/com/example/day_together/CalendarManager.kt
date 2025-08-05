@@ -4,7 +4,7 @@ import android.util.Log
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.SetOptions
 
-// 채팅 메세지 데이터 클래스
+// 캘린더 일정 데이터 클래스
 data class Event(
     val title: String = "",
     val date: String = "", // "@2025-08-01"

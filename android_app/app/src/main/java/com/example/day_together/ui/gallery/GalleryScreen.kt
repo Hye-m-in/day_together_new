@@ -76,6 +76,8 @@ import com.example.day_together.ui.theme.ScreenBackground
 import com.example.day_together.ui.theme.TextPrimary
 import com.example.day_together.ui.theme.WeeklyCalendarBorderColor
 import com.example.day_together.ui.WheelCustomYearMonthPickerDialog
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.firestore.ktx.firestore
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -449,4 +451,18 @@ fun GalleryScreenPreview() {
     Day_togetherTheme {
         GalleryScreen(navController = rememberNavController())
     }
+}
+
+// 이미지 불러오기
+fun getImageMessages(chatRoomId: String, onResult: (List<String>) -> Unit) {
+    Firebase.firestore.collection("chatRooms")
+        .document(chatRoomId)
+        .collection("messages")
+        .whereEqualTo("type", "image")
+        .orderBy("timestamp")
+        .get()
+        .addOnSuccessListener { documents ->
+            val imageUrls = documents.mapNotNull { it.getString("imageUrl") }
+            onResult(imageUrls)
+        }
 }
