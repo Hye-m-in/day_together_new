@@ -181,7 +181,7 @@ class AppRepository {
     }
 
     /**
-     * 특정 월의 댓글 목록을 가져옴
+     * 특정 월의 댓글 목록을 가져옴(임시 데이터 생성)
      * TODO: Firestore에서 실제 댓글 목록을 가져오도록 구현 필요
      */
     suspend fun getMonthlyComments(yearMonth: YearMonth): List<MonthlyComment> {
