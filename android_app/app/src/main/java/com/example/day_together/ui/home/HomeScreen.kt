@@ -21,18 +21,23 @@ import java.util.Locale
 import java.time.DayOfWeek as JavaDayOfWeek
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.day_together.R
-import kotlin.random.Random
 
+/**
+ * 앱의 메인 화면(홈)을 구성하는 Composable 함수.
+ * 캘린더, D-Day, AI 질문 등 핵심 기능을 포함합니다.
+ * @param appNavController 앱 전체의 화면 전환을 담당하는 NavController
+ * @param homeViewModel HomeScreen의 상태와 로직을 관리하는 ViewModel
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     appNavController: NavController,
     homeViewModel: HomeViewModel = viewModel()
 ) {
-    // ViewModel로 UI 상태 구독
+    // ViewModel로부터 UI 상태를 구독하여, 상태 변경 시 자동으로 UI가 업데이트되도록 함
     val uiState by homeViewModel.uiState.collectAsState()
 
-    // UI 자체 상태 관리 변수
+    // --- UI 자체의 상태를 관리하는 변수들 ---
     var currentYearMonth by remember { mutableStateOf(YearMonth.now()) }
     var isMonthlyView by remember { mutableStateOf(false) }
     var selectedDateForDetails by remember { mutableStateOf<LocalDate?>(null) }
@@ -42,16 +47,19 @@ fun HomeScreen(
     var dateForNewEvent by remember { mutableStateOf<LocalDate?>(null) }
     var showCustomYearMonthPicker by remember { mutableStateOf(false) }
 
-    // 일정 추가/수정 상태 변수
-    var currentEventDescriptionInput by remember { mutableStateOf("") }
-    var currentEventIsPriority by remember { mutableStateOf(false) } // d-day 설정 스위치 상태
+    // 다이얼로그의 임시 선택 값을 저장할 상태 변수
+    var tempSelectedYearMonth by remember { mutableStateOf(currentYearMonth) }
 
-    // 삭제 확인 다이얼로그 상태 변수
+    // 일정 추가/수정 관련 상태 변수
+    var currentEventDescriptionInput by remember { mutableStateOf("") }
+    var currentEventIsPriority by remember { mutableStateOf(false) }
+
+    // 삭제 확인 다이얼로그 관련 상태 변수
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var eventToDeleteConfirmState by remember { mutableStateOf<CalendarEvent?>(null) }
     var dateOfEventToDeleteConfirmState by remember { mutableStateOf<LocalDate?>(null) }
 
-    // ViewModel 데이터 기반 계산되는 변수
+    // 오늘 날짜를 기준으로 주간 달력 데이터를 계산
     val today = LocalDate.now()
     val weeklyCalendarDataState = remember(today, uiState.eventsByDate, isMonthlyView) {
         if(!isMonthlyView) {
@@ -70,7 +78,7 @@ fun HomeScreen(
         }
     }
 
-    // 기타 UI 변수
+    // 배경에 표시될 구름 이미지 리소스 목록
     val allCloudDrawables = remember {
         listOf(
             R.drawable.ic_cloud1, R.drawable.ic_cloud2, R.drawable.ic_cloud3,
@@ -84,10 +92,10 @@ fun HomeScreen(
         )
     }
 
-    // 화면에 그릴 내용
+    // 화면에 그릴 내용을 Box 안에 배치
     Box(modifier = Modifier.fillMaxSize()) {
         ActualHomeScreenContent(
-            upcomingAnniversaryText = uiState.dDayTitle, // ViewModel에서 계산된 디데이 제목 사용
+            upcomingAnniversaryText = uiState.dDayTitle,
             dDayText = uiState.dDayText,
             dDayTitle = uiState.dDayTitle,
             randomCloudResIds = randomCloudResIds,
@@ -116,7 +124,13 @@ fun HomeScreen(
             },
             onToggleCalendarView = { isMonthlyView = !isMonthlyView },
             onMonthlyCalendarHeaderTitleClick = { isMonthlyView = false },
-            onMonthlyCalendarHeaderIconClick = { if(isMonthlyView) showCustomYearMonthPicker = true },
+            onMonthlyCalendarHeaderIconClick = {
+                if(isMonthlyView) {
+                    // 다이얼로그 열 때 임시 상태 동기화
+                    tempSelectedYearMonth = currentYearMonth
+                    showCustomYearMonthPicker = true
+                }
+            },
             onRefreshQuestionClicked = homeViewModel::refreshQuestion,
             onMonthlyTodayButtonClick = {
                 val todayDate = LocalDate.now()
@@ -125,12 +139,11 @@ fun HomeScreen(
                 selectedDateForDetails = null
                 showAddEventSheet = false
             },
-            // 수정버튼 클릭하면 해당 이벤트 isPriority 값도 상태에 저장
             onEditEventRequest = { date, event ->
                 dateForNewEvent = date
                 eventToEdit = event
                 currentEventDescriptionInput = event.description
-                currentEventIsPriority = event.isPriority // isPriority 상태 설정
+                currentEventIsPriority = event.isPriority
                 showAddEventSheet = true
                 selectedDateForDetails = null
             },
@@ -141,6 +154,7 @@ fun HomeScreen(
             }
         )
 
+        // 특정 날짜가 선택되었고, 일정 추가 모드가 아닐 때 BottomSheet를 표시
         if (selectedDateForDetails != null && !showAddEventSheet) {
             Box(modifier = Modifier.align(Alignment.BottomCenter)) {
                 DateEventsBottomSheet(
@@ -148,21 +162,19 @@ fun HomeScreen(
                     targetDate = selectedDateForDetails!!,
                     events = uiState.eventsByDate[selectedDateForDetails!!] ?: emptyList(),
                     onDismiss = { selectedDateForDetails = null },
-                    // 새 일정 추가 시, isPriority 상태 false로 초기화
                     onAddNewEventClick = {
                         dateForNewEvent = selectedDateForDetails
                         eventToEdit = null
                         currentEventDescriptionInput = ""
-                        currentEventIsPriority = false // isPriority 상태 초기화
+                        currentEventIsPriority = false
                         showAddEventSheet = true
                         selectedDateForDetails = null
                     },
-                    // 일정 수정 시, 해당 이벤트의 isPriority 값으로 상태 설정
                     onEditEvent = { eventToEditFromSheet ->
                         dateForNewEvent = selectedDateForDetails
                         eventToEdit = eventToEditFromSheet
                         currentEventDescriptionInput = eventToEditFromSheet.description
-                        currentEventIsPriority = eventToEditFromSheet.isPriority // isPriority 상태 설정
+                        currentEventIsPriority = eventToEditFromSheet.isPriority
                         showAddEventSheet = true
                         selectedDateForDetails = null
                     },
@@ -175,26 +187,25 @@ fun HomeScreen(
             }
         }
 
+        // 일정 추가/수정 모드일 때 입력창 BottomSheet를 표시
         if (showAddEventSheet && dateForNewEvent != null) {
             val isInEditMode = eventToEdit != null
             Box(modifier = Modifier.align(Alignment.BottomCenter)) {
-                // AddEventInputView에 isPriority 상태와 변경 함수를 전달
                 AddEventInputView(
                     visible = true,
                     targetDate = dateForNewEvent!!,
                     eventDescription = currentEventDescriptionInput,
                     isEditing = isInEditMode,
-                    isPriority = currentEventIsPriority, // isPriority 상태 전달
+                    isPriority = currentEventIsPriority,
                     onDescriptionChange = { newDescription ->
                         currentEventDescriptionInput = newDescription
                     },
-                    onPriorityChange = { newPriority -> // 스위치 값 변경 시 상태 업데이트
+                    onPriorityChange = { newPriority ->
                         currentEventIsPriority = newPriority
                     },
                     onSave = {
                         val descriptionToSave = currentEventDescriptionInput.trim()
                         if (descriptionToSave.isNotBlank()) {
-                            // 저장 시, isPriority 값을 포함하여 Event 객체 생성
                             val eventToSave = eventToEdit?.copy(
                                 description = descriptionToSave,
                                 isPriority = currentEventIsPriority
@@ -222,18 +233,27 @@ fun HomeScreen(
             }
         }
 
+        // 커스텀 년/월 선택 다이얼로그 표시
         if (showCustomYearMonthPicker) {
+            // 다이얼로그 호출 로직
             WheelCustomYearMonthPickerDialog(
                 initialYearMonth = currentYearMonth,
-                onDismissRequest = { showCustomYearMonthPicker = false },
-                onConfirm = { selectedYearMonth ->
-                    currentYearMonth = selectedYearMonth
+                // 다이얼로그가 닫힐 때(외부 클릭, 뒤로가기) 최종 값을 확정
+                onDismissRequest = {
+                    currentYearMonth = tempSelectedYearMonth // 임시 값을 최종 값으로 반영
                     selectedDateForDetails = null
                     dateForBorderOnly = null
+                    showCustomYearMonthPicker = false
+                },
+                // 스크롤이 멈출 때마다 임시 상태만 업데이트
+                onSelectionChanged = { selectedYearMonth ->
+                    tempSelectedYearMonth = selectedYearMonth
                 }
             )
+
         }
 
+        // 삭제 확인 다이얼로그 표시
         if (showDeleteConfirmDialog && eventToDeleteConfirmState != null && dateOfEventToDeleteConfirmState != null) {
             DeleteConfirmationDialog(
                 onConfirm = {
@@ -253,6 +273,9 @@ fun HomeScreen(
     }
 }
 
+/**
+ * 일정 삭제 시 확인을 받기 위한 간단한 AlertDialog Composable
+ */
 @Composable
 private fun DeleteConfirmationDialog(
     onConfirm: () -> Unit,

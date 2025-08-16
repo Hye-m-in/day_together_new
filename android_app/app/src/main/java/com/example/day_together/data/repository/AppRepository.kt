@@ -187,8 +187,6 @@ class AppRepository {
     suspend fun getMonthlyComments(yearMonth: YearMonth): List<MonthlyComment> {
         delay(400)
         return listOf(
-            MonthlyComment(author = "엄마", text = "${yearMonth.monthValue}월도 행복했어!", timestamp = "3시간 전"),
-            MonthlyComment(author = "아빠", text = "시간 참 빠르다.", timestamp = "1시간 전")
         )
     }
 
