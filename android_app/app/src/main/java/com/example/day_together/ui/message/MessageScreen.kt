@@ -1,6 +1,5 @@
 package com.example.day_together.ui.message
 
-
 import androidx.navigation.NavHostController
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.foundation.Image
@@ -34,8 +33,6 @@ import java.time.LocalDate
 import androidx.compose.foundation.BorderStroke
 import com.example.day_together.R
 import com.example.day_together.navigation.AppDestinations
-
-
 import android.content.Intent
 import android.net.Uri
 import android.provider.MediaStore
@@ -45,11 +42,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
-
+import com.example.day_together.ChatRoomManager
 
 /**
  * 메시지 화면의 메인 컴포저블
- * 채팅 UI의 전체적인 레이아웃과 상태 관리
+ * 채팅 UI의 전체적인 레이아웃과 상태 관리합
  * @param navController 화면 이동을 제어하는 NavController
  * @param modifier 외부에서 이 컴포저블에 적용할 Modifier
  */
@@ -59,29 +56,45 @@ fun MessageScreen(
     navController: NavHostController,
     modifier: Modifier = Modifier
 ) {
-    // --- 상태 관리 변수들 ---
+    val context = LocalContext.current
+
+    // [homescreen.kt 기능 이동] 이 화면이 처음 나타날 때 한 번만 실행되어 사용자의 채팅방 참여 상태를 확인
+    LaunchedEffect(Unit) {
+        val currentUserId = ChatRoomManager.auth.currentUser?.uid
+        if (currentUserId != null) {
+            // Firestore DB에서 사용자의 정보를 가져옴
+            ChatRoomManager.db.collection("users").document(currentUserId).get()
+                .addOnSuccessListener { doc ->
+                    val invitedId = doc.getString("invitedChatRoomId")
+                    if (invitedId != null) {
+                        // 참여 중인 채팅방이 있으면, 상태를 확인하여 적절한 화면으로 이동
+                        goToChatOrInvitation(navController, invitedId)
+                    } else {
+                        // 참여 중인 채팅방이 없으면 안내 메시지 표시
+                        Toast.makeText(context, "참여 중인 채팅방이 없습니다", Toast.LENGTH_SHORT).show()
+                        // TODO: 채팅방이 없을 때 보여줄 화면(예: 채팅방 목록, 생성 화면)으로 이동하는 로직 필요
+                    }
+                }
+        }
+    }
+
+    // UI 상태 관리 변수들
     var showSearchBar by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showAttachmentOptions by remember { mutableStateOf(false) }
     var messageText by remember { mutableStateOf("") }
     var searchText by remember { mutableStateOf("") }
 
+    // 달력 상태 관리 변수
     val currentCalendar = Calendar.getInstance()
     var selectedYear by remember { mutableStateOf(currentCalendar.get(Calendar.YEAR)) }
     var selectedMonth by remember { mutableStateOf(currentCalendar.get(Calendar.MONTH)) }
     var selectedDisplayDate by remember { mutableStateOf<Int?>(null) }
 
-
-
-    // 시스템 Intent를 사용하기 위한 현재 Context(앱의 상태 정보) 가져오기
-    val context = LocalContext.current
-
-    // 1. 앨범(갤러리)연동을 위한 ActivityResultLauncher 준비
-    // PickVisualMedia : 최신 사진 선택기 API
+    // 앨범, 파일 연동을 위한 ActivityResultLauncher 준비
     val pickMediaLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
-        // 사용자가 이미지를 성공적으로 선택했을 때 실행되는 부분
         if (uri != null) {
             Log.d("PhotoPicker", "Selected URI: $uri")
             // TODO: 선택된 이미지를 채팅방에 표시하거나 업로드하는 로직 추가
@@ -89,13 +102,9 @@ fun MessageScreen(
             Log.d("PhotoPicker", "No media selected")
         }
     }
-
-    // 2. 파일 선택 연동을 위한 ActivityResultLauncher 준비
-    // GetContent는 일반적인 파일 선택할 때 사용
     val pickFileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        // 사용자가 파일을 성공적으로 선택했을 때 실행되는 부분
         if (uri != null) {
             Log.d("FilePicker", "Selected URI: $uri")
             // TODO: 선택된 파일을 채팅방에 전송하는 로직 추가
@@ -104,9 +113,7 @@ fun MessageScreen(
         }
     }
 
-
-
-    // (샘플 데이터) 날짜 선택창에 대화가 있는 날짜 표시하기 위한 Set
+    // (샘플 데이터) 날짜 선택창에 대화가 있는 날짜 표시
     val datesWithConversationsForPicker = remember(selectedYear, selectedMonth) {
         val monthAdjusted = selectedMonth + 1
         if (selectedYear == 2025 && monthAdjusted == 6) {
@@ -118,7 +125,7 @@ fun MessageScreen(
         }
     }
 
-    // 화면의 전체적인 구조를 정의하는 Scaffold
+    // 화면의 전체적인 구조
     Scaffold(
         topBar = {
             MessageTopBar(
@@ -150,6 +157,7 @@ fun MessageScreen(
                 )
             }
 
+            // 날짜 선택창 UI
             if (showDatePicker) {
                 Box(
                     modifier = Modifier
@@ -181,7 +189,7 @@ fun MessageScreen(
                 }
             }
 
-            // 첨부 파일 옵션이 활성화되면 화면에 표시
+            // 첨부 파일 옵션 패널 UI
             if (showAttachmentOptions) {
                 Box(
                     modifier = Modifier
@@ -189,46 +197,36 @@ fun MessageScreen(
                         .background(Color.Black.copy(alpha = 0.3f))
                         .clickable { showAttachmentOptions = false }
                 ) {
-                    // AttachmentOptionsPanel의 onClick 핸들러 수정
                     AttachmentOptionsPanel(
                         modifier = Modifier.align(Alignment.BottomCenter),
                         onDismiss = { showAttachmentOptions = false },
                         onAlbumClick = {
-                            // 앨범 아이콘 클릭 시, 위에서 준비한 갤러리 런처 실행
-                            // 이미지 타입만 선택하도록 요청
                             pickMediaLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                            showAttachmentOptions = false // 패널 닫기
+                            showAttachmentOptions = false
                         },
                         onCameraClick = {
-                            // 카메라 앱을 직접 실행하는 Intent(명령) 생성
                             val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-                            // 기기에 카메라 앱이 있는지 확인 후 실행
                             if (intent.resolveActivity(context.packageManager) != null) {
                                 context.startActivity(intent)
                             } else {
                                 Toast.makeText(context, "카메라 앱을 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
                             }
-                            showAttachmentOptions = false // 패널 닫기
+                            showAttachmentOptions = false
                         },
                         onFileClick = {
-                            // 파일 아이콘 클릭 시, 위에서 준비한 파일 선택 런처 실행
-                            // "*/*"는 모든 종류의 파일 의미
                             pickFileLauncher.launch("*/*")
-                            showAttachmentOptions = false // 패널 닫기
+                            showAttachmentOptions = false
                         },
                         onVoiceMessageClick = {
-                            // 음성 녹음기 앱을 실행하는 Intent 생성
                             val intent = Intent(MediaStore.Audio.Media.RECORD_SOUND_ACTION)
-                            // 기기에 음성 녹음기 앱이 있는지 확인 후 실행
                             if (intent.resolveActivity(context.packageManager) != null) {
                                 context.startActivity(intent)
                             } else {
                                 Toast.makeText(context, "음성 녹음 앱을 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
                             }
-                            showAttachmentOptions = false // 패널 닫기
+                            showAttachmentOptions = false
                         }
                     )
-                    // AttachmentOptionsPanel의 onClick 핸들러 수정
                 }
             }
         }
@@ -250,9 +248,8 @@ fun MessageTopBar(
     onMoreOptionsClick: () -> Unit
 ) {
     TopAppBar(
-        title = { }, // 타이틀 사용하지 않음
+        title = { },
         actions = {
-            // 검색창 모드일 때
             if (showSearchBar) {
                 OutlinedTextField(
                     value = searchText,
@@ -278,12 +275,10 @@ fun MessageTopBar(
                     textStyle = TextStyle(fontSize = 14.sp, color = TextPrimary, fontFamily = GothicA1),
                     singleLine = true
                 )
-                TextButton(onClick = {
-                    onToggleSearchBar() // 검색창 닫기
-                }) {
+                TextButton(onClick = onToggleSearchBar) {
                     Text("확인", color = TextPrimary, style = TextStyle(fontSize = 14.sp, fontFamily = GothicA1, fontWeight = FontWeight.Medium))
                 }
-            } else { // 일반 모드일 때
+            } else {
                 IconButton(onClick = onCalendarClick) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_calendar),
@@ -315,7 +310,7 @@ fun MessageTopBar(
 }
 
 /**
- * 챗봇이 보낸 고정 메시지 표시하는 컴포저블
+ * 챗봇이 보낸 고정 메시지를 표시하는 컴포저블
  */
 @Composable
 fun PinnedChatbotMessageBubble() {
@@ -378,13 +373,11 @@ fun PinnedChatbotMessageBubble() {
 }
 
 /**
- * todo : test용 데이터 삭제 필요
  * 메시지 한 개의 데이터를 담는 데이터 클래스
  */
 data class MessageItem(val id: Int, val text: String, val time: String, val isSentByMe: Boolean, val senderName: String = "사용자")
 
 /**
- * todo : test용 데이터 삭제 필요
  * 프리뷰 및 테스트를 위한 샘플 메시지 데이터
  */
 val sampleMessages = listOf(
@@ -395,7 +388,7 @@ val sampleMessages = listOf(
 )
 
 /**
- * 채팅 메시지 목록을 스크롤 가능한 리스트로 표시하는 컴포저블.
+ * 채팅 메시지 목록을 스크롤 가능한 리스트로 표시하는 컴포저블
  */
 @Composable
 fun ChatMessagesList(modifier: Modifier = Modifier, messages: List<MessageItem>) {
@@ -413,7 +406,6 @@ fun ChatMessagesList(modifier: Modifier = Modifier, messages: List<MessageItem>)
 
 /**
  * 개별 채팅 메시지 말풍선을 그리는 컴포저블
- * 내가 보낸 메시지와 상대방이 보낸 메시지 구분하여 다르게 표시
  */
 @Composable
 fun ChatMessageBubble(message: MessageItem) {
@@ -476,7 +468,7 @@ fun ChatMessageBubble(message: MessageItem) {
 }
 
 /**
- * 화면 하단의 메시지 입력 영역 컴포저블.
+ * 화면 하단의 메시지 입력 영역 컴포저블
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -486,7 +478,6 @@ fun MessageInputArea(
     onClipClick: () -> Unit,
     onSendClick: () -> Unit
 ) {
-
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = ScreenBackground,
@@ -541,7 +532,7 @@ fun MessageInputArea(
 }
 
 /**
- * 첨부 파일 옵션(앨범,카메라 등) 보여주는 패널 컴포저블
+ * 첨부 파일 옵션을 보여주는 패널 컴포저블
  */
 @Composable
 fun AttachmentOptionsPanel(
@@ -577,11 +568,10 @@ fun AttachmentOptionsPanel(
 }
 
 /**
- * 첨부 파일 패널내부 각 아이템(아이콘+텍스트) 컴포저블
+ * 첨부 파일 패널 내부의 각 아이템 컴포저블
  */
 @Composable
 fun AttachmentOptionItem(iconResId: Int, label: String, onClick: () -> Unit) {
-
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -617,7 +607,6 @@ fun MessageDatePicker(
     onMonthChange: (Int, Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-
     val calendar = remember { Calendar.getInstance() }
     LaunchedEffect(currentYear, currentMonth) {
         calendar.set(Calendar.YEAR, currentYear)
@@ -674,12 +663,9 @@ fun MessageDatePicker(
                         if (dayIndex >= emptySlots && dayIndex < totalSlots) {
                             val day = dayIndex - emptySlots + 1
                             val isSelected = day == selectedDate
-
                             val currentDateBeingRendered = try {
                                 LocalDate.of(currentYear, currentMonth + 1, day)
-                            } catch (e: Exception) {
-                                null
-                            }
+                            } catch (e: Exception) { null }
                             val hasConversation = currentDateBeingRendered != null && datesWithConversations.contains(currentDateBeingRendered)
 
                             Box(
@@ -695,7 +681,7 @@ fun MessageDatePicker(
                                     )
                                     .border(
                                         width = if (isSelected) 0.dp else if (hasConversation) 1.5.dp else 0.dp,
-                                        color = if (hasConversation && !isSelected) SelectedMonthlyBorder.copy(alpha=0.7f) else Color.Transparent,
+                                        color = if (hasConversation && !isSelected) SelectedMonthlyBorder.copy(alpha = 0.7f) else Color.Transparent,
                                         shape = CircleShape
                                     )
                                     .clickable(enabled = currentDateBeingRendered != null) {
@@ -736,4 +722,34 @@ fun MessageDatePicker(
             }
         }
     }
+}
+
+/**
+ * [기능 이동] 채팅방 상태에 따라 Chat 또는 Invitation 화면으로 이동시키는 함수
+ */
+fun goToChatOrInvitation(navController: NavHostController, chatRoomId: String) {
+    val uid = ChatRoomManager.auth.currentUser?.uid ?: return
+    val context = navController.context
+
+    val invitationRef = ChatRoomManager.db.collection("users")
+        .document(uid)
+        .collection("invitations")
+        .document(chatRoomId)
+
+    invitationRef.get()
+        .addOnSuccessListener { document ->
+            val status = document.getString("status")
+            if (status == "accepted") {
+                // 초대를 이미 수락한 경우: 채팅 화면으로 이동
+                // TODO: NavGraph에 "chat_route/{chatRoomId}" 경로가 정의되어 있어야 함
+                navController.navigate("chat_route/$chatRoomId")
+            } else {
+                // 아직 수락하지 않은 경우: 초대 수락 화면으로 이동
+                // TODO: NavGraph에 "invitation_route/{chatRoomId}" 경로가 정의되어 있어야 함
+                navController.navigate("invitation_route/$chatRoomId")
+            }
+        }
+        .addOnFailureListener { e ->
+            Toast.makeText(context, "초대 정보 조회 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
 }

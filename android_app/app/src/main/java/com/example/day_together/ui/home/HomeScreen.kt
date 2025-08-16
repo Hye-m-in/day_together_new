@@ -1,5 +1,6 @@
 package com.example.day_together.ui.home
 
+// Compose 및 UI 관련
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
@@ -7,37 +8,50 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+
+// Navigation 및 ViewModel 관련
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+
+// 프로젝트 내부 다른 파일 및 클래스
+import com.example.day_together.R
 import com.example.day_together.data.model.CalendarEvent
 import com.example.day_together.data.model.WeeklyCalendarDay
 import com.example.day_together.ui.WheelCustomYearMonthPickerDialog
 import com.example.day_together.ui.home.composables.ActualHomeScreenContent
 import com.example.day_together.ui.home.composables.AddEventInputView
 import com.example.day_together.ui.home.composables.DateEventsBottomSheet
+
+// 자바/코틀린 기본 라이브러리
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
 import java.time.DayOfWeek as JavaDayOfWeek
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.day_together.R
 
 /**
- * 앱의 메인 화면(홈)을 구성하는 Composable 함수.
- * 캘린더, D-Day, AI 질문 등 핵심 기능을 포함합니다.
- * @param appNavController 앱 전체의 화면 전환을 담당하는 NavController
- * @param homeViewModel HomeScreen의 상태와 로직을 관리하는 ViewModel
+ * 앱의 메인 화면(홈)을 구성하는 Composable 함수
+ * 캘린더, D-Day, AI 질문 등 핵심 기능과 초대 관련 로직 포함
+ * @param appNavController 앱 전체의 화면 전환을 담당하는 NavController.
+ * @param homeViewModel HomeScreen의 상태와 로직을 관리하는 ViewModel.
+ * @param invitedChatRoomId 외부에서 전달받는 초대된 채팅방 ID 상태. ID가 있으면 초대 다이얼로그 표시
+ * @param onAcceptInvitation 사용자가 초대를 수락했을 때 호출되는 콜백 함수
+ * @param onDismissInvitation 사용자가 초대를 거절/닫았을 때 호출되는 콜백 함수
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     appNavController: NavController,
-    homeViewModel: HomeViewModel = viewModel()
+    homeViewModel: HomeViewModel = viewModel(),
+    // [기능 통합] 초대 다이얼로그를 위한 파라미터
+    invitedChatRoomId: MutableState<String?>,
+    onAcceptInvitation: (String) -> Unit,
+    onDismissInvitation: () -> Unit
 ) {
     // ViewModel로부터 UI 상태를 구독하여, 상태 변경 시 자동으로 UI가 업데이트되도록 함
     val uiState by homeViewModel.uiState.collectAsState()
 
-    // --- UI 자체의 상태를 관리하는 변수들 ---
+    // UI 자체의 상태를 관리하는 변수들
     var currentYearMonth by remember { mutableStateOf(YearMonth.now()) }
     var isMonthlyView by remember { mutableStateOf(false) }
     var selectedDateForDetails by remember { mutableStateOf<LocalDate?>(null) }
@@ -46,8 +60,6 @@ fun HomeScreen(
     var eventToEdit by remember { mutableStateOf<CalendarEvent?>(null) }
     var dateForNewEvent by remember { mutableStateOf<LocalDate?>(null) }
     var showCustomYearMonthPicker by remember { mutableStateOf(false) }
-
-    // 다이얼로그의 임시 선택 값을 저장할 상태 변수
     var tempSelectedYearMonth by remember { mutableStateOf(currentYearMonth) }
 
     // 일정 추가/수정 관련 상태 변수
@@ -94,6 +106,7 @@ fun HomeScreen(
 
     // 화면에 그릴 내용을 Box 안에 배치
     Box(modifier = Modifier.fillMaxSize()) {
+        // 실제 홈 화면의 컨텐츠(별도의 Composable로 분리하여 관리)
         ActualHomeScreenContent(
             upcomingAnniversaryText = uiState.dDayTitle,
             dDayText = uiState.dDayText,
@@ -126,7 +139,6 @@ fun HomeScreen(
             onMonthlyCalendarHeaderTitleClick = { isMonthlyView = false },
             onMonthlyCalendarHeaderIconClick = {
                 if(isMonthlyView) {
-                    // 다이얼로그 열 때 임시 상태 동기화
                     tempSelectedYearMonth = currentYearMonth
                     showCustomYearMonthPicker = true
                 }
@@ -235,22 +247,18 @@ fun HomeScreen(
 
         // 커스텀 년/월 선택 다이얼로그 표시
         if (showCustomYearMonthPicker) {
-            // 다이얼로그 호출 로직
             WheelCustomYearMonthPickerDialog(
                 initialYearMonth = currentYearMonth,
-                // 다이얼로그가 닫힐 때(외부 클릭, 뒤로가기) 최종 값을 확정
                 onDismissRequest = {
-                    currentYearMonth = tempSelectedYearMonth // 임시 값을 최종 값으로 반영
+                    currentYearMonth = tempSelectedYearMonth
                     selectedDateForDetails = null
                     dateForBorderOnly = null
                     showCustomYearMonthPicker = false
                 },
-                // 스크롤이 멈출 때마다 임시 상태만 업데이트
                 onSelectionChanged = { selectedYearMonth ->
                     tempSelectedYearMonth = selectedYearMonth
                 }
             )
-
         }
 
         // 삭제 확인 다이얼로그 표시
@@ -268,6 +276,15 @@ fun HomeScreen(
                     eventToDeleteConfirmState = null
                     dateOfEventToDeleteConfirmState = null
                 }
+            )
+        }
+
+        // [기능 통합] 초대 다이얼로그 표시 로직
+        // invitedChatRoomId의 값이 null이 아니면 초대 다이얼로그를 보여줌
+        invitedChatRoomId.value?.let { chatRoomId ->
+            InvitationDialog(
+                onAccept = { onAcceptInvitation(chatRoomId) },
+                onDismiss = onDismissInvitation
             )
         }
     }
@@ -289,3 +306,31 @@ private fun DeleteConfirmationDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("취소") } }
     )
 }
+
+/**
+ * [기능 통합] 채팅방 초대 도착 시 표시되는 다이얼로그 Composable
+ * @param onAccept 사용자가 입장하기를 눌렀을 때 호출될 콜백
+ * @param onDismiss 사용자가 나중에를 누르거나 다이얼로그 바깥을 클릭했을 때 호출될 콜백
+ */
+@Composable
+fun InvitationDialog(
+    onAccept: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("초대 도착") },
+        text = { Text("가족 채팅방에 초대받았습니다. 입장하시겠습니까?") },
+        confirmButton = {
+            Button(onClick = onAccept) {
+                Text("입장하기")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("나중에")
+            }
+        }
+    )
+}
+
