@@ -1,5 +1,6 @@
 package com.example.day_together.ui.message
 
+
 import androidx.navigation.NavHostController
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.foundation.Image
@@ -11,8 +12,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,16 +30,26 @@ import com.example.day_together.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import com.example.day_together.ui.navigation.BottomNavItem
 import java.time.LocalDate
 import androidx.compose.foundation.BorderStroke
 import com.example.day_together.R
 import com.example.day_together.navigation.AppDestinations
 
+
+import android.content.Intent
+import android.net.Uri
+import android.provider.MediaStore
+import android.util.Log
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+
+
 /**
- * 메시지 화면의 메인 컴포저블.
- * 채팅 UI의 전체적인 레이아웃과 상태를 관리
+ * 메시지 화면의 메인 컴포저블
+ * 채팅 UI의 전체적인 레이아웃과 상태 관리
  * @param navController 화면 이동을 제어하는 NavController
  * @param modifier 외부에서 이 컴포저블에 적용할 Modifier
  */
@@ -50,34 +59,61 @@ fun MessageScreen(
     navController: NavHostController,
     modifier: Modifier = Modifier
 ) {
-    // UI 상태 관리를 위한 변수들
-    var showSearchBar by remember { mutableStateOf(false) } // 검색창 표시 여부
-    var showDatePicker by remember { mutableStateOf(false) } // 날짜 선택창 표시 여부
-    var showAttachmentOptions by remember { mutableStateOf(false) } // 첨부 파일 옵션 표시 여부
-    var messageText by remember { mutableStateOf("") } // 메시지 입력 텍스트
-    var searchText by remember { mutableStateOf("") } // 검색 텍스트
+    // --- 상태 관리 변수들 ---
+    var showSearchBar by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showAttachmentOptions by remember { mutableStateOf(false) }
+    var messageText by remember { mutableStateOf("") }
+    var searchText by remember { mutableStateOf("") }
 
-    // 날짜 선택창에서 사용할 달력 상태 변수들
     val currentCalendar = Calendar.getInstance()
     var selectedYear by remember { mutableStateOf(currentCalendar.get(Calendar.YEAR)) }
     var selectedMonth by remember { mutableStateOf(currentCalendar.get(Calendar.MONTH)) }
     var selectedDisplayDate by remember { mutableStateOf<Int?>(null) }
 
-    // todo : 테스트용 데이터 삭제 필요 -> (샘플 데이터)날짜 선택창에 대화가 있는 날짜 표시하기 위한 Set
+
+
+    // 시스템 Intent를 사용하기 위한 현재 Context(앱의 상태 정보) 가져오기
+    val context = LocalContext.current
+
+    // 1. 앨범(갤러리)연동을 위한 ActivityResultLauncher 준비
+    // PickVisualMedia : 최신 사진 선택기 API
+    val pickMediaLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        // 사용자가 이미지를 성공적으로 선택했을 때 실행되는 부분
+        if (uri != null) {
+            Log.d("PhotoPicker", "Selected URI: $uri")
+            // TODO: 선택된 이미지를 채팅방에 표시하거나 업로드하는 로직 추가
+        } else {
+            Log.d("PhotoPicker", "No media selected")
+        }
+    }
+
+    // 2. 파일 선택 연동을 위한 ActivityResultLauncher 준비
+    // GetContent는 일반적인 파일 선택할 때 사용
+    val pickFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        // 사용자가 파일을 성공적으로 선택했을 때 실행되는 부분
+        if (uri != null) {
+            Log.d("FilePicker", "Selected URI: $uri")
+            // TODO: 선택된 파일을 채팅방에 전송하는 로직 추가
+        } else {
+            Log.d("FilePicker", "No file selected")
+        }
+    }
+
+
+
+    // (샘플 데이터) 날짜 선택창에 대화가 있는 날짜 표시하기 위한 Set
     val datesWithConversationsForPicker = remember(selectedYear, selectedMonth) {
         val monthAdjusted = selectedMonth + 1
         if (selectedYear == 2025 && monthAdjusted == 6) {
-            setOf(
-                LocalDate.of(2025, 6, 3),
-                LocalDate.of(2025, 6, 9),
-                LocalDate.of(2025, 6, 15),
-                LocalDate.of(2025, 6, 21),
-                LocalDate.of(2025, 6, 27)
-            )
+            setOf(LocalDate.of(2025, 6, 3), LocalDate.of(2025, 6, 9), LocalDate.of(2025, 6, 15), LocalDate.of(2025, 6, 21), LocalDate.of(2025, 6, 27))
         } else if (selectedYear == LocalDate.now().year && monthAdjusted == LocalDate.now().monthValue) {
             setOf(LocalDate.now().minusDays(2), LocalDate.now().minusDays(5))
-        }
-        else {
+        } else {
             emptySet()
         }
     }
@@ -85,55 +121,41 @@ fun MessageScreen(
     // 화면의 전체적인 구조를 정의하는 Scaffold
     Scaffold(
         topBar = {
-            // 상단 앱 바
             MessageTopBar(
                 showSearchBar = showSearchBar,
                 searchText = searchText,
                 onSearchTextChanged = { searchText = it },
                 onToggleSearchBar = { showSearchBar = !showSearchBar; if(showSearchBar) showDatePicker = false },
-                onBack = {
-                    // 뒤로가기 버튼 클릭 시 홈 화면으로 이동
-                    navController.navigate(BottomNavItem.Home.route) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
-                        }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
                 onCalendarClick = { showDatePicker = !showDatePicker; if(showDatePicker) showSearchBar = false },
                 onMoreOptionsClick = {
-                    // 더보기 버튼 클릭 시 ChatInfoScreen으로 이동
                     navController.navigate(AppDestinations.CHAT_INFO_ROUTE)
                 }
             )
         },
-        containerColor = ScreenBackground // 화면 배경색
+        containerColor = ScreenBackground
     ) { innerPadding ->
-        // Scaffold 내용 영역
         Box(modifier = modifier.padding(innerPadding).fillMaxSize()) {
             Column(modifier = Modifier.fillMaxSize()) {
-                PinnedChatbotMessageBubble() // 상단 고정 메시지
-                ChatMessagesList(modifier = Modifier.weight(1f), messages = sampleMessages) // 메시지 목록
-                MessageInputArea( // 메시지 입력창
+                PinnedChatbotMessageBubble()
+                ChatMessagesList(modifier = Modifier.weight(1f), messages = sampleMessages)
+                MessageInputArea(
                     text = messageText,
                     onTextChanged = { messageText = it },
                     onClipClick = { showAttachmentOptions = !showAttachmentOptions },
                     onSendClick = {
                         if (messageText.isNotBlank()) {
-                            messageText = "" // 메시지 전송 후 입력창 비우기
+                            messageText = ""
                         }
                     }
                 )
             }
 
-            // 날짜 선택창이 활성화되면 화면에 표시
             if (showDatePicker) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.3f)) // 반투명 배경
-                        .clickable(onClick = { showDatePicker = false }) // 배경 클릭 시 닫기
+                        .background(Color.Black.copy(alpha = 0.3f))
+                        .clickable(onClick = { showDatePicker = false })
                 ) {
                     MessageDatePicker(
                         modifier = Modifier
@@ -146,10 +168,8 @@ fun MessageScreen(
                         selectedDate = selectedDisplayDate,
                         datesWithConversations = datesWithConversationsForPicker,
                         onDateSelected = { year, month, day ->
-                            val actualSelectedDate = LocalDate.of(year, month + 1, day)
                             selectedDisplayDate = day
                             showDatePicker = false
-                            // todo: 날짜 선택 시 로직 추가
                         },
                         onMonthChange = { year, month ->
                             selectedYear = year
@@ -166,17 +186,49 @@ fun MessageScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.3f)) // 반투명 배경
-                        .clickable { showAttachmentOptions = false } // 배경 클릭 시 닫기
+                        .background(Color.Black.copy(alpha = 0.3f))
+                        .clickable { showAttachmentOptions = false }
                 ) {
+                    // AttachmentOptionsPanel의 onClick 핸들러 수정
                     AttachmentOptionsPanel(
                         modifier = Modifier.align(Alignment.BottomCenter),
                         onDismiss = { showAttachmentOptions = false },
-                        onAlbumClick = { showAttachmentOptions = false },
-                        onCameraClick = { showAttachmentOptions = false },
-                        onFileClick = { showAttachmentOptions = false },
-                        onVoiceMessageClick = { showAttachmentOptions = false }
+                        onAlbumClick = {
+                            // 앨범 아이콘 클릭 시, 위에서 준비한 갤러리 런처 실행
+                            // 이미지 타입만 선택하도록 요청
+                            pickMediaLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            showAttachmentOptions = false // 패널 닫기
+                        },
+                        onCameraClick = {
+                            // 카메라 앱을 직접 실행하는 Intent(명령) 생성
+                            val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+                            // 기기에 카메라 앱이 있는지 확인 후 실행
+                            if (intent.resolveActivity(context.packageManager) != null) {
+                                context.startActivity(intent)
+                            } else {
+                                Toast.makeText(context, "카메라 앱을 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
+                            }
+                            showAttachmentOptions = false // 패널 닫기
+                        },
+                        onFileClick = {
+                            // 파일 아이콘 클릭 시, 위에서 준비한 파일 선택 런처 실행
+                            // "*/*"는 모든 종류의 파일 의미
+                            pickFileLauncher.launch("*/*")
+                            showAttachmentOptions = false // 패널 닫기
+                        },
+                        onVoiceMessageClick = {
+                            // 음성 녹음기 앱을 실행하는 Intent 생성
+                            val intent = Intent(MediaStore.Audio.Media.RECORD_SOUND_ACTION)
+                            // 기기에 음성 녹음기 앱이 있는지 확인 후 실행
+                            if (intent.resolveActivity(context.packageManager) != null) {
+                                context.startActivity(intent)
+                            } else {
+                                Toast.makeText(context, "음성 녹음 앱을 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
+                            }
+                            showAttachmentOptions = false // 패널 닫기
+                        }
                     )
+                    // AttachmentOptionsPanel의 onClick 핸들러 수정
                 }
             }
         }
@@ -194,25 +246,11 @@ fun MessageTopBar(
     searchText: String,
     onSearchTextChanged: (String) -> Unit,
     onToggleSearchBar: () -> Unit,
-    onBack: () -> Unit,
     onCalendarClick: () -> Unit,
     onMoreOptionsClick: () -> Unit
 ) {
     TopAppBar(
         title = { }, // 타이틀 사용하지 않음
-        navigationIcon = {
-            // 검색창이 아닐 때만 뒤로가기 버튼 표시
-            if (!showSearchBar) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = TextPrimary,
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
-            }
-        },
         actions = {
             // 검색창 모드일 때
             if (showSearchBar) {
@@ -363,7 +401,7 @@ val sampleMessages = listOf(
 fun ChatMessagesList(modifier: Modifier = Modifier, messages: List<MessageItem>) {
     LazyColumn(
         modifier = modifier.padding(horizontal = 16.dp),
-        reverseLayout = true, // 최신 메시지가 아래에 오도록 레이아웃을 뒤집음
+        reverseLayout = true,
         contentPadding = PaddingValues(top = 0.dp, bottom = 8.dp)
     ) {
         items(messages.reversed(), key = { it.id }) { message ->
@@ -379,8 +417,6 @@ fun ChatMessagesList(modifier: Modifier = Modifier, messages: List<MessageItem>)
  */
 @Composable
 fun ChatMessageBubble(message: MessageItem) {
-    // 메시지 발신자에 따라 정렬, 색상 등 UI 요소를 결정
-    val horizontalAlignment = if (message.isSentByMe) Alignment.End else Alignment.Start
     val bubbleColor = if (message.isSentByMe) ButtonActiveBackground else AnniversaryBoardBackground.copy(alpha = 0.7f)
     val textColor = if (message.isSentByMe) ButtonActiveText else TextPrimary
     val timeColor = TextPrimary.copy(alpha = 0.7f)
@@ -390,7 +426,6 @@ fun ChatMessageBubble(message: MessageItem) {
         horizontalArrangement = if (message.isSentByMe) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.Bottom
     ) {
-        // 내가 보낸 메시지일 경우 시간 먼저 표시
         if (message.isSentByMe) {
             Text(
                 text = message.time,
@@ -398,7 +433,6 @@ fun ChatMessageBubble(message: MessageItem) {
                 modifier = Modifier.padding(end = 6.dp)
             )
         }
-        // 상대방이 보낸 메시지일 경우 프로필 이미지 표시
         if (!message.isSentByMe) {
             Image(
                 painter = painterResource(id = R.drawable.ic_add_photo),
@@ -409,7 +443,6 @@ fun ChatMessageBubble(message: MessageItem) {
         }
 
         Column {
-            // 상대방이 보낸 메시지일 경우 이름 표시
             if (!message.isSentByMe) {
                 Text(
                     text = message.senderName,
@@ -417,7 +450,6 @@ fun ChatMessageBubble(message: MessageItem) {
                     modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)
                 )
             }
-            // 말풍선 UI
             Box(
                 modifier = Modifier
                     .background(bubbleColor, RoundedCornerShape(
@@ -433,7 +465,6 @@ fun ChatMessageBubble(message: MessageItem) {
             }
         }
 
-        // 상대방이 보낸 메시지일 경우 시간 나중에 표시
         if (!message.isSentByMe) {
             Text(
                 text = message.time,
@@ -459,13 +490,12 @@ fun MessageInputArea(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = ScreenBackground,
-        shadowElevation = 4.dp // 그림자 효과
+        shadowElevation = 0.dp
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 첨부 파일 아이콘 버튼
             IconButton(onClick = onClipClick) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_clip_attach),
@@ -474,7 +504,6 @@ fun MessageInputArea(
                     modifier = Modifier.size(28.dp)
                 )
             }
-            // 텍스트 입력 필드
             OutlinedTextField(
                 value = text,
                 onValueChange = onTextChanged,
@@ -499,7 +528,6 @@ fun MessageInputArea(
                 textStyle = TextStyle(fontSize = 14.sp, color = TextPrimary, fontFamily = GothicA1)
             )
             Spacer(modifier = Modifier.width(8.dp))
-            // 전송 버튼 (텍스트가 있을 때만 활성화)
             IconButton(onClick = onSendClick, enabled = text.isNotBlank()) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_send_arrow),
@@ -526,7 +554,7 @@ fun AttachmentOptionsPanel(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shadowElevation = 8.dp,
+        shadowElevation = 0.dp,
         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
         color = ScreenBackground,
         border = BorderStroke(1.dp, WeeklyCalendarBorderColor.copy(alpha = 0.5f))
@@ -591,18 +619,16 @@ fun MessageDatePicker(
 ) {
 
     val calendar = remember { Calendar.getInstance() }
-    // 부모 컴포저블에서 전달된 년/월이 변경될 때마다 달력 상태 업데이트
     LaunchedEffect(currentYear, currentMonth) {
         calendar.set(Calendar.YEAR, currentYear)
         calendar.set(Calendar.MONTH, currentMonth)
     }
 
-    // 달력 UI를 그리기 위한 계산
-    val monthName = SimpleDateFormat("MMMM", Locale.KOREAN).format(calendar.time) // ex) 8월
-    val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH) // 해당 월의 총 일수
+    val monthName = SimpleDateFormat("MMMM", Locale.KOREAN).format(calendar.time)
+    val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
     calendar.set(Calendar.DAY_OF_MONTH, 1)
-    val firstDayOfWeekInMonth = calendar.get(Calendar.DAY_OF_WEEK) // 해당 월의 1일이 무슨 요일인지
-    val emptySlots = (firstDayOfWeekInMonth - Calendar.SUNDAY + 7) % 7 // 1일 앞에 채워야 할 빈 칸 수
+    val firstDayOfWeekInMonth = calendar.get(Calendar.DAY_OF_WEEK)
+    val emptySlots = (firstDayOfWeekInMonth - Calendar.SUNDAY + 7) % 7
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -611,28 +637,26 @@ fun MessageDatePicker(
         colors = CardDefaults.cardColors(containerColor = ScreenBackground)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // 년/월 및 이전/다음 달 이동 버튼 헤더
             Row(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = {
-                    calendar.add(Calendar.MONTH, -1) // 이전 달로 이동
+                    calendar.add(Calendar.MONTH, -1)
                     onMonthChange(calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH))
                 }) {
                     Icon(painterResource(id = R.drawable.ic_custom_arrow_left), "Previous Month", tint = TextPrimary)
                 }
                 Text("${currentYear}년 $monthName", style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary, fontFamily = GothicA1))
                 IconButton(onClick = {
-                    calendar.add(Calendar.MONTH, 1) // 다음 달로 이동
+                    calendar.add(Calendar.MONTH, 1)
                     onMonthChange(calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH))
                 }) {
                     Icon(painterResource(id = R.drawable.ic_custom_arrow_right), "Next Month", tint = TextPrimary)
                 }
             }
 
-            // "일, 월, 화, 수, 목, 금, 토" 요일 라벨
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
                 listOf("일", "월", "화", "수", "목", "금", "토").forEach { dayLabel ->
                     Text(dayLabel, style = TextStyle(fontSize = 12.sp, color = TextPrimary, fontFamily = GothicA1, textAlign = TextAlign.Center), modifier = Modifier.weight(1f))
@@ -640,7 +664,6 @@ fun MessageDatePicker(
             }
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 날짜 그리드
             val totalSlots = daysInMonth + emptySlots
             val numRows = (totalSlots + 6) / 7
 
@@ -652,13 +675,11 @@ fun MessageDatePicker(
                             val day = dayIndex - emptySlots + 1
                             val isSelected = day == selectedDate
 
-                            // 렌더링 중인 현재 날짜
                             val currentDateBeingRendered = try {
                                 LocalDate.of(currentYear, currentMonth + 1, day)
                             } catch (e: Exception) {
                                 null
                             }
-                            // 해당 날짜에 대화가 있는지 여부
                             val hasConversation = currentDateBeingRendered != null && datesWithConversations.contains(currentDateBeingRendered)
 
                             Box(
@@ -666,13 +687,13 @@ fun MessageDatePicker(
                                     .weight(1f)
                                     .aspectRatio(1f)
                                     .clip(CircleShape)
-                                    .background( // 선택된 날짜 배경
+                                    .background(
                                         when {
                                             isSelected -> SelectedMonthlyBorder
                                             else -> Color.Transparent
                                         }
                                     )
-                                    .border( // 대화 있는 날짜 테두리
+                                    .border(
                                         width = if (isSelected) 0.dp else if (hasConversation) 1.5.dp else 0.dp,
                                         color = if (hasConversation && !isSelected) SelectedMonthlyBorder.copy(alpha=0.7f) else Color.Transparent,
                                         shape = CircleShape
@@ -689,7 +710,7 @@ fun MessageDatePicker(
                                     style = TextStyle(
                                         fontSize = 13.sp,
                                         fontFamily = GothicA1,
-                                        color = when { // 상태에 따른 텍스트 색상
+                                        color = when {
                                             isSelected -> ScreenBackground
                                             hasConversation -> TextPrimary
                                             else -> OtherMonthDayText
@@ -699,14 +720,12 @@ fun MessageDatePicker(
                                 )
                             }
                         } else {
-                            // 날짜가 없는 칸은 빈 공간으로 채움
                             Spacer(modifier = Modifier.weight(1f).aspectRatio(1f))
                         }
                     }
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
-            // 확인 버튼
             Button(
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth(),
@@ -718,4 +737,3 @@ fun MessageDatePicker(
         }
     }
 }
-
