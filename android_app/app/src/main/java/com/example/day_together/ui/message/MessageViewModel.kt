@@ -17,8 +17,8 @@ import java.time.LocalDate
 import java.util.*
 
 /**
- * 채팅 메시지를 위한 데이터 클래스.
- * Firestore의 자동 변환을 위해 모든 속성에 기본값을 할당해야 합니다.
+ * 채팅 메시지를 위한 데이터 클래스
+ * Firestore의 자동 변환을 위해 모든 속성에 기본값 할당
  */
 data class ChatMessage(
     val content: String = "",
