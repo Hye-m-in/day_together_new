@@ -40,7 +40,7 @@ sealed class SettingsEvent {
  */
 class SettingsViewModel(
     // AppRepository는 데이터 통신을 담당하는 클래스라고 가정
-    private val repository: AppRepository = AppRepository()
+    private val repository: AppRepository = AppRepository
 ) : ViewModel() {
 
     // UI에 노출될 화면 상태(StateFlow)

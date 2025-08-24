@@ -25,7 +25,7 @@ import java.util.UUID
 
 class HomeViewModel : ViewModel() {
 
-    private val repository = AppRepository()
+    private val repository = AppRepository
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()

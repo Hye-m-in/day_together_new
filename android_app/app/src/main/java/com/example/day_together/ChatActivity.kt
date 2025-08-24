@@ -1,3 +1,5 @@
+
+/**
 package com.example.day_together
 
 import android.content.Intent
@@ -446,3 +448,6 @@ class ChatActivity : ComponentActivity() {
         )
     }
 }
+
+
+*/

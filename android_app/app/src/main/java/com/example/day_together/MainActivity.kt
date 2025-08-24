@@ -1,39 +1,56 @@
 package com.example.day_together
 
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.navigation.NavHostController
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.day_together.navigation.AppNavigation
+import com.example.day_together.data.repository.AppRepository
+import com.example.day_together.ui.auth.LoginScreen // LoginScreen import 추가
 import com.example.day_together.ui.gallery.GalleryScreen
 import com.example.day_together.ui.home.HomeScreen
+import com.example.day_together.ui.message.ChatInfoScreen
 import com.example.day_together.ui.message.MessageScreen
+import com.example.day_together.ui.message.MessageViewModel
+import com.example.day_together.ui.message.MessageViewModelFactory
 import com.example.day_together.ui.navigation.BottomNavItem
 import com.example.day_together.ui.settings.SettingsScreen
 import com.example.day_together.ui.theme.Day_togetherTheme
 import com.example.day_together.ui.theme.NavIconSelected
 import com.example.day_together.ui.theme.NavIconUnselected
+import com.google.firebase.firestore.ListenerRegistration
+
+// 앱의 모든 화면 경로를 MainActivity 내부에 정의
+object AppDestinations {
+    const val HOME_ROUTE = "home"
+    const val MESSAGE_ROUTE = "message"
+    const val CHAT_INFO_ROUTE = "chat_info"
+    const val GALLERY_ROUTE = "gallery"
+    const val SETTINGS_ROUTE = "settings"
+    const val LOGIN_ROUTE = "login"
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             Day_togetherTheme {
-                // 앱의 전체 화면 전환을 담당하는 AppNavigation Composable 호출
+                // 앱의 전체 화면 전환을 담당하는 NavHost 바로 호출
                 AppNavigation()
             }
         }
@@ -41,37 +58,65 @@ class MainActivity : ComponentActivity() {
 }
 
 /**
+ * 앱의 전체 내비게이션 그래프를 설정하는 Composable
+ */
+@Composable
+fun AppNavigation() {
+    val navController = rememberNavController()
+
+    // NavHost를 사용해 앱의 모든 화면과 경로를 연결
+    NavHost(navController = navController, startDestination = "main") {
+        // MainScreen은 하단 바를 포함하는 메인 화면들의 컨테이너 역할
+        composable("main") {
+            MainScreen(appNavController = navController)
+        }
+
+        // ChatInfoScreen 경로 추가
+        composable(AppDestinations.CHAT_INFO_ROUTE) {
+            val messageViewModel: MessageViewModel = viewModel(
+                factory = MessageViewModelFactory(AppRepository)
+            )
+            ChatInfoScreen(navController = navController, viewModel = messageViewModel)
+        }
+
+        // 로그인 화면 경로를 실제 LoginScreen과 연결
+        composable(AppDestinations.LOGIN_ROUTE) {
+            // PlaceholderLoginScreen 대신 실제 LoginScreen 호출
+            LoginScreen(navController = navController)
+        }
+    }
+}
+
+/**
  * 하단 네비게이션 바를 포함하는 메인 화면의 UI 틀 구성
- * 이 화면은 AppNavigation에 의해 호출됩
- *
- * @param appNavController 앱의 최상위 NavController.
- * 하단 바가 없는 화면(예: 개인정보 수정)으로 이동할 때 사용
  */
 @Composable
 fun MainScreen(appNavController: NavHostController) {
-    // 하단 탭(Home, Message 등) 사이의 화면 전환만을 담당하는 내부 NavController 생성
     val innerNavController = rememberNavController()
-    val context = LocalContext.current
-
-    // DB 초대 관련 상태 변수. 이 상태는 HomeScreen으로 전달
     val invitedChatRoomId = remember { mutableStateOf<String?>(null) }
+    var invitationListener: ListenerRegistration? by remember { mutableStateOf(null) }
 
-    // 화면이 처음 나타날 때 초대 여부를 확인하는 로직
-    LaunchedEffect(Unit) {
-        checkInvitationAndSetState(invitedChatRoomId)
+    // 화면이 처음 나타날 때와 사용자가 바뀔 때마다 초대 리스너 설정
+    DisposableEffect(ChatRoomManager.auth.currentUser) {
+        val userId = ChatRoomManager.auth.currentUser?.uid
+        if (userId != null) {
+            invitationListener = ChatRoomManager.listenForInvitations(userId) { pendingInvitationId ->
+                invitedChatRoomId.value = pendingInvitationId
+            }
+        }
+        // 화면이 사라질 때 리스너 정리
+        onDispose {
+            invitationListener?.remove()
+        }
     }
 
-    // 하단 네비게이션 바에 표시될 아이템 리스트
     val bottomNavItems = listOf(
         BottomNavItem.Home, BottomNavItem.Message, BottomNavItem.Gallery, BottomNavItem.Settings
     )
 
-    // Scaffold를 사용하여 기본적인 Material Design 레이아웃 구조 만듦
     Scaffold(
         bottomBar = {
-            // 하단 네비게이션 바
             NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                // 현재 화면의 경로를 내부 NavController에서 가져와서 활성화된 탭 표시
                 val navBackStackEntry by innerNavController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
 
@@ -87,7 +132,6 @@ fun MainScreen(appNavController: NavHostController) {
                         },
                         selected = isSelected,
                         onClick = {
-                            // 하단 탭 클릭 시 내부 NavController를 사용하여 화면을 전환
                             innerNavController.navigate(screen.route) {
                                 popUpTo(innerNavController.graph.findStartDestination().id) { saveState = true }
                                 launchSingleTop = true
@@ -101,30 +145,33 @@ fun MainScreen(appNavController: NavHostController) {
             }
         }
     ) { innerPadding ->
-        // 하단 탭에 따라 변경될 화면들을 NavHost로 관리
         NavHost(
             navController = innerNavController,
             startDestination = BottomNavItem.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            // HomeScreen 호출 시 필요한 파라미터 전달
             composable(BottomNavItem.Home.route) {
                 HomeScreen(
                     appNavController = appNavController,
-                    invitedChatRoomId = invitedChatRoomId, // 초대 ID 상태 전달
-                    onAcceptInvitation = { chatRoomId -> // 초대 수락 시 동작 전달
-                        // TODO: 실제 DB에 수락 상태를 업데이트하는 로직 필요
-                        Toast.makeText(context, "초대를 수락했습니다.", Toast.LENGTH_SHORT).show()
-                        invitedChatRoomId.value = null // 다이얼로그 닫기
+                    invitedChatRoomId = invitedChatRoomId,
+                    onAcceptInvitation = { chatRoomId ->
+                        ChatRoomManager.acceptInvitation(chatRoomId) { success, _ ->
+                            if (success) {
+                                invitedChatRoomId.value = null
+                            }
+                        }
                     },
-                    onDismissInvitation = { // 초대 거절/닫기 시 동작 전달
-                        invitedChatRoomId.value = null // 다이얼로그 닫기
+                    onDismissInvitation = {
+                        // TODO: 초대 거절 로직
+                        invitedChatRoomId.value = null
                     }
                 )
             }
-
             composable(BottomNavItem.Message.route) {
-                MessageScreen(navController = appNavController)
+                val messageViewModel: MessageViewModel = viewModel(
+                    factory = MessageViewModelFactory(AppRepository)
+                )
+                MessageScreen(navController = appNavController, viewModel = messageViewModel)
             }
             composable(BottomNavItem.Gallery.route) {
                 GalleryScreen(navController = appNavController)
@@ -134,21 +181,5 @@ fun MainScreen(appNavController: NavHostController) {
             }
         }
     }
-
-    /*
-    // 중복된 초대 다이얼로그 로직 삭제 -> HomeScreen 내부에서 처리되므로 MainScreen에서 삭제함
-    invitedChatRoomId.value?.let { chatRoomId ->
-        InvitationDialog(
-            onAccept = { ... },
-            onDismiss = { ... }
-        )
-    }
-    */
 }
 
-/**
- * TODO : DB에서 초대 정보를 확인하고 상태를 업데이트하는 함수 구현
- */
-private fun checkInvitationAndSetState(state: MutableState<String?>) {
-    // 예시: AuthManager.checkInvitation { invitedId -> state.value = invitedId }
-}
