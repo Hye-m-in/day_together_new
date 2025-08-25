@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import com.example.day_together.AppDestinations
+import com.example.day_together.navigation.AppDestinations
 import com.example.day_together.ui.message.ChatMessage
 import com.example.day_together.R
 import com.example.day_together.data.repository.AppRepository
