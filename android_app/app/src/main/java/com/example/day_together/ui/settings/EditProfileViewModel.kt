@@ -46,7 +46,7 @@ data class EditProfileUiState(
  * 개인정보 수정 화면의 UI 상태와 비즈니스 로직을 관리하는 ViewModel
  */
 class EditProfileViewModel(
-    private val repository: AppRepository = AppRepository()
+    private val repository: AppRepository = AppRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(EditProfileUiState())

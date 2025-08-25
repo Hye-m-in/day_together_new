@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.Day_together" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Day_together" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
+
 
     <style name="Theme.Day_together.NoActionBar">
         <item name="windowActionBar">false</item>

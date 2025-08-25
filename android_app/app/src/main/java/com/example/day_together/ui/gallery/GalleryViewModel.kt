@@ -39,7 +39,7 @@ data class GalleryUiState(
 
 
 class GalleryViewModel(
-    private val repository: AppRepository = AppRepository()
+    private val repository: AppRepository = AppRepository
 ) : ViewModel() {
 
     // 1. 상태(State) 관리
