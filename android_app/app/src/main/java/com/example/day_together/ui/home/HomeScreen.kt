@@ -9,7 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.NavController
 import com.example.day_together.data.model.CalendarEvent
-import com.example.day_together.data.model.WeeklyCalendarDay
+//import com.example.day_together.data.model.WeeklyCalendarDay
 import com.example.day_together.ui.WheelCustomYearMonthPickerDialog
 import com.example.day_together.ui.home.composables.ActualHomeScreenContent
 import com.example.day_together.ui.home.composables.AddEventInputView
@@ -58,12 +58,12 @@ fun HomeScreen(
             val firstDayOfRelevantWeek = today.with(JavaDayOfWeek.MONDAY)
             (0 until 7).map { dayOffset ->
                 val date = firstDayOfRelevantWeek.plusDays(dayOffset.toLong())
-                WeeklyCalendarDay(
-                    date = date.dayOfMonth.toString(),
-                    dayOfWeek = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.KOREAN),
-                    isToday = date.isEqual(today),
-                    events = uiState.eventsByDate[date] ?: emptyList()
-                )
+//                WeeklyCalendarDay(
+//                    date = date.dayOfMonth.toString(),
+//                    dayOfWeek = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.KOREAN),
+//                    isToday = date.isEqual(today),
+//                    events = uiState.eventsByDate[date] ?: emptyList()
+//                )
             }
         } else {
             emptyList()
@@ -96,7 +96,7 @@ fun HomeScreen(
             selectedDateForDetails = selectedDateForDetails,
             dateForBorderOnly = dateForBorderOnly,
             eventsByDate = uiState.eventsByDate,
-            weeklyCalendarData = weeklyCalendarDataState,
+            //weeklyCalendarData = weeklyCalendarDataState,
             isQuestionAnsweredByAll = uiState.isQuestionAnsweredByAll,
             aiQuestion = uiState.aiQuestion?.text ?: "로딩 중",
             familyQuote = uiState.familyQuote,
@@ -129,8 +129,8 @@ fun HomeScreen(
             onEditEventRequest = { date, event ->
                 dateForNewEvent = date
                 eventToEdit = event
-                currentEventDescriptionInput = event.description
-                currentEventIsPriority = event.isPriority // isPriority 상태 설정
+//                currentEventDescriptionInput = event.description
+//                currentEventIsPriority = event.isPriority // isPriority 상태 설정
                 showAddEventSheet = true
                 selectedDateForDetails = null
             },
@@ -161,8 +161,8 @@ fun HomeScreen(
                     onEditEvent = { eventToEditFromSheet ->
                         dateForNewEvent = selectedDateForDetails
                         eventToEdit = eventToEditFromSheet
-                        currentEventDescriptionInput = eventToEditFromSheet.description
-                        currentEventIsPriority = eventToEditFromSheet.isPriority // isPriority 상태 설정
+//                        currentEventDescriptionInput = eventToEditFromSheet.description
+//                        currentEventIsPriority = eventToEditFromSheet.isPriority // isPriority 상태 설정
                         showAddEventSheet = true
                         selectedDateForDetails = null
                     },
@@ -196,12 +196,12 @@ fun HomeScreen(
                         if (descriptionToSave.isNotBlank()) {
                             // 저장 시, isPriority 값을 포함하여 Event 객체 생성
                             val eventToSave = eventToEdit?.copy(
-                                description = descriptionToSave,
-                                isPriority = currentEventIsPriority
+//                                description = descriptionToSave,
+//                                isPriority = currentEventIsPriority
                             ) ?: CalendarEvent(
-                                description = descriptionToSave,
-                                date = dateForNewEvent!!,
-                                isPriority = currentEventIsPriority
+//                                description = descriptionToSave,
+                                date = dateForNewEvent!!
+//                                isPriority = currentEventIsPriority
                             )
                             homeViewModel.addOrUpdateEvent(eventToSave, dateForNewEvent!!)
                         }

@@ -27,7 +27,6 @@ class AppRepository {
 
     // 실제 로직 담당 매니저들 선언
     private val authManager = AuthManager
-
     private val chatRoomManager = ChatRoomManager
     private val calendarManager = CalendarManager()
 
@@ -155,12 +154,12 @@ class AppRepository {
         val today = LocalDate.now()
         // 현재 CalendarManager에는 이벤트 추가 기능만 있으므로, 가져오기 기능은 임시 데이터 반환
         return mapOf(
-            today.plusDays(3) to listOf(
-                CalendarEvent(id = "1", description = "엄마 생일", date = today.plusDays(3), isPriority = true)
-            ),
-            today.plusDays(10) to listOf(
-                CalendarEvent(id = "2", description = "가족 여행", date = today.plusDays(10))
-            )
+//            today.plusDays(3) to listOf(
+//                CalendarEvent(id = "1", description = "엄마 생일", date = today.plusDays(3), isPriority = true)
+//            ),
+//            today.plusDays(10) to listOf(
+//                CalendarEvent(id = "2", description = "가족 여행", date = today.plusDays(10))
+//            )
         )
     }
 
