@@ -2,7 +2,6 @@ package com.example.day_together.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.day_together.CalendarManager
 import com.example.day_together.data.model.Anniversary
 import com.example.day_together.data.model.CalendarEvent
 import com.example.day_together.data.model.Question
@@ -25,9 +24,8 @@ import java.util.UUID
 
 
 class HomeViewModel : ViewModel() {
-    private val calendarManager = CalendarManager()
-    private val chatRoomId = ""
-    private val repository = AppRepository()
+
+    private val repository = AppRepository
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -38,22 +36,19 @@ class HomeViewModel : ViewModel() {
 
     private fun loadInitialData() {
         viewModelScope.launch {
-            val chatRoomId = ""
-
             val user = repository.getUser("any_id")
             val question = repository.getTodaysQuestion()
             val quote = repository.getFamilyQuote()
+            val events = repository.getCalendarEvents()
 
-            val fetchedEvents = calendarManager.getEvents(chatRoomId)
-            val eventsMap = fetchedEvents.groupBy { it.date }
             // 디데이 정보 계산
-            val dDayInfo = calculateDDayInfo(eventsMap)
+            val dDayInfo = calculateDDayInfo(events)
 
             _uiState.value = _uiState.value.copy(
                 user = user,
                 aiQuestion = question,
                 familyQuote = quote,
-                eventsByDate = eventsMap,
+                eventsByDate = events,
                 dDayText = dDayInfo.first,
                 dDayTitle = dDayInfo.second,
                 isLoading = false
@@ -124,7 +119,7 @@ class HomeViewModel : ViewModel() {
             .filter { it.date.isAfter(today) || it.date.isEqual(today) }
 
         val priorityEvent = allFutureEvents
-            //.filter { it.isPriority }
+            .filter { it.isPriority }
             .minByOrNull { it.date }
 
         val closestEvent = priorityEvent ?: allFutureEvents.minByOrNull { it.date }
@@ -132,7 +127,7 @@ class HomeViewModel : ViewModel() {
         return if (closestEvent != null) {
             val dDay = ChronoUnit.DAYS.between(today, closestEvent.date)
             val dDayText = "D-${dDay}"
-            val dDayTitle = ""//closestEvent.description
+            val dDayTitle = closestEvent.description
             Pair(dDayText, dDayTitle)
         } else {
             Pair("D-Day", "다가오는 일정이 없어요")

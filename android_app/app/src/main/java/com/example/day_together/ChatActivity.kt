@@ -1,3 +1,5 @@
+
+/**
 package com.example.day_together
 
 import android.content.Context
@@ -483,3 +485,6 @@ class ChatActivity : ComponentActivity() {
         )
     }
 }
+
+
+*/

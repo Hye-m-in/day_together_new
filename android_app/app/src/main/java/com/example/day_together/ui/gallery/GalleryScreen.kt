@@ -84,49 +84,47 @@ import java.util.Locale
 import java.util.UUID
 
 
-// 파일 내의 Composable 함수들이 참조하는 데이터 클래스
+// 데이터 클래스 정의
 data class PhotoItem(val id: String, val imageUrl: String, val date: String)
 data class MonthlyPhotoGroupData(val yearMonth: YearMonth, val photos: List<PhotoItem>)
 data class MonthlyComment(val id: String = UUID.randomUUID().toString(), val author: String, val text: String, val timestamp: String)
 
 
-
-/**
- * 갤러리 전체 화면을 구성하는 메인 Composable 함수
- * @param navController -> 화면 간 이동을 관리하는 NavController
- * @param viewModel -> UI 상태와 비즈니스 로직을 처리하는 GalleryViewModel
- */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun GalleryScreen(
     navController: NavController,
-    viewModel: GalleryViewModel = viewModel() // 1. ViewModel 인스턴스 주입
+    viewModel: GalleryViewModel = viewModel()
 ) {
-    // 2. ViewModel의 UI 상태 구독 ->  상태 변경 시 실시간 업데이트
     val uiState by viewModel.uiState.collectAsState()
     val yearMonthFormatter = remember { DateTimeFormatter.ofPattern("yyyy년 MM월", Locale.KOREAN) }
     var showYearMonthPickerDialog by remember { mutableStateOf(false) }
     val lazyListState = rememberLazyListState()
 
-    // 3. SideEffect 처리 -> 특정 상태가 변경시, 스크롤 UI 동작을 수행
+    // 다이얼로그에서 선택된 값을 임시로 저장할 상태 변수
+    var tempSelectedYearMonth by remember { mutableStateOf(uiState.currentDisplayYearMonth) }
+
+
     LaunchedEffect(uiState.currentDisplayYearMonth, uiState.allMonthlyPhotoGroups) {
         if (uiState.allMonthlyPhotoGroups.isNotEmpty()) {
             val indexToScroll = uiState.allMonthlyPhotoGroups.indexOfFirst { it.yearMonth == uiState.currentDisplayYearMonth }
             if (indexToScroll != -1) {
-                // 스크롤 애니메이션으로 해당 월로 이동
                 lazyListState.animateScrollToItem(indexToScroll)
             }
         }
     }
 
     Day_togetherTheme {
-        // 4. 화면의 기본 구조 설정
         Scaffold(
             topBar = {
                 TopAppBar(
                     title = { },
                     actions = {
-                        IconButton(onClick = { showYearMonthPickerDialog = true }) { // 날짜 선택 다이얼로그 표시
+                        IconButton(onClick = {
+                            // 다이얼로그를 열 때, 임시상태를 현재 ViewModel의 상태와 동기화
+                            tempSelectedYearMonth = uiState.currentDisplayYearMonth
+                            showYearMonthPickerDialog = true
+                        }) {
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_year_month_picker),
                                 contentDescription = "날짜 선택",
@@ -139,64 +137,60 @@ fun GalleryScreen(
                 )
             }
         ) { innerPadding ->
-            // 5. UI 상태에 따른 분기 처리
             if (uiState.isLoading) {
-                // 로딩 중일 때
                 Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             } else if (uiState.allMonthlyPhotoGroups.all { it.photos.isEmpty() }) {
-                // 사진이 하나도 없을 때
                 Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                     Text("공유된 사진이 아직 없어요.", style = MaterialTheme.typography.bodyLarge)
                 }
             } else {
-                // 사진이 있을 때 월별로 그룹화 리스트 표시
                 LazyColumn(
                     state = lazyListState,
                     modifier = Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = 8.dp)
                 ) {
                     items(
-                        items = uiState.allMonthlyPhotoGroups, // ViewModel로 전달 받은 데이터
+                        items = uiState.allMonthlyPhotoGroups,
                         key = { it.yearMonth.toString() }
                     ) { group ->
                         MonthlyPhotoGroupItem(
                             yearMonth = group.yearMonth,
                             photos = group.photos,
                             yearMonthFormatter = yearMonthFormatter,
-                            onPhotoClick = { photoId ->
-                                // TODO: 사진 상세 화면으로 네비게이션 로직 구현 필요
-                            },
-                            onCommentIconClick = { viewModel.onCommentIconClicked(it) } // 댓글 아이콘 클릭 시 ViewModel 함수 호출
+                            onPhotoClick = { /* ... */ },
+                            onCommentIconClick = { viewModel.onCommentIconClicked(it) }
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                     }
                 }
             }
 
-            // 6. 다이얼로그 및 BottomSheet 관리
             if (showYearMonthPickerDialog) {
+                //다이얼로그 호출 로직
                 WheelCustomYearMonthPickerDialog(
                     initialYearMonth = uiState.currentDisplayYearMonth,
+                    // 다이얼로그가 닫힐 때(외부 클릭,뒤로가기)
                     onDismissRequest = {
-                        val finalSelection = WheelCustomYearMonthPickerDialogDefaults.getSelection()
-                        viewModel.onYearMonthSelected(finalSelection) // ViewModel에 선택된 날짜 전달
+                        // 다이얼로그가 닫히는 시점의 임시 값을 최종 값으로 확정
+                        viewModel.onYearMonthSelected(tempSelectedYearMonth)
                         showYearMonthPickerDialog = false
                     },
-                    onConfirm = { selectedYearMonth ->
-                        viewModel.onYearMonthSelected(selectedYearMonth) // ViewModel에 선택된 날짜 전달
-                        showYearMonthPickerDialog = false
+                    // 스크롤이 멈출 때마다 호출됨
+                    onSelectionChanged = { newSelection ->
+                        // ViewModel의 상태를 직접 바꾸지 않고, 임시 상태만 업데이트
+                        tempSelectedYearMonth = newSelection
                     }
                 )
+
             }
 
-            // 댓글 BottomSheet를 보여줄지 여부를 상태에 따라 결정함
             uiState.commentSheetYearMonth?.let { ym ->
                 MonthlyCommentBottomSheet(
                     yearMonth = ym,
                     comments = uiState.comments,
                     newCommentText = uiState.newCommentText,
-                    onNewCommentChange = viewModel::onNewCommentChange, // 함수 참조로 ViewModel에 이벤트 전달
+                    onNewCommentChange = viewModel::onNewCommentChange,
                     onSendComment = viewModel::onSendComment,
                     onDismiss = viewModel::onCommentSheetDismissed
                 )
@@ -204,6 +198,8 @@ fun GalleryScreen(
         }
     }
 }
+
+
 
 
 // 월별 댓글 목록(댓글 BottomSheet)
@@ -325,7 +321,6 @@ fun MonthlyCommentBottomSheet(
 }
 
 // 한 달 단위의 사진그룹(제목+사진 그리드) 표시
-
 @Composable
 fun MonthlyPhotoGroupItem(
     yearMonth: YearMonth,
@@ -372,7 +367,6 @@ fun MonthlyPhotoGroupItem(
 }
 
 // 3열 그리드 형태로 사진 표시
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PhotoGrid(photos: List<PhotoItem>, onPhotoClick: (photoId: String) -> Unit) {
@@ -380,7 +374,7 @@ fun PhotoGrid(photos: List<PhotoItem>, onPhotoClick: (photoId: String) -> Unit) 
         columns = GridCells.Fixed(3),
         modifier = Modifier
             .fillMaxWidth()
-            .height(((photos.size + 2) / 3 * 130).dp), // 아이템 높이 130dp
+            .height(((photos.size + 2) / 3 * 130).dp),
         contentPadding = PaddingValues(0.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -393,7 +387,6 @@ fun PhotoGrid(photos: List<PhotoItem>, onPhotoClick: (photoId: String) -> Unit) 
 }
 
 // 그리드에 들어가는 개별 사진 아이템 Composable
-
 @Composable
 fun PhotoGridItem(photoItem: PhotoItem, onClick: () -> Unit) {
     Box(
@@ -417,18 +410,6 @@ fun PhotoGridItem(photoItem: PhotoItem, onClick: () -> Unit) {
         )
     }
 }
-
-
-
-/**
- * 타임피커에서 선택된 값 임시저장용 Helper 객체
- */
-internal object WheelCustomYearMonthPickerDialogDefaults {
-    var selectedYear: Int = YearMonth.now().year
-    var selectedMonthValue: Int = YearMonth.now().monthValue
-    fun getSelection(): YearMonth = YearMonth.of(selectedYear, selectedMonthValue)
-}
-
 
 @Preview(showBackground = true, widthDp = 390, heightDp = 844)
 @Composable

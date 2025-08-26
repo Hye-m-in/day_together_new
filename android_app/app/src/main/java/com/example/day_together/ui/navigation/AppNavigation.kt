@@ -13,6 +13,7 @@ import com.example.day_together.MainScreen
 import com.example.day_together.ui.auth.FindAccountScreen
 import com.example.day_together.ui.auth.LoginScreen
 import com.example.day_together.ui.auth.SignUpScreen
+import com.example.day_together.ui.message.ChatInfoScreen
 import com.example.day_together.ui.onboarding.OnboardingScreen
 import com.example.day_together.ui.settings.EditProfileScreen
 import com.example.day_together.ui.splash.SplashScreen
@@ -35,6 +36,7 @@ object AppDestinations {
     const val SIGNUP_ROUTE = "signup"
     const val FIND_ACCOUNT_ROUTE = "find_account"
     const val EDIT_PROFILE_ROUTE = "edit_profile"
+    const val CHAT_INFO_ROUTE = "chat_info_screen_route" // 경로 상수 추가
 }
 
 /**
@@ -116,6 +118,11 @@ fun AppNavigation() {
         // 7. 개인정보 수정 화면
         composable(AppDestinations.EDIT_PROFILE_ROUTE) {
             EditProfileScreen(navController = navController)
+        }
+
+        // 8. 채팅 상세 정보 화면(초대 멤버 정보)
+        composable(AppDestinations.CHAT_INFO_ROUTE) { // 화면 등록
+            ChatInfoScreen(navController = navController)
         }
     }
 }

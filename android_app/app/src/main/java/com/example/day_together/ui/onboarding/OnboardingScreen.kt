@@ -119,7 +119,7 @@ fun OnboardingPageContent(item: OnboardingPageItem) {
         )
         Text(
             text = item.title,
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Medium),
             color = MaterialTheme.colorScheme.primary,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(bottom = 16.dp)
@@ -152,7 +152,7 @@ fun StartPageContent(onStartClicked: () -> Unit) {
         )
         Text(
             text = "이제, 가족과 함께\n하루를 채워볼까요?",
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Medium),
             color = MaterialTheme.colorScheme.primary,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(bottom = 32.dp)
