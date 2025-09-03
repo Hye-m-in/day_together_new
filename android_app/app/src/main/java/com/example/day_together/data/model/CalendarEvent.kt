@@ -20,7 +20,9 @@ data class CalendarEvent(
     val type: String = "general",
 
     // 오늘 날짜와 일치 여부 (UI에서 강조 표시용)
-    val isToday: Boolean = false
+    val isToday: Boolean = false,
+
+    val description: String
 ) {
     companion object {
         /**
@@ -46,7 +48,8 @@ data class CalendarEvent(
                 title = data["title"] as? String ?: "",
                 date = LocalDate.parse(data["date"] as String),
                 type = data["type"] as? String ?: "general",
-                isToday = data["isToday"] as? Boolean ?: false
+                isToday = data["isToday"] as? Boolean ?: false,
+                description = data["description"] as? String ?: ""
             )
         }
     }

@@ -75,12 +75,22 @@ object AppRepository {
      * TODO: 백엔드에 현재 사용자 정보를 Firestore에서 가져오는 기능 구현 및 연결 필요
      */
     suspend fun getCurrentUser(): User? {
-        delay(200) // 가짜 딜레이
         val uid = authManager.getCurrentUserId()
-        return if (uid != null) {
-            User(uid = uid, name = "테스트 유저", email = "test@example.com", position = "아들")
-        } else {
-            null
+        return suspendCancellableCoroutine { continuation ->
+            if (uid != null) {
+                db.collection("users").document(uid).get()
+                    .addOnSuccessListener { document ->
+                        if (continuation.isActive) {
+                            val name = document.getString("name") ?: "Unknown"
+                            val email = document.getString("email") ?: "Unknown"
+                            val position = document.getString("position") ?: "가족"
+                            continuation.resume(User(uid = uid, name = name, email = email, position = position))
+                        }
+                    }
+                    .addOnFailureListener {
+                        if (continuation.isActive) continuation.resume(null)
+                    }
+            }
         }
     }
 
@@ -185,6 +195,7 @@ object AppRepository {
      * 특정 월의 댓글 목록을 가져옴(임시 데이터 생성)
      * TODO: Firestore에서 실제 댓글 목록을 가져오도록 구현 필요
      */
+
     suspend fun getMonthlyComments(yearMonth: YearMonth): List<MonthlyComment> {
         delay(400)
         return listOf(

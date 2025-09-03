@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.example.day_together.AuthManager.auth
 import com.example.day_together.navigation.AppDestinations
 import com.example.day_together.ui.message.ChatMessage
 import com.example.day_together.R
@@ -50,6 +51,7 @@ fun MessageScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    val currentUserId = auth.currentUser?.uid
 
     if (uiState.showInviteDialog) {
         InviteMemberDialog(
@@ -104,8 +106,12 @@ fun ColumnScope.ChatScreenContent(
     onInviteClick: () -> Unit
 ) {
     if (messages.isEmpty()) {
-        EmptyChatMessagesView(modifier = Modifier.weight(1f), onInviteClick = onInviteClick)
+        // 메세지가 없을 때
+        EmptyChatMessagesView(
+            modifier = Modifier.weight(1f),
+            onInviteClick = onInviteClick)
     } else {
+        // 메세지가 있을 때
         LazyColumn(modifier = Modifier.weight(1f).padding(8.dp)) {
             items(messages, key = { it.timestamp.time }) { message ->
                 MessageBubble(message = message, isMine = message.sender == currentUserName)
