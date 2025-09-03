@@ -1,5 +1,5 @@
 # File: python_app/app/main.py
-
+import sys
 import os
 import httpx
 from dotenv import load_dotenv
@@ -10,8 +10,18 @@ from .services.firebase_client import db, fb_auth
 import google.auth.transport.requests
 import google.oauth2.id_token
 
+#GPT 관련 import 문
+
+# main.py 위치 기준으로 루트 경로 추가
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from firebase_admin import credentials, firestore, initialize_app
+from datetime import datetime
+from app.gpt import question_generator as qg
+
 from .services.firebase_admin_init import default_app  # 초기화만 호출됨
 from .models.schemas import GoogleTokenRequest, NaverTokenRequest, TokenResponse  # <<< 수정: TokenRequest → NaverTokenRequest로 분리
+
+
 
 # Naver 검증 로직 인라인
 load_dotenv()
@@ -180,3 +190,27 @@ async def naver_login(body: NaverTokenRequest):
     custom_token = custom_token_bytes.decode("utf-8")
     print(f"[DEBUG] Returning custom token for {uid}")
     return TokenResponse(custom_token=custom_token)
+
+
+#----------gpt------------
+@app.post("/daily-question")
+async def daily_question():
+    #최근 질문 가져오기
+    recent_docs = db.collection("daily_question").order_by("date", direction="DESCENDING").limit(5).stream()
+    recent_questions = [doc.to_dict().get("question", "") for doc in recent_docs]
+
+    # 질문 생성
+    data = qg.generate_daily_question(family_name="김씨네가족", recent_questions=recent_questions)
+
+    # Firestore에 저장
+    doc_ref = db.collection("daily_questions").document()
+    doc_ref.set({
+        "date": datetime.now(),
+        "question": data["question"],
+        "follow_up": data["follow_up"],
+        "category": data["category"],
+        "tone": data["tone"],
+        "timeframe": data["timeframe"]
+    })
+
+    return data
