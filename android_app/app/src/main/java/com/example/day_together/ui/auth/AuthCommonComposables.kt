@@ -27,6 +27,19 @@ import com.example.day_together.ui.theme.ErrorRed
 import com.example.day_together.ui.theme.ScreenBackground
 import com.example.day_together.ui.theme.TextPrimary
 
+/**
+ * 인증(로그인, 회원가입 등) 화면들에서 공통으로 사용되는 UI 컴포저블 함수들을 모아둠
+ */
+
+/**
+ * 계정 찾기 화면에서 사용하는 기본 텍스트 필드 컴포저블
+ * @param label 필드 상단에 표시될 라벨 텍스트
+ * @param value 텍스트 필드의 현재 값
+ * @param onValueChange 값이 변경될 때 호출되는 콜백
+ * @param imeAction 키보드 액션 버튼 설정 (예: 다음, 완료)
+ * @param focusManager 키보드 액션 처리를 위한 포커스 매니저
+ * @param onDone '완료' 액션 시 호출될 선택적 콜백
+ */
 @Composable
 fun FindAccountTextField(
     label: String, value: String, onValueChange: (String) -> Unit,
@@ -64,8 +77,14 @@ fun FindAccountTextField(
     }
 }
 
+// '기타' 가족 관계 입력의 최대 글자 수
 const val MAX_FAMILY_MEMBER_OTHER_LENGTH = 10
 
+/**
+ * 회원가입 화면에서 사용하는 텍스트 필드. 에러 메시지 표시 기능이 포함
+ * @param error 표시할 에러 메시지. null이 아닐 경우 에러 상태로 UI가 변경됨
+ * @param trailingIcon 필드 끝에 표시될 아이콘 (비밀번호 보기/숨기기 버튼)
+ */
 @Composable
 fun SignUpTextField(
     label: String, value: String, onValueChange: (String) -> Unit,
@@ -120,6 +139,12 @@ fun SignUpTextField(
     }
 }
 
+/**
+ * 양력/음력 선택에 사용되는 체크박스 컴포저블
+ * @param text 체크박스 옆에 표시될 텍스트(양력/음력)
+ * @param checked 체크 상태
+ * @param onCheckedChange 체크 상태 변경 시 호출되는 콜백
+ */
 @Composable
 fun SolarLunarCheckbox(
     text: String,
@@ -149,6 +174,17 @@ fun SolarLunarCheckbox(
     }
 }
 
+/**
+ * 가족 구성원(역할)을 선택하는 UI 컴포저블. '기타'의 직접 입력 기능 포함
+ * @param title 컴포넌트 상단에 표시될 제목
+ * @param members 선택 가능한 기본 구성원 목록
+ * @param selections 각 구성원의 선택 상태 Map
+ * @param onSelectionChange 구성원 선택 상태 변경 시 호출되는 콜백
+ * @param otherChecked '기타' 항목 체크 여부
+ * @param onOtherCheckedChange '기타' 항목 체크 상태 변경 시 호출되는 콜백
+ * @param otherText '기타' 항목에 입력된 텍스트 값
+ * @param onOtherTextChange '기타' 항목 텍스트 변경 시 호출되는 콜백
+ */
 @Composable
 fun FamilyMemberSelection(
     title: String,
@@ -177,6 +213,7 @@ fun FamilyMemberSelection(
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // 그리드 레이아웃을 위해 멤버 목록을 나눔
                 val firstRowMembers = members.take(4)
                 val secondRowMembers = members.drop(4).take(2)
 
@@ -204,6 +241,7 @@ fun FamilyMemberSelection(
                         )
                     }
 
+                    // 남은 공간을 '기타' 항목이 채우도록 가중치 계산
                     val otherItemWeight = (4 - secondRowMembers.size).toFloat().coerceAtLeast(1f)
 
                     Row(
@@ -226,6 +264,7 @@ fun FamilyMemberSelection(
                         Spacer(Modifier.width(2.dp))
                         Text("기타", style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp), color = TextPrimary)
                         Spacer(Modifier.width(4.dp))
+                        // '기타' 텍스트를 직접 입력하는 필드
                         BasicTextField(
                             value = otherText,
                             onValueChange = {
@@ -258,8 +297,11 @@ fun FamilyMemberSelection(
     }
 }
 
+/**
+ * `FamilyMemberSelection` 내에서 사용되는 개별 가족 구성원 박스 (가족구성원 역할 텍스트 +  텍스트)
+ */
 @Composable
-fun FamilyMemberItem(
+private fun FamilyMemberItem(
     text: String,
     selected: Boolean,
     onSelectedChange: (Boolean) -> Unit,
