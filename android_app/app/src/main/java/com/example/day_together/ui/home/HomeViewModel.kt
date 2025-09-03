@@ -36,7 +36,7 @@ class HomeViewModel : ViewModel() {
 
     private fun loadInitialData() {
         viewModelScope.launch {
-            val user = repository.getUser("any_id")
+            val user = repository.getCurrentUser()
             val question = repository.getTodaysQuestion()
             val quote = repository.getFamilyQuote()
             val events = repository.getCalendarEvents()
@@ -119,7 +119,7 @@ class HomeViewModel : ViewModel() {
             .filter { it.date.isAfter(today) || it.date.isEqual(today) }
 
         val priorityEvent = allFutureEvents
-            .filter { it.isPriority }
+            //.filter { it.isPriority }
             .minByOrNull { it.date }
 
         val closestEvent = priorityEvent ?: allFutureEvents.minByOrNull { it.date }

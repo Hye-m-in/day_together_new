@@ -301,6 +301,7 @@ class ChatActivity : ComponentActivity() {
                             sender = doc.getString("sender") ?: "unknown",
                             timestamp = doc.getDate("timestamp") ?: Date(),
                             type = doc.getString("type") ?: "text"
+
                         )
                     }
                     Log.d("DEBUG", "messages loaded: ${newMessages.size}")

@@ -65,6 +65,7 @@ fun LoginScreen(
             navController.navigate(AppDestinations.MAIN_ROUTE) {
                 popUpTo(AppDestinations.LOGIN_ROUTE) { inclusive = true }
             }
+
             authViewModel.clearLoginError()
         }
     }

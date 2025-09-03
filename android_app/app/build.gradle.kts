@@ -60,6 +60,8 @@ dependencies {
     //implementation(libs.androidx.navigation.compose.jvmstubs)
     androidTestImplementation(platform(libs.androidx.compose.bom))
 
+
+    implementation(libs.androidx.material3)
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.foundation:foundation")
     implementation(libs.androidx.ui)
@@ -107,7 +109,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
-
 
     //Firebase Modules
     implementation(platform("com.google.firebase:firebase-bom:32.1.0"))

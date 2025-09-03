@@ -1,8 +1,15 @@
 package com.example.day_together
 
 import android.util.Log
+import com.example.day_together.data.model.CalendarEvent
 import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.QuerySnapshot
 import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.tasks.await
+import java.time.LocalDate
+import java.util.UUID
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 // 캘린더 일정 데이터 클래스
 data class Event(
@@ -15,7 +22,6 @@ data class Event(
 
 class CalendarManager {
     val db = FirebaseService.db
-    val auth = FirebaseService.auth
 
     // 캘린더 생성
     fun createCalendarDocument(chatRoomId: String, onComplete: (Boolean) -> Unit = {}) {
@@ -71,4 +77,74 @@ class CalendarManager {
         }
     }
 
+    // 이벤트 추가
+    suspend fun addEvent(chatRoomId: String, event: CalendarEvent) {
+        try {
+            db.collection("chatRooms")
+                .document(chatRoomId)
+                .collection("calendar")
+                .document(event.id) // event.id를 문서 ID로 사용
+                .set(CalendarEvent.toMap(event))
+                .await()
+        } catch (e: Exception) {
+            Log.e("CalendarManager", "Failed to add event", e)
+        }
+    }
+
+    // 이벤트 전체 조회
+    suspend fun getEvents(chatRoomId: String): List<CalendarEvent> {
+        return try {
+            val snapshot = db.collection("chatRooms")
+                .document(chatRoomId)
+                .collection("calendar")
+                .get()
+                .await()
+
+            snapshot.documents.mapNotNull { doc ->
+                doc.data?.let { CalendarEvent.fromMap(it) }
+            }
+        } catch (e: Exception) {
+            Log.e("CalendarManager", "Failed to fetch events", e)
+            emptyList()
+        }
+    }
+
+    // 이벤트 수정
+    suspend fun updateEvent(chatRoomId: String, event: CalendarEvent) {
+        requireNotNull(event.id) { "event.id는 null일 수 없습니다." }
+
+        db.collection("chatRooms")
+            .document(chatRoomId)
+            .collection("calendar")
+            .document(event.id!!)
+            .set(event)
+            .await()
+    }
+
+    // 이벤트 삭제
+    suspend fun deleteEvent(chatRoomId: String, eventId: String) {
+        try {
+            db.collection("chatRooms")
+                .document(chatRoomId)
+                .collection("calendar")
+                .document(eventId)
+                .delete()
+                .await()
+        } catch (e: Exception) {
+            Log.e("CalendarManager", "Failed to delete event", e)
+        }
+    }
+
+    fun saveEvent(chatRoomId: String, event: CalendarEvent) {
+        val eventMap = mapOf(
+            "title" to event.title,
+            "date" to event.date.toString(),  // "2025-08-23" 형식으로 변환
+            "type" to event.type
+        )
+
+        db.collection("chatRooms")
+            .document(chatRoomId)
+            .collection("events")
+            .add(eventMap)
+    }
 }

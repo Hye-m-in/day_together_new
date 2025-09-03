@@ -103,12 +103,15 @@ class MessageViewModel(
             val currentUser = repository.getCurrentUser()
             if (currentUser == null) {
                 _uiState.update { it.copy(isLoading = false, errorMessage = "로그인이 필요합니다.") }
+                Log.d("MessageViewModel", "현재 로그인된 사용자 없음")
                 return@launch // 코루틴 종료
             }
 
             // 사용자 이름과 채팅방 ID를 순서대로 가져옴
             _uiState.update { it.copy(currentUserName = currentUser.name) }
+            Log.d("MessageViewModel", "현재 사용자 UID: ${currentUser.uid}, 이름: ${currentUser.name}")
             val chatRoomId = repository.findUserChatRoomId(currentUser.uid)
+            Log.d("MessageViewModel", "찾은 채팅방 ID: $chatRoomId")
 
             if (chatRoomId != null) {
                 _uiState.update { it.copy(chatRoomId = chatRoomId) }
@@ -119,9 +122,6 @@ class MessageViewModel(
         }
     }
 
-    /**
-     * ChatActivity의 listenForMessages 로직 이전
-     */
     private fun listenForMessages(chatRoomId: String) {
         messagesListener?.remove()
         messagesListener = repository.listenForMessages(chatRoomId) { newMessages ->
@@ -131,9 +131,6 @@ class MessageViewModel(
         }
     }
 
-    /**
-     * ChatActivity의 sendMessage 로직 이전
-     */
     private fun sendMessage() {
         val currentState = _uiState.value
         if (currentState.messageText.isBlank() || currentState.chatRoomId == null) return
@@ -142,9 +139,6 @@ class MessageViewModel(
         _uiState.update { it.copy(messageText = "") }
     }
 
-    /**
-     * ChatActivity의 createNewChatRoom 로직 이전
-     */
     private fun createNewChatRoom() {
         val currentUserId = AuthManager.getCurrentUserId() ?: return
 

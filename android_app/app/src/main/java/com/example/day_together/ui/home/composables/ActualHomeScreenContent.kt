@@ -13,7 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.day_together.data.model.CalendarEvent
-import com.example.day_together.data.model.WeeklyCalendarDay
+//import com.example.day_together.data.model.WeeklyCalendarDay
 import com.example.day_together.ui.theme.ScreenBackground
 import com.example.day_together.ui.theme.TextPrimary
 import java.time.LocalDate
@@ -37,7 +37,7 @@ fun ActualHomeScreenContent(
     selectedDateForDetails: LocalDate?,
     dateForBorderOnly: LocalDate?,
     eventsByDate: Map<LocalDate, List<CalendarEvent>>,
-    weeklyCalendarData: List<WeeklyCalendarDay>,
+    //weeklyCalendarData: List<WeeklyCalendarDay>,
     isQuestionAnsweredByAll: Boolean,
     aiQuestion: String,
     familyQuote: String,
@@ -109,10 +109,10 @@ fun ActualHomeScreenContent(
                             .clickable { onToggleCalendarView() }
                             .padding(bottom = 20.dp) // 연월과 주간 캘린더 사이 간격
                     )
-                    WeeklyCalendarView(
-                        weeklyCalendarData = weeklyCalendarData,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    //WeeklyCalendarView(
+                      //  weeklyCalendarData = weeklyCalendarData,
+                      //  modifier = Modifier.fillMaxWidth()
+                    //)
                 }
             }
 
