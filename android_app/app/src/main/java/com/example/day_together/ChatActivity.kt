@@ -2,7 +2,9 @@
 /**
 package com.example.day_together
 
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -23,13 +25,17 @@ import androidx.compose.ui.unit.dp
 import com.example.day_together.ui.theme.Day_togetherTheme
 import com.google.firebase.firestore.Query
 import com.google.android.gms.tasks.Tasks
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.storage.FirebaseStorage
 import java.util.*
 
 // 채팅 메세지 데이터 클래스
 data class ChatMessage(
     val content: String,
     val sender: String,
-    val timestamp: Date = Date()
+    val timestamp: Date = Date(),
+    val type: String
 )
 
 class ChatActivity : ComponentActivity() {
@@ -235,7 +241,6 @@ class ChatActivity : ComponentActivity() {
             }
     }
 
-
     // 채팅방에 메시지 전송
     private fun sendMessage(chatRoomId: String, text: String, sender: String) {
         if (text.isBlank() || sender.isBlank()) return
@@ -243,12 +248,41 @@ class ChatActivity : ComponentActivity() {
         val message = hashMapOf(
             "sender" to sender,
             "content" to text,
-            "timestamp" to Date()
+            "timestamp" to Date(),
+            "type" to "text"
         )
         db.collection("chatRooms")
             .document(chatRoomId)
             .collection("messages")
             .add(message)
+    }
+
+    // 이미지 파일 전송
+    private fun sendImageMessage(chatRoomId: String, sender: String, imageUri: Uri, context: Context){
+        val storageRef = FirebaseStorage.getInstance().reference
+        val fileName = "${System.currentTimeMillis()}_${sender}.jpg"
+        val imageRef = storageRef.child("chat_images/$chatRoomId/$fileName")
+
+        imageRef.putFile(imageUri)
+            .continueWithTask { task ->
+                if(!task.isSuccessful){
+                    throw task.exception ?: Exception("Upload failed")
+                }
+                imageRef.downloadUrl
+            }.addOnSuccessListener { uri ->
+                val imageMessage = hashMapOf(
+                    "sender" to sender,
+                    "timestamp" to Date(),
+                    "type" to "image",
+                    "imageUrl" to uri.toString()
+                )
+                Firebase.firestore.collection("chatRooms")
+                    .document(chatRoomId)
+                    .collection("messages")
+                    .add(imageMessage)
+            }.addOnFailureListener { e ->
+                Toast.makeText(context, "이미지 전송 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
     }
 
     // 채팅방에서 실시간으로 메세지 수신 및 UI 리스트 업데이트
@@ -265,7 +299,9 @@ class ChatActivity : ComponentActivity() {
                         ChatMessage(
                             content = doc.getString("content") ?: "",
                             sender = doc.getString("sender") ?: "unknown",
-                            timestamp = doc.getDate("timestamp") ?: Date()
+                            timestamp = doc.getDate("timestamp") ?: Date(),
+                            type = doc.getString("type") ?: "text"
+
                         )
                     }
                     Log.d("DEBUG", "messages loaded: ${newMessages.size}")
