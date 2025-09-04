@@ -362,8 +362,8 @@ object AppRepository {
         // 임시로 가짜 데이터 담은 Flow 반환
         return flowOf(
             UserSettings(
-                questionFrequency = "주3회",
-                questionTime = "오후",
+                questionFrequency = "",
+                questionTime = "",
                 notificationEnabled = true,
                 vibrationEnabled = false
             )

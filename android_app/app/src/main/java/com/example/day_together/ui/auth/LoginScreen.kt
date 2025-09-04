@@ -72,7 +72,8 @@ fun LoginScreen(
     // 로그인 실패 시 에러 메시지 표시 로직
     LaunchedEffect(key1 = uiState.loginError) {
         uiState.loginError?.let {
-            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            // LENGTH_SHORT를 LENGTH_LONG으로 변경하여 표시 시간을 늘림
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
             authViewModel.clearLoginError()
         }
     }
