@@ -1,5 +1,6 @@
 package com.example.day_together.ui.auth
 
+
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -25,7 +26,7 @@ import kotlinx.coroutines.launch
  */
 class AuthViewModel : ViewModel() {
 
-    private val repository: AppRepository = AppRepository()
+    private val repository: AppRepository = AppRepository
 
 
     /**

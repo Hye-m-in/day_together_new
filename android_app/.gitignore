@@ -15,7 +15,7 @@ render.experimental.xml
 # For now, ignoring most of .idea/ is a common practice for individual or less strict team settings.
 
 # Gradle
-.gradle/
+/.gradle/
 build/
 /android_app/app/build/
 

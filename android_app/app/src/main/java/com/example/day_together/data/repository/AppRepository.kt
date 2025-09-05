@@ -1,14 +1,16 @@
 package com.example.day_together.data.repository
 
+import android.util.Log
 import com.example.day_together.AuthManager
 import com.example.day_together.CalendarManager
-import com.example.day_together.ChatMessage
+import com.example.day_together.ui.message.ChatMessage
 import com.example.day_together.ChatRoomManager
 import com.example.day_together.data.model.CalendarEvent
 import com.example.day_together.data.model.Question
 import com.example.day_together.data.model.User
 import com.example.day_together.ui.gallery.MonthlyComment
 import com.example.day_together.ui.gallery.PhotoItem
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -23,13 +25,13 @@ import kotlin.coroutines.resume
  * 앱의 모든 데이터 통신을 책임지는 통합 Repository 클래스
  * 각 ViewModel이 필요로 하는 모든 기능 제공 &  실제 백엔드 로직(AuthManager 등)과 ViewModel 사이의 중개인 역할
  */
-class AppRepository {
+object AppRepository {
 
     // 실제 로직 담당 매니저들 선언
     private val authManager = AuthManager
-
     private val chatRoomManager = ChatRoomManager
     private val calendarManager = CalendarManager()
+    private val db = chatRoomManager.db // 편의를 위해 db 인스턴스 가져오기
 
 
     /**
@@ -73,12 +75,22 @@ class AppRepository {
      * TODO: 백엔드에 현재 사용자 정보를 Firestore에서 가져오는 기능 구현 및 연결 필요
      */
     suspend fun getCurrentUser(): User? {
-        delay(200) // 가짜 딜레이
         val uid = authManager.getCurrentUserId()
-        return if (uid != null) {
-            User(uid = uid, name = "테스트 유저", email = "test@example.com", position = "아들")
-        } else {
-            null
+        return suspendCancellableCoroutine { continuation ->
+            if (uid != null) {
+                db.collection("users").document(uid).get()
+                    .addOnSuccessListener { document ->
+                        if (continuation.isActive) {
+                            val name = document.getString("name") ?: "Unknown"
+                            val email = document.getString("email") ?: "Unknown"
+                            val position = document.getString("position") ?: "가족"
+                            continuation.resume(User(uid = uid, name = name, email = email, position = position))
+                        }
+                    }
+                    .addOnFailureListener {
+                        if (continuation.isActive) continuation.resume(null)
+                    }
+            }
         }
     }
 
@@ -155,17 +167,16 @@ class AppRepository {
         val today = LocalDate.now()
         // 현재 CalendarManager에는 이벤트 추가 기능만 있으므로, 가져오기 기능은 임시 데이터 반환
         return mapOf(
-            today.plusDays(3) to listOf(
-                CalendarEvent(id = "1", description = "엄마 생일", date = today.plusDays(3), isPriority = true)
-            ),
-            today.plusDays(10) to listOf(
-                CalendarEvent(id = "2", description = "가족 여행", date = today.plusDays(10))
-            )
+//            today.plusDays(3) to listOf(
+//                CalendarEvent(id = "1", description = "엄마 생일", date = today.plusDays(3), isPriority = true)
+//            ),
+//            today.plusDays(10) to listOf(
+//                CalendarEvent(id = "2", description = "가족 여행", date = today.plusDays(10))
+//            )
         )
     }
 
-    // GalleryViewModel)
-
+    // GalleryViewModel
 
     /**
      * 갤러리의 모든 사진 목록을 가져옴
@@ -181,14 +192,13 @@ class AppRepository {
     }
 
     /**
-     * 특정 월의 댓글 목록을 가져옴
+     * 특정 월의 댓글 목록을 가져옴(임시 데이터 생성)
      * TODO: Firestore에서 실제 댓글 목록을 가져오도록 구현 필요
      */
+
     suspend fun getMonthlyComments(yearMonth: YearMonth): List<MonthlyComment> {
         delay(400)
         return listOf(
-            MonthlyComment(author = "엄마", text = "${yearMonth.monthValue}월도 행복했어!", timestamp = "3시간 전"),
-            MonthlyComment(author = "아빠", text = "시간 참 빠르다.", timestamp = "1시간 전")
         )
     }
 
@@ -203,6 +213,116 @@ class AppRepository {
 
 
     // MessageViewModel
+
+    /**
+     * ChatActivity 로직 이전: 현재 로그인된 사용자의 이름을 가져옴
+     */
+    suspend fun getCurrentUserName(): String {
+        return suspendCancellableCoroutine { continuation ->
+            val uid = authManager.getCurrentUserId()
+            if (uid == null) {
+                if (continuation.isActive) continuation.resume("Unknown")
+                return@suspendCancellableCoroutine
+            }
+            db.collection("users").document(uid).get()
+                .addOnSuccessListener { document ->
+                    if (continuation.isActive) {
+                        continuation.resume(document.getString("name") ?: "Unknown")
+                    }
+                }
+                .addOnFailureListener {
+                    if (continuation.isActive) continuation.resume("Unknown")
+                }
+        }
+    }
+
+    /**
+     * ChatActivity 로직 이전: 사용자가 참여한 채팅방 ID를 찾음
+     */
+    suspend fun findUserChatRoomId(userId: String): String? {
+        return suspendCancellableCoroutine { continuation ->
+            // 1. 내가 초대받아 수락한 채팅방 찾기
+            db.collection("users").document(userId).collection("invitations")
+                .whereEqualTo("status", "accepted").limit(1).get()
+                .addOnSuccessListener { documents ->
+                    val acceptedRoomId = documents.firstOrNull()?.id
+                    if (acceptedRoomId != null) {
+                        if (continuation.isActive) continuation.resume(acceptedRoomId)
+                        return@addOnSuccessListener
+                    }
+
+                    // 2. 내가 만든 채팅방 찾기
+                    db.collection("chatRooms").whereArrayContains("members", userId).limit(1).get()
+                        .addOnSuccessListener { chatRooms ->
+                            val ownRoomId = chatRooms.firstOrNull()?.id
+                            if (continuation.isActive) continuation.resume(ownRoomId)
+                        }
+                        .addOnFailureListener { if (continuation.isActive) continuation.resume(null) }
+                }
+                .addOnFailureListener { if (continuation.isActive) continuation.resume(null) }
+        }
+    }
+
+    /**
+     * ChatActivity 로직 이전: 새로운 채팅방 생성함
+     */
+    suspend fun createNewChatRoom(inviterUserId: String): String? {
+        return suspendCancellableCoroutine { continuation ->
+            val newChatRoomRef = db.collection("chatRooms").document()
+            val chatRoomId = newChatRoomRef.id
+            val data = hashMapOf(
+                "members" to listOf(inviterUserId),
+                "createdAt" to Date()
+            )
+            newChatRoomRef.set(data)
+                .addOnSuccessListener {
+                    if (continuation.isActive) continuation.resume(chatRoomId)
+                }
+                .addOnFailureListener {
+                    if (continuation.isActive) continuation.resume(null)
+                }
+        }
+    }
+
+    /**
+     * ChatActivity 로직 이전: 실시간으로 메시지 수신
+     */
+    fun listenForMessages(chatRoomId: String, onMessagesUpdated: (List<ChatMessage>) -> Unit): ListenerRegistration {
+        return db.collection("chatRooms").document(chatRoomId).collection("messages")
+            .orderBy("timestamp", Query.Direction.ASCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.w("Repository", "Listen failed.", error)
+                    onMessagesUpdated(emptyList())
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    val messages = snapshot.toObjects(ChatMessage::class.java)
+                    onMessagesUpdated(messages)
+                }
+            }
+    }
+
+    /**
+     * 새로운 멤버를 채팅방에 초대
+     */
+    suspend fun inviteMember(chatRoomId: String, inviterUserId: String, invitedUserEmail: String): AuthResult {
+        return suspendCancellableCoroutine { continuation ->
+            chatRoomManager.inviteMembers(
+                chatRoomId = chatRoomId,
+                inviterUserId = inviterUserId,
+                invitedUserId = listOf(invitedUserEmail) // 이메일은 리스트 형태로 전달
+            ) { success, error ->
+                if (continuation.isActive) {
+                    if (success) {
+                        continuation.resume(AuthResult.Success)
+                    } else {
+                        continuation.resume(AuthResult.Failure(error ?: "초대 실패"))
+                    }
+                }
+            }
+        }
+    }
 
     /**
      * 특정 채팅방의 메시지 목록 가져옴
@@ -220,7 +340,7 @@ class AppRepository {
                     }
                     if (continuation.isActive) continuation.resume(messages)
                 }
-                .addOnFailureListener { exception ->
+                .addOnFailureListener {
                     if (continuation.isActive) continuation.resume(emptyList()) // 실패 시 빈 리스트 반환
                 }
         }
@@ -243,10 +363,7 @@ class AppRepository {
             .add(message)
     }
 
-
-
     // SettingsViewModel
-
 
     /**
      * 현재 설정 값을 Flow로 제공
@@ -272,12 +389,7 @@ class AppRepository {
         delay(200)
         println("TODO: DB에 설정 저장 - $newSettings")
     }
-
-
 }
-
-
-
 
 /**
  * 인증 결과를 나타내는 Sealed Class

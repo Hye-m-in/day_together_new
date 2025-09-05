@@ -23,6 +23,7 @@ volley = "1.2.1"
 firebaseFunctionsKtx = "21.2.1"
 media3CommonKtx = "1.7.1"
 firebaseCrashlyticsBuildtools = "3.0.4"
+firebaseStorageKtx = "22.0.0"
 #navigationComposeJvmstubs = "2.9.2"
 
 [libraries]
@@ -56,6 +57,7 @@ volley = { group = "com.android.volley", name = "volley", version.ref = "volley"
 firebase-functions-ktx = { group = "com.google.firebase", name = "firebase-functions-ktx", version.ref = "firebaseFunctionsKtx" }
 androidx-media3-common-ktx = { group = "androidx.media3", name = "media3-common-ktx", version.ref = "media3CommonKtx" }
 firebase-crashlytics-buildtools = { group = "com.google.firebase", name = "firebase-crashlytics-buildtools", version.ref = "firebaseCrashlyticsBuildtools" }
+firebase-storage-ktx = { group = "com.google.firebase", name = "firebase-storage-ktx", version.ref = "firebaseStorageKtx" }
 #androidx-navigation-compose-jvmstubs = { group = "androidx.navigation", name = "navigation-compose-jvmstubs", version.ref = "navigationComposeJvmstubs" }
 
 [plugins]

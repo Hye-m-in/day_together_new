@@ -31,8 +31,8 @@ import androidx.navigation.compose.rememberNavController
 import com.example.day_together.R
 import com.example.day_together.ui.theme.*
 import androidx.compose.ui.tooling.preview.Preview
-
-// 초대 다이얼로그
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.day_together.data.repository.AppRepository
 import com.example.day_together.ui.dialogs.InviteMemberDialog
 
 // 가족 멤버를 표현하는 데이터 클래스 정의
@@ -44,30 +44,18 @@ data class FamilyMember(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatInfoScreen(navController: NavController) {
-    // 사용자 정보와 가족방 생성일
-    val myUserName = "사용자 이름"
-    val creationDate = "2024.01.01"
-
-    // 참여 중인 가족 멤버 리스트
-    val familyMembers = listOf(
-        FamilyMember("1", "엄마"),
-        FamilyMember("2", "아빠"),
-        FamilyMember("3", "동생"),
-        FamilyMember("4", "누나"),
-        FamilyMember("5", "형")
-    )
-
-    // 초대 다이얼로그 표시 여부 상태 변수
-    var showInviteDialog by remember { mutableStateOf(false) }
+fun ChatInfoScreen(
+    navController: NavController,
+    viewModel: MessageViewModel = viewModel(factory = MessageViewModelFactory(AppRepository))
+) {
+    val uiState by viewModel.uiState.collectAsState() // ViewModel 상태 구독
 
     // 초대 다이얼로그가 true일 때 화면에 표시
-    if (showInviteDialog) {
+    if (uiState.showInviteDialog) {
         InviteMemberDialog(
-            onDismissRequest = { showInviteDialog = false }, // 다이얼로그 닫기
+            onDismissRequest = { viewModel.onEvent(MessageEvent.DismissInviteDialog) }, // 다이얼로그 닫기 이벤트
             onInviteClick = { email ->
-                println("초대 이메일: $email") // 입력된 이메일 로그 출력
-                showInviteDialog = false // 다이얼로그 닫기
+                viewModel.onEvent(MessageEvent.InviteMember(email)) // 초대 이벤트
             }
         )
     }
@@ -105,7 +93,6 @@ fun ChatInfoScreen(navController: NavController) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // 사용자 프로필 이미지 (현재는 기본 이미지)
                     Image(
                         painter = painterResource(id = R.drawable.ic_add_photo),
                         contentDescription = "내 프로필 이미지",
@@ -116,9 +103,10 @@ fun ChatInfoScreen(navController: NavController) {
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // 사용자 이름 텍스트
+
+                    // 사용자 이름 텍스트 (ViewModel 데이터 사용)
                     Text(
-                        text = myUserName,
+                        text = uiState.currentUserName, // myUserName -> currentUserName 으로 수정
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary,
@@ -126,9 +114,9 @@ fun ChatInfoScreen(navController: NavController) {
                         )
                     )
 
+
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // 설명 텍스트와 개설일 날짜
                     Text(
                         text = "하루함께 개설일",
                         style = MaterialTheme.typography.bodySmall.copy(
@@ -136,8 +124,9 @@ fun ChatInfoScreen(navController: NavController) {
                             fontFamily = GothicA1
                         )
                     )
+                    // 개설일 날짜 (ViewModel 데이터 사용)
                     Text(
-                        text = creationDate,
+                        text = uiState.creationDate,
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = TextPrimary,
                             fontFamily = GothicA1,
@@ -173,8 +162,8 @@ fun ChatInfoScreen(navController: NavController) {
                 Divider(color = TextPrimary.copy(alpha = 0.5f), thickness = 1.dp)
             }
 
-            // 가족 멤버 목록 표시
-            items(familyMembers) { member ->
+            // 가족 멤버 목록 표시 (ViewModel 데이터 사용)
+            items(uiState.familyMembers) { member ->
                 FamilyMemberItem(member = member) // 개별 아이템
                 Divider(
                     color = TextPrimary.copy(alpha = 0.3f),
@@ -190,7 +179,7 @@ fun ChatInfoScreen(navController: NavController) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { showInviteDialog = true } // 클릭 시 다이얼로그 열기
+                        .clickable { viewModel.onEvent(MessageEvent.ShowInviteDialog) } // 클릭 시 ViewModel 이벤트 발생
                         .padding(vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -225,7 +214,6 @@ fun FamilyMemberItem(member: FamilyMember) {
             .padding(vertical = 12.dp, horizontal = 0.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 멤버의 프로필 이미지
         Image(
             painter = painterResource(id = member.profileImageRes),
             contentDescription = "${member.name} 프로필 이미지",
@@ -236,7 +224,6 @@ fun FamilyMemberItem(member: FamilyMember) {
         )
         Spacer(modifier = Modifier.width(16.dp))
 
-        // 멤버 이름 텍스트
         Text(
             text = member.name,
             style = MaterialTheme.typography.bodyLarge.copy(

@@ -1,3 +1,6 @@
+/**
+
+
 package com.example.day_together
 
 import android.annotation.SuppressLint
@@ -66,3 +69,5 @@ class InvitationActivity : ComponentActivity() {
         }
     }
 }
+
+*/
