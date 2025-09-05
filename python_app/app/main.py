@@ -2,6 +2,8 @@
 import sys
 import os
 import httpx
+import pytz
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,18 +12,64 @@ from .services.firebase_client import db, fb_auth
 import google.auth.transport.requests
 import google.oauth2.id_token
 
-#GPT 관련 import 문
-
+#GPT 관련 import 문-----------------------------------------
 # main.py 위치 기준으로 루트 경로 추가
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from firebase_admin import credentials, firestore, initialize_app
 from datetime import datetime
 from app.gpt import question_generator as qg
 
+#GPT 질문 생성 스케줄러---------------------------------------
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+import atexit
+
 from .services.firebase_admin_init import default_app  # 초기화만 호출됨
 from .models.schemas import GoogleTokenRequest, NaverTokenRequest, TokenResponse  # <<< 수정: TokenRequest → NaverTokenRequest로 분리
 
+#스케줄러 초기화
+scheduler = BackgroundScheduler()
 
+#--------질문 저장 이벤트 스케줄러--------------
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    #앱 시작 시 실행
+    seoul_tz = pytz.timezone("Asia/Seoul")
+    scheduler.add_job(
+        generate_and_store_daily_question,
+        CronTrigger(hour=22, minute=0, timezone=seoul_tz)
+    )
+    scheduler.start()
+    print("[Scheduler] Started")
+
+    yield #앱 실행 유지
+
+    #앱 종료 시 실행
+    scheduler.shutdown()
+    print("[Scheduler] Stopped")
+
+
+
+def generate_and_store_daily_question():
+    try:
+        # 모든 가족(또는 유저) uID 가져오기
+        users = db.collection("users").stream()
+        for user in users:
+            uid = user.id
+            question = qg.generate_question(uid)
+
+            #Firestore에 저장
+            db.collection("daily_questions").document().set({
+                "uid": uid,
+                "question": question,
+                "created_at": firestore.SERVER_TIMESTAMP
+            })
+        print("[Scheduler] Daily questions generated successfully")
+    except Exception as e:
+        print(f"[Sceheduler] Error: {e}")
+
+# 한 번만 생성
+app = FastAPI(lifespan=lifespan)
 
 # Naver 검증 로직 인라인
 load_dotenv()
@@ -196,7 +244,7 @@ async def naver_login(body: NaverTokenRequest):
 @app.post("/daily-question")
 async def daily_question():
     #최근 질문 가져오기
-    recent_docs = db.collection("daily_question").order_by("date", direction="DESCENDING").limit(5).stream()
+    recent_docs = db.collection("daily_questions").order_by("date", direction="DESCENDING").limit(5).stream()
     recent_questions = [doc.to_dict().get("question", "") for doc in recent_docs]
 
     # 질문 생성
@@ -207,10 +255,11 @@ async def daily_question():
     doc_ref.set({
         "date": datetime.now(),
         "question": data["question"],
-        "follow_up": data["follow_up"],
         "category": data["category"],
         "tone": data["tone"],
         "timeframe": data["timeframe"]
     })
 
     return data
+
+
