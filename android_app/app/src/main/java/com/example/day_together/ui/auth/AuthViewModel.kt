@@ -142,6 +142,22 @@ class AuthViewModel : ViewModel() {
         }
     }
 
+    /**
+     * 구글 ID 토큰으로 Firebase에 로그인하는 로직 실행
+     */
+    fun signInWithGoogle(idToken: String) {
+        _uiState.update { it.copy(isLoading = true, isLoginSuccess = false, loginError = null) }
+        viewModelScope.launch {
+            val result = repository.signInWithGoogle(idToken)
+            _uiState.update {
+                when (result) {
+                    is AuthResult.Success -> it.copy(isLoading = false, isLoginSuccess = true)
+                    is AuthResult.Failure -> it.copy(isLoading = false, loginError = result.message)
+                }
+            }
+        }
+    }
+
     // 회원가입 로직 실행
     fun signUp() {
         _uiState.update { it.copy(isLoading = true, signUpResult = null) }
@@ -205,7 +221,7 @@ class AuthViewModel : ViewModel() {
  * AuthUiState 클래스 : 비동기 작업 포함한 앱의 상태 관리하는 도구
  *
  * AuthUiState : UI 화면 설계도, 인증 화면에 필요한 모든 정보의 설계도
- * -> 화면에 필요한 모든 데이터(이메일 입력 값, 비밀번호 입력 값, 로딩 중 여부, 에러메시지 등)를 'data class'에 모아둠.
+ * -> 화면에 필요한 모든 데이터(이메일 입력 값, 비밀번호 입력 값, 로딩 중 여부, 에러메시지 등)를 'data class'에 모아둠
  */
 data class AuthUiState(
     // 공통 상태
@@ -242,4 +258,3 @@ data class AuthUiState(
     val findPwEmail: String = "",
     val findAccountResult: AuthResult? = null
 )
-

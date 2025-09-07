@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -36,10 +38,14 @@ import androidx.navigation.NavController
 import com.example.day_together.R
 import com.example.day_together.navigation.AppDestinations
 import com.example.day_together.ui.theme.*
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+
 
 /**
- * 로그인 화면의 UI를 그리는 컴포저블 함수입
- * 모든 화면 이동은 NavController로
+ * 로그인 화면의 UI를 그리는 컴포저블 함수
+ * 모든 화면 이동은 NavController로 통제
  *
  * @param navController 앱의 화면 전환을 담당하는 NavController
  * @param fromOnboarding 온보딩 화면에서 넘어왔는지 여부(UI 간격 조절용)
@@ -57,6 +63,31 @@ fun LoginScreen(
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
 
+    // 구글 로그인 준비 코드
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.getResult(ApiException::class.java)
+            account?.idToken?.let { idToken ->
+                authViewModel.signInWithGoogle(idToken)
+            }
+        } catch (e: ApiException) {
+            Toast.makeText(context, "구글 로그인에 실패했습니다. (${e.statusCode})", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val gso = remember {
+        GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(context.getString(R.string.default_web_client_id))
+            .requestEmail()
+            .build()
+    }
+
+    val googleSignInClient = remember { GoogleSignIn.getClient(context, gso) }
+    // 구글 로그인 준비 코드 끝
+
     // 부가 효과 처리 (Side Effects)
     // 로그인 성공 시 메인 화면으로 이동하는 로직
     LaunchedEffect(key1 = uiState.isLoginSuccess) {
@@ -73,7 +104,6 @@ fun LoginScreen(
     // 로그인 실패 시 에러 메시지 표시 로직
     LaunchedEffect(key1 = uiState.loginError) {
         uiState.loginError?.let {
-            // LENGTH_SHORT를 LENGTH_LONG으로 변경하여 표시 시간을 늘림
             Toast.makeText(context, it, Toast.LENGTH_LONG).show()
             authViewModel.clearLoginError()
         }
@@ -191,6 +221,8 @@ fun LoginScreen(
                     Text(if (uiState.isLoading) "로그인 중..." else "로그인", style = MaterialTheme.typography.labelLarge)
                 }
                 Spacer(modifier = Modifier.height(40.dp))
+
+
                 // SNS 로그인 섹션
                 Text(
                     "SNS 계정으로 로그인",
@@ -203,7 +235,10 @@ fun LoginScreen(
                     horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally)
                 ) {
                     SocialLoginIconButton(iconRes = R.drawable.ic_logo_naver, text = "네이버") { /* TODO: 네이버 로그인 구현 */ }
-                    SocialLoginIconButton(iconRes = R.drawable.ic_logo_google, text = "구글") { /* TODO: 구글 로그인 구현 */ }
+                    // 구글 로그인 실행 코드
+                    SocialLoginIconButton(iconRes = R.drawable.ic_logo_google, text = "구글") {
+                        googleSignInLauncher.launch(googleSignInClient.signInIntent)
+                    }
                 }
             }
             // 하단 메뉴 (회원가입, 계정 찾기)
@@ -278,6 +313,6 @@ private fun Context.findActivity(): Activity? = when (this) {
 
 
 /**
- * LoginActivity.kt 파일 삭제 : intent -> navcontroller 사용 방식으로 변경함
+ * LoginActivity.kt 파일 삭제 : intent -> navcontroller 사용 방식으로 변경
  * loginscreen.kt 파일 내 반영 완료
  */

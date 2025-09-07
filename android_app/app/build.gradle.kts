@@ -118,4 +118,7 @@ dependencies {
     implementation("com.google.firebase:firebase-functions-ktx")
     implementation("com.google.firebase:firebase-messaging")
     implementation("com.google.firebase:firebase-analytics")
+
+    // 구글 로그인용 라이브러리 추가
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
 }
