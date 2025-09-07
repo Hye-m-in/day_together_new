@@ -49,6 +49,20 @@ object AppRepository {
     }
 
     /**
+     * 구글 ID 토큰으로 Firebase에 로그인 요청하는 함수 추가
+     */
+    suspend fun signInWithGoogle(idToken: String): AuthResult {
+        return suspendCancellableCoroutine { continuation ->
+            authManager.signInWithGoogleCredential(idToken) { success, errorMessage ->
+                if (continuation.isActive) {
+                    if (success) continuation.resume(AuthResult.Success)
+                    else continuation.resume(AuthResult.Failure(errorMessage ?: "구글 로그인 실패"))
+                }
+            }
+        }
+    }
+
+    /**
      * 사용자 정보로 회원가입 요청
      */
     suspend fun signUp(name: String, email: String, password: String): AuthResult {
@@ -64,7 +78,7 @@ object AppRepository {
     }
 
     /**
-     * 로그아웃을 처리
+     * 로그아웃 처리
      */
     fun logout() {
         authManager.logoutUser()
@@ -104,7 +118,7 @@ object AppRepository {
     }
 
     /**
-     * 비밀번호를 변경
+     * 비밀번호 변경
      * TODO: 백엔드에 비밀번호 변경 기능 구현 및 연결 필요
      */
     suspend fun changePassword(email: String, newPassword: String) {
@@ -373,8 +387,8 @@ object AppRepository {
         // 임시로 가짜 데이터 담은 Flow 반환
         return flowOf(
             UserSettings(
-                questionFrequency = "주3회",
-                questionTime = "오후",
+                questionFrequency = "",
+                questionTime = "",
                 notificationEnabled = true,
                 vibrationEnabled = false
             )
