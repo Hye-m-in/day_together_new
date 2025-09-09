@@ -45,8 +45,8 @@ android {
         compose = true
     }
 
-
-    packagingOptions {
+    // AGP 최신 가이드에 맞춰 packagingOptions → packaging 블록으로 교체
+    packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
@@ -55,12 +55,14 @@ android {
 
 dependencies {
 
+    // 이미지 로딩
     implementation(libs.coil.compose)
+
+    // Compose BOM
     implementation(platform(libs.androidx.compose.bom))
-    //implementation(libs.androidx.navigation.compose.jvmstubs)
     androidTestImplementation(platform(libs.androidx.compose.bom))
 
-
+    // Compose UI 계열
     implementation(libs.androidx.material3)
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.foundation:foundation")
@@ -68,36 +70,40 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
 
-
+    // Navigation
     val navVersion = "2.7.7"
     implementation("androidx.navigation:navigation-compose:$navVersion")
 
+    // Accompanist
     val accompanistVersion = "0.34.0"
     implementation("com.google.accompanist:accompanist-pager:$accompanistVersion")
     implementation("com.google.accompanist:accompanist-pager-indicators:$accompanistVersion")
 
-
+    // JDK desugaring
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
-    implementation(libs.androidx.lifecycle.runtime.ktx)
 
+    // AndroidX Lifecycle / Activity
+    implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
     implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
 
-    implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.compose.foundation:foundation")
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
+    // AppCompat / Material / ConstraintLayout
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+
+    // 네트워킹(Volley)
     implementation(libs.volley)
+
+    // Media3(필요시)
     implementation(libs.androidx.media3.common.ktx)
+
+    // Crashlytics 빌드툴
     implementation(libs.firebase.crashlytics.buildtools)
+
+    // Test/Debug
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -105,12 +111,12 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+    // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3") // ★ 중복 한 줄만 유지
 
-    //Firebase Modules
+    // Firebase Modules
     implementation(platform("com.google.firebase:firebase-bom:32.1.0"))
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")

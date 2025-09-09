@@ -3,10 +3,20 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.example.day_together">
 
+    <!-- Android 13+(API 33)에서 갤러리 이미지 접근 -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+
+    <!-- 33+에서 READ_EXTERNAL_STORAGE는 폐지되므로 32까지만 허용 -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+
+    <!-- 네트워크 통신 -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Android 13+(API 33) 이상에서 푸시/알림 표시 허용 필요 -->
+    <uses-permission
+        android:name="android.permission.POST_NOTIFICATIONS"
+        tools:targetApi="33" />
 
     <application
         android:allowBackup="true"
@@ -17,8 +27,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Day_together"
-        tools:targetApi="31">
-
+        tools:targetApi="35"> <!-- targetSdk=35에 맞춰 tools:targetApi도 35로 상향 -->
 
         <!-- 앱의 시작점을 MainActivity -->
         <activity
@@ -31,10 +40,6 @@
             </intent-filter>
         </activity>
 
-
-
-        <!-- ChatActivity는 별도의 Activity로 유지될 수 있으므로 남겨둠 (푸시 알림 클릭 등) -->
-        <activity android:name=".ChatActivity" />
 
     </application>
 </manifest>
