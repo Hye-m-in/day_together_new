@@ -42,6 +42,10 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 
+// 로그인 오류 코드 매핑용 import
+import com.google.android.gms.common.api.CommonStatusCodes
+import com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes
+
 
 /**
  * 로그인 화면의 UI를 그리는 컴포저블 함수
@@ -70,11 +74,36 @@ fun LoginScreen(
         val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
         try {
             val account = task.getResult(ApiException::class.java)
-            account?.idToken?.let { idToken ->
-                authViewModel.signInWithGoogle(idToken)
+            // ID 토큰 null 방어 및 메시지
+            val idToken = account?.idToken
+            if (idToken.isNullOrBlank()) {
+                Toast.makeText(context, "ID 토큰을 가져오지 못했습니다. 잠시 후 다시 시도해주세요.", Toast.LENGTH_LONG).show()
+                return@rememberLauncherForActivityResult
             }
+            authViewModel.signInWithGoogle(idToken)
         } catch (e: ApiException) {
-            Toast.makeText(context, "구글 로그인에 실패했습니다. (${e.statusCode})", Toast.LENGTH_SHORT).show()
+            // 오류 코드별 사용자 메시지 매핑
+            val msg = when (e.statusCode) {
+                // code=10 → DEVELOPER_ERROR: 설정 불일치 (SHA-1/패키지명/웹 클라이언트 ID)
+                CommonStatusCodes.DEVELOPER_ERROR ->
+                    "(code=10)앱 설정 오류로 구글 로그인에 실패했습니다. \n관리자에게 문의바랍니다."
+
+                // code=8 → INTERNAL_ERROR: 일시적 네트워크/서비스 불안정
+                CommonStatusCodes.INTERNAL_ERROR ->
+                    "(code=8)네트워크/서비스가 불안정 합니다. 잠시 후 다시 시도해주세요."
+
+                // 네트워크 오류 식별 가능할 때
+                CommonStatusCodes.NETWORK_ERROR ->
+                    "네트워크 연결을 확인한 뒤 다시 시도해주세요. (network error)"
+
+                // 사용자가 로그인 창을 닫거나 취소
+                GoogleSignInStatusCodes.SIGN_IN_CANCELLED ->
+                    "로그인이 취소되었습니다."
+
+                // 그 외 일반 실패
+                else -> "구글 로그인 실패: ${e.statusCode}"
+            }
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -209,7 +238,9 @@ fun LoginScreen(
                 Button(
                     onClick = authViewModel::login,
                     enabled = uiState.loginEmail.isNotBlank() && uiState.loginPassword.isNotBlank() && !uiState.isLoading,
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = ButtonActiveBackground,
