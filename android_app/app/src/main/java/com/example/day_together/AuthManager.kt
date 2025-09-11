@@ -3,6 +3,7 @@ package com.example.day_together
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.messaging.FirebaseMessaging
 
 
@@ -69,6 +70,44 @@ object AuthManager {
                     }
                     onResult(true, null)
                 } else {
+                    onResult(false, getFriendlyErrorMessage(task.exception))
+                }
+            }
+    }
+
+    // 구글 로그인을 처리하는 함수 추가
+    fun signInWithGoogleCredential(idToken: String, onResult: (Boolean, String?) -> Unit) {
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        auth.signInWithCredential(credential)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    // 로그인 성공 후 Firestore에 사용자 정보가 있는지 확인
+                    val user = auth.currentUser
+                    if (user != null) {
+                        val userDocRef = db.collection("users").document(user.uid)
+                        userDocRef.get().addOnSuccessListener { document ->
+                            if (!document.exists()) {
+                                // 최초 구글 로그인 시 Firestore에 사용자 정보 저장
+                                val memberData = hashMapOf(
+                                    "member_id" to user.uid,
+                                    "name" to user.displayName,
+                                    "email" to user.email,
+                                    "position" to "가족", // 기본값
+                                    "invitedChatRoomId" to null
+                                )
+                                userDocRef.set(memberData)
+                                    .addOnSuccessListener { onResult(true, null) }
+                                    .addOnFailureListener { e -> onResult(false, e.message) }
+                            } else {
+                                // 기존 사용자는 바로 성공 처리
+                                onResult(true, null)
+                            }
+                        }
+                    } else {
+                        onResult(true, null) // Firestore 확인이 안돼도 로그인 자체는 성공
+                    }
+                } else {
+                    // 로그인 실패
                     onResult(false, getFriendlyErrorMessage(task.exception))
                 }
             }

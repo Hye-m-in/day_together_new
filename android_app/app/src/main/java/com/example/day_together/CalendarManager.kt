@@ -11,6 +11,14 @@ import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
+// 캘린더 일정 데이터 클래스
+data class Event(
+    val title: String = "",
+    val date: String = "", // "@2025-08-01"
+    val createdBy: String = "", // uid or "system"
+    val type: String = "general", //"birthday", "anniversary" 등
+    val visibility: String = "public"
+)
 
 class CalendarManager {
     val db = FirebaseService.db

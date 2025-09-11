@@ -241,7 +241,6 @@ class ChatActivity : ComponentActivity() {
             }
     }
 
-
     // 채팅방에 메시지 전송
     private fun sendMessage(chatRoomId: String, text: String, sender: String) {
         if (text.isBlank() || sender.isBlank()) return
