@@ -1,5 +1,6 @@
 package com.example.day_together.data.repository
 
+import android.net.Uri
 import android.util.Log
 import com.example.day_together.AuthManager
 import com.example.day_together.CalendarManager
@@ -12,13 +13,16 @@ import com.example.day_together.ui.gallery.MonthlyComment
 import com.example.day_together.ui.gallery.PhotoItem
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.YearMonth
 import java.util.Date
+import java.util.UUID
 import kotlin.coroutines.resume
 
 /**
@@ -263,6 +267,12 @@ object AppRepository {
         }
     }
 
+    suspend fun updateChatRoomName(chatRoomId: String, newName: String){
+        db.collection("chatRooms").document(chatRoomId)
+            .update("chatRoomName", newName)
+            .await()
+    }
+
     /**
      * ChatActivity 로직 이전: 새로운 채팅방 생성함
      */
@@ -349,13 +359,14 @@ object AppRepository {
     /**
      * 새로운 채팅 메시지 전송
      */
-    fun sendMessage(chatRoomId: String, text: String, sender: String) {
+    fun sendMessage(chatRoomId: String, text: String, sender: String, imageUrl: String?=null) {
         if (text.isBlank() || sender.isBlank()) return
 
         val message = hashMapOf(
             "sender" to sender,
             "content" to text,
-            "timestamp" to Date()
+            "timestamp" to Date(),
+            "imageUrl" to imageUrl
         )
         chatRoomManager.db.collection("chatRooms")
             .document(chatRoomId)
@@ -363,8 +374,22 @@ object AppRepository {
             .add(message)
     }
 
-    // SettingsViewModel
+    fun uploadImageToStorage(uri: String, onComplete: (String?) -> Unit) {
+        val storageRef = FirebaseStorage.getInstance().reference
+        val imageRef = storageRef.child("chat_images/${UUID.randomUUID()}.jpg")
 
+        imageRef.putFile(Uri.parse(uri))
+            .addOnSuccessListener {
+                imageRef.downloadUrl.addOnSuccessListener { uri ->
+                    onComplete(uri.toString())
+                }
+            }
+            .addOnFailureListener {
+                onComplete(null)
+            }
+    }
+
+    // SettingsViewModel
     /**
      * 현재 설정 값을 Flow로 제공
      * TODO: Firestore 등에서 실제 사용자 설정 값을 가져와 Flow로 제공하도록 구현 필요

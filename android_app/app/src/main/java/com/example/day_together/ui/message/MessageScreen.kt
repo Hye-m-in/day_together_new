@@ -16,8 +16,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,10 +73,17 @@ fun MessageScreen(
 
     Scaffold(
         topBar = {
-            MessageTopBar(
-                onInviteClick = { viewModel.onEvent(MessageEvent.ShowInviteDialog) },
-                onMoreOptionsClick = { navController.navigate(AppDestinations.CHAT_INFO_ROUTE) }
-            )
+            if(uiState.chatRoomId != null){
+                MessageTopBar(
+                    chatRoomName = uiState.chatRoomName.toString(),
+                    onInviteClick = { viewModel.onEvent(MessageEvent.ShowInviteDialog) },
+                    onMoreOptionsClick = { navController.navigate(AppDestinations.CHAT_INFO_ROUTE) },
+                    onEditChatRoomName = { newName ->
+                        // ViewModel에 이벤트 전달
+                        viewModel.onEvent(MessageEvent.EditChatRoomName(newName))
+                    }
+                )
+            }
         },
         containerColor = ScreenBackground
     ) { innerPadding ->
@@ -130,30 +142,80 @@ fun ColumnScope.ChatScreenContent(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MessageTopBar(
+    chatRoomName: String,
     onInviteClick: () -> Unit,
-    onMoreOptionsClick: () -> Unit
+    onMoreOptionsClick: () -> Unit,
+    onEditChatRoomName: (String) -> Unit // 이름 수정 콜백
 ) {
+    var isEditing by remember { mutableStateOf(false) }
+    var editedName by remember { mutableStateOf(chatRoomName) }
+
     TopAppBar(
-        title = { Text("가족 채팅방", fontWeight = FontWeight.Bold) },
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isEditing) {
+                    TextField(
+                        value = editedName,
+                        onValueChange = { editedName = it },
+                        singleLine = true,
+                        modifier = Modifier.widthIn(min = 100.dp, max = 200.dp),
+                        textStyle = LocalTextStyle.current.copy(fontWeight = FontWeight.Bold),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                isEditing = false
+                                onEditChatRoomName(editedName)
+                            }
+                        ),
+                        keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done)
+                    )
+                } else {
+                    Text(
+                        text = chatRoomName,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                IconButton(onClick = {
+                    if (isEditing) {
+                        // 편집 모드 종료 → 저장
+                        isEditing = false
+                        onEditChatRoomName(editedName)
+                    } else {
+                        // 편집 모드 진입
+                        editedName = chatRoomName
+                        isEditing = true
+                    }
+                }) {
+                    Icon(
+                        imageVector = if (isEditing) Icons.Default.Check else Icons.Default.Edit,
+                        contentDescription = if (isEditing) "이름 저장" else "이름 수정"
+                    )
+                }
+            }
+        },
         actions = {
             IconButton(onClick = onInviteClick) {
                 Icon(Icons.Default.Add, contentDescription = "가족 초대")
             }
             IconButton(onClick = onMoreOptionsClick) {
-                Icon(painterResource(id = R.drawable.ic_more_options), contentDescription = "더보기")
+                Icon(
+                    painterResource(id = R.drawable.ic_more_options),
+                    contentDescription = "더보기"
+                )
             }
         }
     )
 }
 
+
 @Composable
 fun EmptyChatRoomScreen(onCreateClick: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text("참여 중인 채팅방이 없습니다.\n새로운 채팅방을 만들어 대화를 시작해보세요.", textAlign = TextAlign.Center)
+            Text("참여 중인 채팅방이 없습니다.\n가족을 초대해 새로운 채팅방을 만들어 보세요.", textAlign = TextAlign.Center)
             Spacer(modifier = Modifier.height(16.dp))
             Button(onClick = onCreateClick) {
-                Text("채팅방 만들기")
+                Text("가족 초대하기")
             }
         }
     }
@@ -163,11 +225,11 @@ fun EmptyChatRoomScreen(onCreateClick: () -> Unit) {
 fun EmptyChatMessagesView(modifier: Modifier = Modifier, onInviteClick: () -> Unit) {
     Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("아직 대화가 없습니다.\n가족을 초대해 대화를 시작해보세요.", textAlign = TextAlign.Center)
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onInviteClick) {
-                Text("가족 초대")
-            }
+            Text("아직 대화가 없습니다.\n첫 메세지를 보내보세요!", textAlign = TextAlign.Center)
+//            Spacer(modifier = Modifier.height(16.dp))
+//            Button(onClick = onInviteClick) {
+//                Text("가족 초대")
+//            }
         }
     }
 }

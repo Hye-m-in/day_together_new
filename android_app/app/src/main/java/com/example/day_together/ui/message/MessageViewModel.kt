@@ -4,7 +4,9 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.day_together.AuthManager
+import com.example.day_together.FirebaseService
 import com.example.day_together.data.repository.AppRepository
 import com.example.day_together.data.repository.AuthResult
 import com.google.firebase.firestore.ListenerRegistration
@@ -23,7 +25,8 @@ import java.util.*
 data class ChatMessage(
     val content: String = "",
     val sender: String = "",
-    val timestamp: Date = Date()
+    val timestamp: Date = Date(),
+    val imageUrl: String = ""
 )
 
 /**
@@ -34,6 +37,7 @@ data class MessageUiState(
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
     val chatRoomId: String? = null,
+    val chatRoomName: String? = "가족 채팅방 테스트", //기본값
     val currentUserName: String = "사용자",
 
     // MessageScreen 상태
@@ -61,6 +65,7 @@ sealed interface MessageEvent {
     data class OnMessageTextChanged(val text: String) : MessageEvent
     data class OnSearchTextChanged(val text: String) : MessageEvent
     data object SendMessage : MessageEvent
+    data class SendImage(val uri: String) : MessageEvent
     data object ToggleSearchBar : MessageEvent
     data object ToggleDatePicker : MessageEvent
     data object DismissDatePicker : MessageEvent
@@ -68,6 +73,7 @@ sealed interface MessageEvent {
     data class SelectDate(val year: Int, val month: Int, val day: Int) : MessageEvent
     data class ChangeMonth(val year: Int, val month: Int) : MessageEvent
     data object ShowInviteDialog : MessageEvent
+    data class EditChatRoomName(val newName: String) : MessageEvent
     data object DismissInviteDialog : MessageEvent
     data class InviteMember(val email: String) : MessageEvent
     data object CreateNewChatRoom : MessageEvent
@@ -94,6 +100,18 @@ class MessageViewModel(
         super.onCleared()
     }
 
+    fun loadChatRoomName(chatRoomId: String){
+        FirebaseService.db.collection("chatRooms").document(chatRoomId).get()
+            .addOnSuccessListener { document ->
+                if (document.exists()) {
+                    val name = document.getString("name") ?: "가족 채팅방 테스트"
+                    _uiState.update { it.copy(chatRoomName = name) }
+                }
+            }
+            .addOnFailureListener {
+                Log.e("MessageViewModel", "채팅방 이름 불러오기 실패", it)
+            }
+    }
     /**
      * ChatActivity의 fetchAcceptedChatRoomId와 사용자 이름 로딩 로직 통합
      */
@@ -135,8 +153,31 @@ class MessageViewModel(
         val currentState = _uiState.value
         if (currentState.messageText.isBlank() || currentState.chatRoomId == null) return
 
-        repository.sendMessage(currentState.chatRoomId, currentState.messageText, currentState.currentUserName)
+        repository.sendMessage(
+            currentState.chatRoomId, currentState.messageText, currentState.currentUserName,
+            imageUrl = TODO()
+        )
         _uiState.update { it.copy(messageText = "") }
+    }
+
+    private fun sendImage(uri: String){
+        val currentState = _uiState.value
+        val chatRoomId = currentState.chatRoomId ?: return
+
+        viewModelScope.launch {
+            repository.uploadImageToStorage(uri) { imageUrl ->
+                if (imageUrl != null) {
+                    repository.sendMessage(
+                        chatRoomId = chatRoomId,
+                        sender = currentState.currentUserName,
+                        text = "", // 텍스트는 비워둠
+                        imageUrl = imageUrl // 이미지 URL 저장
+                    )
+                } else {
+                    Log.e("MessageViewModel", "이미지 업로드 실패")
+                }
+            }
+        }
     }
 
     private fun createNewChatRoom() {
@@ -175,6 +216,18 @@ class MessageViewModel(
         }
     }
 
+    private fun updateChatRoomName(newName: String){
+        val chatRoomId = _uiState.value.chatRoomId ?: return
+        viewModelScope.launch {
+            try{
+                repository.updateChatRoomName(chatRoomId, newName)
+                _uiState.update{ it.copy(chatRoomName = newName)}
+            } catch (e: Exception){
+                Log.e("MessageViewModel", "채팅방 이름 수정 실패", e)
+            }
+        }
+    }
+
     fun onEvent(event: MessageEvent) {
         when (event) {
             is MessageEvent.OnMessageTextChanged -> _uiState.update { it.copy(messageText = event.text) }
@@ -183,6 +236,7 @@ class MessageViewModel(
             MessageEvent.ShowInviteDialog -> _uiState.update { it.copy(showInviteDialog = true) }
             MessageEvent.DismissInviteDialog -> _uiState.update { it.copy(showInviteDialog = false) }
             is MessageEvent.InviteMember -> inviteMember(event.email)
+            is MessageEvent.EditChatRoomName -> {updateChatRoomName(event.newName)}
             else -> {}
         }
     }

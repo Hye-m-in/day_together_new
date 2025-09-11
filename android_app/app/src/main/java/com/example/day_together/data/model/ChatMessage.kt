@@ -18,5 +18,9 @@ data class ChatMessage(
 
     // 메시지를 보낸 시간
     @get:PropertyName("timestamp") @set:PropertyName("timestamp")
-    var timestamp: Date = Date()
+    var timestamp: Date = Date(),
+
+    // 메세지 유형
+    @get:PropertyName("imageUrl") @set:PropertyName("imageUrl")
+    var imageUrl: String = "",
 )
