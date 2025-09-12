@@ -22,6 +22,11 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // AndroidManifest.xml 의 ${naverClientId} 에 값을 주입
+        // gradle.properties 에 NAVER_CLIENT_ID 가 있으면 그 값 사용, 없으면 "YOUR_NAVER_CLIENT_ID" 로 대체
+        manifestPlaceholders["naverClientId"] =
+            providers.gradleProperty("NAVER_CLIENT_ID").orNull ?: "YOUR_NAVER_CLIENT_ID"
     }
 
     buildTypes {
@@ -114,7 +119,7 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3") // ★ 중복 한 줄만 유지
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
     // Firebase Modules
     implementation(platform("com.google.firebase:firebase-bom:32.1.0"))
@@ -125,6 +130,10 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging")
     implementation("com.google.firebase:firebase-analytics")
 
-    // 구글 로그인용 라이브러리 추가
+    // 구글 로그인
     implementation("com.google.android.gms:play-services-auth:21.2.0")
+
+    // 네이버 로그인 SDK (화면 띄우기용)
+    implementation("com.navercorp.nid:oauth:5.10.0")
+    implementation("androidx.browser:browser:1.8.0") // Custom Tabs 사용
 }

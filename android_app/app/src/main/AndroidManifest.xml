@@ -27,7 +27,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Day_together"
-        tools:targetApi="35"> <!-- targetSdk=35에 맞춰 tools:targetApi도 35로 상향 -->
+        tools:targetApi="35"
+        android:name=".DayTogetherApp"> <!-- targetSdk=35에 맞춰 tools:targetApi도 35로 상향 / Application 클래스 등록 -->
 
         <!-- 앱의 시작점을 MainActivity -->
         <activity
@@ -40,6 +41,20 @@
             </intent-filter>
         </activity>
 
+        <!-- ✅ 네이버 OAuth 브릿지 액티비티 (네이버 로그인 콜백 수신용)
+             - 스킴은 '네이버 클라이언트 ID' 그대로 사용
+             - build.gradle의 manifestPlaceholders 에서 naverClientId 값을 주입함 -->
+        <activity
+            android:name="com.navercorp.nid.oauth.NidOAuthBridgeActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="${naverClientId}"/>
+            </intent-filter>
+        </activity>
 
     </application>
 </manifest>
