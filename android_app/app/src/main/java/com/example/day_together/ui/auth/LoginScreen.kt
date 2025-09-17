@@ -35,9 +35,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-
-import com.example.day_together.Constants
-
 import com.example.day_together.R
 import com.example.day_together.navigation.AppDestinations
 import com.example.day_together.ui.theme.*
@@ -53,14 +50,14 @@ import com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes
 import com.navercorp.nid.NaverIdLoginSDK
 import com.navercorp.nid.oauth.OAuthLoginCallback
 
-// 서버 호출용(Volley)
-import com.android.volley.Request
-import com.android.volley.toolbox.JsonObjectRequest
-import com.android.volley.toolbox.Volley
-import org.json.JSONObject
+// 서버 호출용(Volley) - 더 이상 필요하지 않으므로 주석 처리함
+// import com.android.volley.Request
+// import com.android.volley.toolbox.JsonObjectRequest
+// import com.android.volley.toolbox.Volley
+// import org.json.JSONObject
 
-// Firebase 커스텀 토큰 로그인
-import com.google.firebase.auth.FirebaseAuth
+// Firebase 커스텀 토큰 로그인 - 더 이상 필요하지 않으므로 주석 처리함
+// import com.google.firebase.auth.FirebaseAuth
 
 /**
  * 네이버 SDK 오류 메시지를 사람이 읽기 쉽게 포맷팅
@@ -327,51 +324,9 @@ fun LoginScreen(
                                     return
                                 }
 
-
-                                val url = Constants.BASE_SERVER_URL + "/naver-login"
-
-
-                                val queue = Volley.newRequestQueue(context)
-                                val payload = JSONObject().apply {
-                                    put("access_token", accessToken)
-                                }
-
-                                val req = JsonObjectRequest(
-                                    Request.Method.POST,
-                                    url,
-                                    payload,
-                                    { res ->
-                                        // 서버 응답: { "custom_token": "..." }
-                                        val customToken = res.optString("custom_token", "")
-                                        if (customToken.isBlank()) {
-                                            Toast.makeText(context, "서버 응답에 custom_token이 없습니다.", Toast.LENGTH_LONG).show()
-                                            return@JsonObjectRequest
-                                        }
-                                        FirebaseAuth.getInstance()
-                                            .signInWithCustomToken(customToken)
-                                            .addOnSuccessListener {
-                                                Toast.makeText(context, "네이버 로그인 성공", Toast.LENGTH_SHORT).show()
-                                                navController.navigate(AppDestinations.MAIN_ROUTE) {
-                                                    popUpTo(AppDestinations.LOGIN_ROUTE) { inclusive = true }
-                                                }
-                                            }
-                                            .addOnFailureListener { e ->
-                                                Toast.makeText(
-                                                    context,
-                                                    "Firebase 커스텀 토큰 로그인 실패: ${e.message}",
-                                                    Toast.LENGTH_LONG
-                                                ).show()
-                                            }
-                                    },
-                                    { err ->
-                                        Toast.makeText(
-                                            context,
-                                            "서버 통신 실패 /naver-login: ${err.message}",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                    }
-                                )
-                                queue.add(req)
+                                // ViewModel에 작업 위임
+                                authViewModel.onNaverLoginSuccess(accessToken)
+                                
                             }
 
                             override fun onFailure(httpStatus: Int, message: String) {

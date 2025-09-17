@@ -108,6 +108,13 @@ dependencies {
 
     // 네트워킹(Volley)
     implementation(libs.volley)
+    // Retrofit (네트워킹 라이브러리)
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    // Gson Converter (JSON <-> Kotlin 데이터 클래스 자동 변환)
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+
+    implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
+
 
     // Media3(필요시)
     implementation(libs.androidx.media3.common.ktx)

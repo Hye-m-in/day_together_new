@@ -10,12 +10,22 @@ import com.example.day_together.data.model.Question
 import com.example.day_together.data.model.User
 import com.example.day_together.ui.gallery.MonthlyComment
 import com.example.day_together.ui.gallery.PhotoItem
+
+// Retrofit 관련 import 추가
+import com.example.day_together.data.dto.NaverTokenRequest
+import com.example.day_together.data.remote.ApiClient
+import com.google.firebase.auth.FirebaseAuth
+
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.suspendCancellableCoroutine
+
+// Firebase Task를 Coroutine으로 사용하기 위한 import
+import kotlinx.coroutines.tasks.await
+
 import java.time.LocalDate
 import java.time.YearMonth
 import java.util.Date
@@ -61,6 +71,36 @@ object AppRepository {
             }
         }
     }
+
+    // 네이버 로그인을 처리하는 새로운 함수 추가
+    /**
+     * 네이버 액세스 토큰으로 우리 서버에 로그인 요청을 보내고,
+     * 받은 커스텀 토큰으로 Firebase에 최종 로그인하는 함수
+     */
+    suspend fun loginWithNaver(accessToken: String): AuthResult {
+        return try {
+            // 1. 서버에 보낼 요청 데이터 생성 (dto/TokenDto.kt 에서 정의)
+            val request = NaverTokenRequest(accessToken = accessToken)
+
+            // 2. ApiClient를 사용해 서버와 실제 통신 (remote/ApiClient.kt 에서 정의)
+            val response = ApiClient.service.naverLogin(request)
+
+            // 3. 서버로부터 받은 커스텀 토큰으로 Firebase에 로그인
+            val customToken = response.customToken
+            if (customToken.isBlank()) {
+                return AuthResult.Failure("서버로부터 유효한 토큰을 받지 못했습니다.")
+            }
+            FirebaseAuth.getInstance().signInWithCustomToken(customToken).await()
+
+            // 4. 모든 과정이 성공했음을 알림
+            AuthResult.Success
+        } catch (e: Exception) {
+            // 통신 중 오류가 발생하면 실패를 알림
+            Log.e("AppRepository", "네이버 로그인 실패", e)
+            AuthResult.Failure("서버 통신 실패: ${e.message}")
+        }
+    }
+    
 
     /**
      * 사용자 정보로 회원가입 요청

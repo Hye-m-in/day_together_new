@@ -6,5 +6,5 @@ package com.example.day_together
 object Constants {
 
     // 서버의 기본 주소
-    const val BASE_SERVER_URL = "http://192.168.109.1:8000"
+    const val BASE_SERVER_URL = "http://3.136.66.191:8000"
 }

@@ -158,6 +158,24 @@ class AuthViewModel : ViewModel() {
         }
     }
 
+    // 네이버 로그인을 처리하는 새로운 함수
+    /**
+     * UI로부터 네이버 액세스 토큰을 받아 로그인 과정을 시작시키는 함수
+     */
+    fun onNaverLoginSuccess(accessToken: String) {
+        _uiState.update { it.copy(isLoading = true, isLoginSuccess = false, loginError = null) }
+        viewModelScope.launch {
+            val result = repository.loginWithNaver(accessToken)
+            _uiState.update {
+                when (result) {
+                    is AuthResult.Success -> it.copy(isLoading = false, isLoginSuccess = true)
+                    is AuthResult.Failure -> it.copy(isLoading = false, loginError = result.message)
+                }
+            }
+        }
+    }
+
+
     // 회원가입 로직 실행
     fun signUp() {
         _uiState.update { it.copy(isLoading = true, signUpResult = null) }
