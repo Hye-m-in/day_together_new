@@ -22,6 +22,17 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // 네이버 로그인 관련 설정
+        manifestPlaceholders["naverClientId"] = providers.gradleProperty("NAVER_CLIENT_ID").getOrElse("YOUR_NAVER_CLIENT_ID")
+
+        val naverClientId = providers.gradleProperty("NAVER_CLIENT_ID").get()
+        val naverClientSecret = providers.gradleProperty("NAVER_CLIENT_SECRET").get()
+        val naverClientName = providers.gradleProperty("NAVER_CLIENT_NAME").get()
+
+        buildConfigField("String", "NAVER_CLIENT_ID", "\"$naverClientId\"")
+        buildConfigField("String", "NAVER_CLIENT_SECRET", "\"$naverClientSecret\"")
+        buildConfigField("String", "NAVER_CLIENT_NAME", "\"$naverClientName\"")
     }
 
     buildTypes {
@@ -43,9 +54,9 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
-    // AGP 최신 가이드에 맞춰 packagingOptions → packaging 블록으로 교체
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -69,6 +80,7 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
+
 
     // Navigation
     val navVersion = "2.7.7"
@@ -96,6 +108,13 @@ dependencies {
 
     // 네트워킹(Volley)
     implementation(libs.volley)
+    // Retrofit (네트워킹 라이브러리)
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    // Gson Converter (JSON <-> Kotlin 데이터 클래스 자동 변환)
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+
+    implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
+
 
     // Media3(필요시)
     implementation(libs.androidx.media3.common.ktx)
@@ -114,7 +133,7 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3") // ★ 중복 한 줄만 유지
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
     // Firebase Modules
     implementation(platform("com.google.firebase:firebase-bom:32.1.0"))
@@ -125,6 +144,10 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging")
     implementation("com.google.firebase:firebase-analytics")
 
-    // 구글 로그인용 라이브러리 추가
+    // 구글 로그인
     implementation("com.google.android.gms:play-services-auth:21.2.0")
+
+    // 네이버 로그인 SDK (화면 띄우기용)
+    implementation("com.navercorp.nid:oauth:5.10.0")
+    implementation("androidx.browser:browser:1.8.0") // Custom Tabs 사용
 }

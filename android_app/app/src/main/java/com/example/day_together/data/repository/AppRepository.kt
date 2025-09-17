@@ -11,6 +11,16 @@ import com.example.day_together.data.model.Question
 import com.example.day_together.data.model.User
 import com.example.day_together.ui.gallery.MonthlyComment
 import com.example.day_together.ui.gallery.PhotoItem
+
+// Retrofit, DTO, Firebase, Gson 관련 import
+import com.example.day_together.data.dto.ErrorResponse
+import com.example.day_together.data.dto.NaverTokenRequest
+import com.example.day_together.data.remote.ApiClient
+import com.google.firebase.auth.FirebaseAuth
+import com.google.gson.Gson
+import retrofit2.HttpException
+
+
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.google.firebase.storage.FirebaseStorage
@@ -18,6 +28,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.suspendCancellableCoroutine
+
+// Firebase Task를 Coroutine으로 사용하기 위한 import
+import kotlinx.coroutines.tasks.await
+
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.YearMonth
@@ -65,6 +79,47 @@ object AppRepository {
             }
         }
     }
+
+
+    /**
+     * 네이버 액세스 토큰으로 우리 서버에 로그인 요청을 보내고,
+     * 받은 커스텀 토큰으로 Firebase에 최종 로그인하는 함수
+     */
+    suspend fun loginWithNaver(accessToken: String): AuthResult {
+        return try {
+            // (내용 동일)
+            val request = NaverTokenRequest(accessToken = accessToken)
+            val response = ApiClient.service.naverLogin(request)
+            val customToken = response.customToken
+            if (customToken.isBlank()) {
+                return AuthResult.Failure("서버로부터 유효한 토큰을 받지 못했습니다.")
+            }
+            FirebaseAuth.getInstance().signInWithCustomToken(customToken).await()
+            AuthResult.Success
+        } catch (e: Exception) {
+
+            // 1. Retrofit의 HTTP 오류인지, 그리고 상태 코드가 400인지 확인
+            if (e is HttpException && e.code() == 400) {
+                // 2. 서버가 보낸 JSON 형식의 에러 본문을 문자열로 변환
+                val errorBody = e.response()?.errorBody()?.string()
+                try {
+                    // 3. Gson을 사용해 에러 문자열을 ErrorResponse 객체로 파싱
+                    val errorResponse = Gson().fromJson(errorBody, ErrorResponse::class.java)
+                    // 4. 파싱된 객체에서 구체적인 에러 메시지를 추출하여 반환
+                    val detailMessage = errorResponse.detail ?: "알 수 없는 400 오류입니다."
+                    return AuthResult.Failure(detailMessage)
+                } catch (jsonE: Exception) {
+                    // 에러 본문 파싱 실패 시 (예: 서버가 JSON이 아닌 다른 형식으로 보냈을 때)
+                    return AuthResult.Failure("서버 응답을 해석할 수 없습니다.")
+                }
+            }
+            // 400 오류가 아닌 다른 모든 종류의 오류 처리 (예: 인터넷 연결 끊김 등)
+            Log.e("AppRepository", "네이버 로그인 실패", e)
+            return AuthResult.Failure("서버와 통신할 수 없습니다. 네트워크 상태를 확인해주세요.")
+        }
+    }
+
+
 
     /**
      * 사용자 정보로 회원가입 요청
@@ -404,6 +459,7 @@ object AppRepository {
     }
 
     // SettingsViewModel
+
     /**
      * 현재 설정 값을 Flow로 제공
      * TODO: Firestore 등에서 실제 사용자 설정 값을 가져와 Flow로 제공하도록 구현 필요
