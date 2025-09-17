@@ -16,7 +16,7 @@ import google.oauth2.id_token
 # main.py 위치 기준으로 루트 경로 추가
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from firebase_admin import credentials, firestore, initialize_app
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.gpt import question_generator as qg
 
 #GPT 질문 생성 스케줄러---------------------------------------
@@ -26,6 +26,9 @@ import atexit
 
 from .services.firebase_admin_init import default_app  # 초기화만 호출됨
 from .models.schemas import GoogleTokenRequest, NaverTokenRequest, TokenResponse  # <<< 수정: TokenRequest → NaverTokenRequest로 분리
+
+from fastapi.middleware.cors import CORSMiddleware
+
 
 #스케줄러 초기화
 scheduler = BackgroundScheduler()
@@ -49,24 +52,50 @@ async def lifespan(app: FastAPI):
     print("[Scheduler] Stopped")
 
 
-
 def generate_and_store_daily_question():
     try:
-        # 모든 가족(또는 유저) uID 가져오기
-        users = db.collection("users").stream()
-        for user in users:
-            uid = user.id
-            question = qg.generate_question(uid)
+        # ✅ 매번 실행 시점 기준으로 내일 날짜 계산 (파일 상단에서 고정하지 않음)
+        seoul_tz = pytz.timezone("Asia/Seoul")
+        tomorrow = (datetime.now(seoul_tz) + timedelta(days=1)).date()
 
-            #Firestore에 저장
-            db.collection("daily_questions").document().set({
-                "uid": uid,
-                "question": question,
-                "created_at": firestore.SERVER_TIMESTAMP
+        # chatRooms 컬렉션 순회
+        chat_rooms = db.collection("chatRooms").stream()
+        for room in chat_rooms:
+            room_id = room.id
+            # ✅ room.to.dict() → 오타 수정: room.to_dict()
+            family_name = room.to_dict().get("familyName", "우리 가족")
+
+            # GPT로 질문 생성
+            data = qg.generate_daily_question(family_name=family_name, recent_questions=[])
+
+            # 1) daily_questions 저장 (로그/통계용)
+            db.collection("daily_questions").add({
+                "chatRoomId": room_id,
+                "question": data["question"],
+                "category": data["category"],
+                "tone": data["tone"],
+                "timeframe": data["timeframe"],
+                # ✅ created_at 사용 (date 필드 없음)
+                "created_at": firestore.SERVER_TIMESTAMP,
+                "target_date": tomorrow.isoformat()
             })
-        print("[Scheduler] Daily questions generated successfully")
+
+            # 2) chatRooms/{roomId}/messages 저장 (실시간 채팅방 표시용)
+            db.collection("chatRooms").document(room_id).collection("messages").add({
+                "sender": "system",
+                "content": data["question"],
+                "timestamp": firestore.SERVER_TIMESTAMP,
+                "type": "system",
+                "target_date": tomorrow.isoformat()
+            })
+
+            print(f"[Scheduler] Daily question saved for room {room_id}")
+
+        print("[Scheduler] All daily questions generated successfully")
+
     except Exception as e:
-        print(f"[Sceheduler] Error: {e}")
+        print(f"[Scheduler] Error: {e}")
+
 
 # 한 번만 생성
 app = FastAPI(lifespan=lifespan)
@@ -93,13 +122,12 @@ async def verify_naver_token(access_token: str) -> dict | None:
     return data["response"]
 
 
-app = FastAPI()
-
 # CORS 설정: Android 에뮬레이터/디바이스에서 호출 허용
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["POST"],
+    allow_origins=["*"],  # 또는 ["http://프론트엔드주소"]
+    allow_credentials=True,
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -196,53 +224,49 @@ async def naver_login(body: NaverTokenRequest):
     uid = f"naver_{profile['id']}"
     email = profile.get("email")
 
-    #2. 이메일 중복 체크
+    #2. Firebase 사용자 확인
     try:
-        fb_auth.get_user_by_email(email)
-        #이미 같은 이메일로 가입한 계정이 있으면
-        raise HTTPException(status_code=400, detail="이미 등록된 이메일입니다.")
+        user_record = fb_auth.get_user_by_email(email)
+        #이미 존재 하면 -> 로그인 처리
+        print(f"[DEBUG] Found existing user for {email}, uid={user_record.uid}")
+        
     except fb_auth.UserNotFoundError:
-        #가입된 계정이 없으면 계속 진행
-        pass
-    
-    #3. Authentication에 사용자 생성 (없으면)
-    try:
-       fb_auth.get_user(uid)
-       print(f"[DEBUG] Auth user {uid} already exists")
-    except (fb_auth.UserNotFoundError, ValueError) as e:
-       print(f"[DEBUG] Creating Auth user {uid}: {e}")
-       fb_auth.create_user(
-           uid=uid,
-           email=profile.get("email"),
-           display_name=profile.get("name")
-       )
+        # 👉 신규 회원가입 처리
+        try:
+            fb_auth.get_user(uid)
+            print(f"[DEBUG] Auth user {uid} already exists")
+        except (fb_auth.UserNotFoundError, ValueError) as e:
+            print(f"[DEBUG] Creating Auth user {uid}: {e}")
+            fb_auth.create_user(
+                uid=uid,
+                email=email,
+                display_name=profile.get("name")
+            )
 
-    #4. Firestore에 프로필 저장
-    print(f"[DEBUG] Writing Firestore users/{uid}")
-    user_ref = db.collection("users").document(uid)
-    user_ref.set({
-        "email":         profile.get("email"),
-        "name":          profile.get("name"),
-        "nickname":      profile.get("nickname"),
-        "profile_image": profile.get("profile_image"),
-        # 필요 시 추가 필드…
-    }, merge=True)
+        # Firestore 프로필 저장 (최초 가입 시)
+        print(f"[DEBUG] Writing Firestore users/{uid}")
+        user_ref = db.collection("users").document(uid)
+        user_ref.set({
+            "email":         email,
+            "name":          profile.get("name"),
+            "nickname":      profile.get("nickname"),
+            "profile_image": profile.get("profile_image"),
+        }, merge=True)
+        print(f"[DEBUG] Firestore 저장 완료: users/{uid}")
 
-    #*잘 저장되었는지 로그 남기기*
-    print(f"[DEBUG] Firestore 저장 완료: users/{uid}")
-
-
-    #5. 커스텀 토큰 생성 및 반환
+    # 3. 커스텀 토큰 생성 및 반환
     print(f"[DEBUG] Generating custom token for {uid}")
     custom_token_bytes = fb_auth.create_custom_token(uid)
     custom_token = custom_token_bytes.decode("utf-8")
     print(f"[DEBUG] Returning custom token for {uid}")
     return TokenResponse(custom_token=custom_token)
 
-
 #----------gpt------------
 @app.post("/daily-question")
 async def daily_question():
+
+    seoul_tz = pytz.timezone("Asia/Seoul")
+    tomorrow = (datetime.now(seoul_tz) + timedelta(days=1)).date()
     #최근 질문 가져오기
     recent_docs = db.collection("daily_questions").order_by("date", direction="DESCENDING").limit(5).stream()
     recent_questions = [doc.to_dict().get("question", "") for doc in recent_docs]
@@ -253,11 +277,12 @@ async def daily_question():
     # Firestore에 저장
     doc_ref = db.collection("daily_questions").document()
     doc_ref.set({
-        "date": datetime.now(),
         "question": data["question"],
         "category": data["category"],
         "tone": data["tone"],
-        "timeframe": data["timeframe"]
+        "timeframe": data["timeframe"],
+        "created_at" : firestore.SERVER_TIMESTAMP, #생성시각 (로그/참조용)
+        "target_date" : tomorrow.isoformat() # 질문이 적용될 날짜
     })
 
     return data
