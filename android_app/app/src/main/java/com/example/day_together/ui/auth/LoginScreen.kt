@@ -1,4 +1,3 @@
-
 package com.example.day_together.ui.auth
 
 import android.app.Activity
@@ -36,6 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+// ▼▼▼▼▼ (추가) Constants.kt 파일을 사용하기 위해 import 합니다. ▼▼▼▼▼
+import com.example.day_together.Constants
+// ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 import com.example.day_together.R
 import com.example.day_together.navigation.AppDestinations
 import com.example.day_together.ui.theme.*
@@ -325,15 +327,10 @@ fun LoginScreen(
                                     return
                                 }
 
-                                // strings.xml(server_base_url) 없으면 기본값 사용
-                                val resId = context.resources.getIdentifier(
-                                    "server_base_url", "string", context.packageName
-                                )
-                                val baseUrl =
-                                    if (resId != 0) context.getString(resId)
-                                    else "http://10.0.2.2:8000" // 에뮬레이터 기본 로컬호스트
 
-                                val url = "$baseUrl/naver-login"
+                                val url = Constants.BASE_SERVER_URL + "/naver-login"
+
+
                                 val queue = Volley.newRequestQueue(context)
                                 val payload = JSONObject().apply {
                                     put("access_token", accessToken)
@@ -461,4 +458,3 @@ private fun Context.findActivity(): Activity? = when (this) {
     is ContextWrapper -> baseContext.findActivity()
     else -> null
 }
-

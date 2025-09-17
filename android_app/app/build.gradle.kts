@@ -23,10 +23,16 @@ android {
             useSupportLibrary = true
         }
 
-        // AndroidManifest.xml 의 ${naverClientId} 에 값을 주입
-        // gradle.properties 에 NAVER_CLIENT_ID 가 있으면 그 값 사용, 없으면 "YOUR_NAVER_CLIENT_ID" 로 대체
-        manifestPlaceholders["naverClientId"] =
-            providers.gradleProperty("NAVER_CLIENT_ID").orNull ?: "YOUR_NAVER_CLIENT_ID"
+        // 네이버 로그인 관련 설정
+        manifestPlaceholders["naverClientId"] = providers.gradleProperty("NAVER_CLIENT_ID").getOrElse("YOUR_NAVER_CLIENT_ID")
+
+        val naverClientId = providers.gradleProperty("NAVER_CLIENT_ID").get()
+        val naverClientSecret = providers.gradleProperty("NAVER_CLIENT_SECRET").get()
+        val naverClientName = providers.gradleProperty("NAVER_CLIENT_NAME").get()
+
+        buildConfigField("String", "NAVER_CLIENT_ID", "\"$naverClientId\"")
+        buildConfigField("String", "NAVER_CLIENT_SECRET", "\"$naverClientSecret\"")
+        buildConfigField("String", "NAVER_CLIENT_NAME", "\"$naverClientName\"")
     }
 
     buildTypes {
@@ -48,9 +54,9 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
-    // AGP 최신 가이드에 맞춰 packagingOptions → packaging 블록으로 교체
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -74,6 +80,7 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
+
 
     // Navigation
     val navVersion = "2.7.7"
