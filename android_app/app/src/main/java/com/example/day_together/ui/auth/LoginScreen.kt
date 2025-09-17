@@ -35,9 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-// ▼▼▼▼▼ (추가) Constants.kt 파일을 사용하기 위해 import 합니다. ▼▼▼▼▼
+
 import com.example.day_together.Constants
-// ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
 import com.example.day_together.R
 import com.example.day_together.navigation.AppDestinations
 import com.example.day_together.ui.theme.*
