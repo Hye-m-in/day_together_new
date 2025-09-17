@@ -53,6 +53,7 @@ object ChatRoomManager {
 
                 batch.set(chatRoomRef, mapOf(
                     "chatRoomId" to chatRoomId,
+                    "chatRoomName" to "가족채팅방 테스트", //초기값 지정
                     "members" to listOf(inviterUserId),
                     "invitedUsers" to finalUids,
                     "createdAt" to FieldValue.serverTimestamp()
