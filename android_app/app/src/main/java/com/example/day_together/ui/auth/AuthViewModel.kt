@@ -5,7 +5,6 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.day_together.data.repository.AuthRepository
-import com.example.day_together.data.repository.FakeRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.example.day_together.data.repository.AppRepository
 import com.example.day_together.data.repository.AuthResult
@@ -149,7 +148,7 @@ class AuthViewModel : ViewModel() {
 
 
     /** Google 로그인 */
-    fun loginWithGoogle(idToken: String) {
+    /*fun loginWithGoogle(idToken: String) {
         _uiState.update { it.copy(isLoading = true, loginError = null) }
         viewModelScope.launch {
             try {
@@ -167,7 +166,7 @@ class AuthViewModel : ViewModel() {
                 _uiState.update { it.copy(isLoading = false, loginError = e.message) }
             }
         }
-    }
+    }*/
 
 
 
@@ -194,7 +193,7 @@ class AuthViewModel : ViewModel() {
 
 
     /** Naver 로그인 */
-    fun loginWithNaver(accessToken: String) {
+    /*fun loginWithNaver(accessToken: String) {
         _uiState.update { it.copy(isLoading = true, loginError = null) }
         viewModelScope.launch {
             try {
@@ -212,7 +211,7 @@ class AuthViewModel : ViewModel() {
                 _uiState.update { it.copy(isLoading = false, loginError = e.message) }
             }
         }
-    }
+    }*/
 
 
     // 비밀번호 재설정 로직

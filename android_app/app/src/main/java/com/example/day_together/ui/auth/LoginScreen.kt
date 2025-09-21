@@ -58,11 +58,11 @@ fun LoginScreen(
     val uiState by authViewModel.uiState.collectAsState()
 
     val token = NaverIdLoginSDK.getAccessToken()
-    if(token != null) {
+    /*if(token != null) {
         authViewModel.loginWithNaver(token)
     } else {
         Log.e("LoginScreen", "Naver 액세스 토큰이 null임")
-    }
+    }*/
 
 
     val context = LocalContext.current
@@ -229,7 +229,7 @@ fun LoginScreen(
                                 if(success && !token.isNullOrEmpty()) {
                                     //성공 -> viewModel에 전달함
                                     Log.d("LoginScreen", "🟢 Naver accessToken: $token")  // ✅ 이거 추가!
-                                    authViewModel.loginWithNaver(token)
+                                    //authViewModel.loginWithNaver(token)
                                 } else {
                                     //실패 로그 출력
                                     Log.e("LoginScreen", "Naver로그인 실패 : $errorMsg")
