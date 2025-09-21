@@ -1,6 +1,5 @@
 package com.example.day_together.ui.auth
 
-
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,7 +9,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
 
 /**
  * 데이터를 한 곳(ViewModel)에서만 통제함으로써 코드가 꼬이는 것을 막음
@@ -25,7 +23,6 @@ class AuthViewModel : ViewModel() {
 
     private val repository: AppRepository = AppRepository
 
-
     /**
      * 인증 화면의 모든 UI 상태를 관리하는 StateFlow. View는 이 State를 구독(실시간 상태 감지)하여 UI에 반영
      * StateFlow : 실시간으로 업데이트되는 '상태 게시판'
@@ -37,7 +34,6 @@ class AuthViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(AuthUiState())
     // public : ViewModel 외부에서는 오직 읽기만 가능한 공개용 게시판
     val uiState = _uiState.asStateFlow()
-
 
     /**
      * 이벤트 핸들러 함수들
@@ -74,7 +70,7 @@ class AuthViewModel : ViewModel() {
 
     fun onSignUpPasswordChange(password: String) {
         // 1. 비밀번호 설정 검사(영문, 숫자, 특수기호 포함 8자리 이상)
-        val passwordRegex = Regex("^(?=.*[A-Za-z])(?=.*\\d)(?=.*[!@#\$%^&*()_+=<>?]).{8,}$")
+        val passwordRegex = Regex("^(?=.*[A-Za-z])(?=.*\\d)(?=.*[!@#\\$%^&*()_+=<>?]).{8,}$")
         val error = if (password.isNotEmpty() && !password.matches(passwordRegex)) "영문, 숫자, 특수기호를 포함해 8자리 이상이어야 해요." else null
 
         // 2. 상태 업데이트(입력된 비밀번호 및 에러 메세지 기록)
@@ -110,7 +106,6 @@ class AuthViewModel : ViewModel() {
     fun onFindIdNameChange(name: String) { _uiState.update { it.copy(findIdName = name) } }
     fun onFindIdEmailChange(email: String) { _uiState.update { it.copy(findIdEmail = email) } }
 
-
     /**
      * 실제 비즈니스 로직(로그인, 회원가입 등) 실행하는 함수
      * -> 사용자 액션 처리(로그인이나 회원가입 버튼 눌렀을 때)
@@ -120,7 +115,6 @@ class AuthViewModel : ViewModel() {
      * 역할3. 결과 처리 : repository로부터 받은 작업 결과(AuthResult) 성공/실패 여부에 따라 _uiState 다르게 업데이트
      *
      * 로딩 스피너(Loading Spinner) : 앱에 데이터 불러오거나 작업 처리 중일 때 사용자에게 알려주는 로딩 아이콘
-     *
      */
 
     // 로그인 로직 실행
@@ -143,12 +137,30 @@ class AuthViewModel : ViewModel() {
     }
 
     /**
-     * 구글 ID 토큰으로 Firebase에 로그인하는 로직 실행
+     * 구글 ID 토큰으로 Firebase에 직접 로그인하는 로직
+     * 지금은 사용하지 않지만, 레거시/비교용으로 남겨둠
      */
     fun signInWithGoogle(idToken: String) {
         _uiState.update { it.copy(isLoading = true, isLoginSuccess = false, loginError = null) }
         viewModelScope.launch {
             val result = repository.signInWithGoogle(idToken)
+            _uiState.update {
+                when (result) {
+                    is AuthResult.Success -> it.copy(isLoading = false, isLoginSuccess = true)
+                    is AuthResult.Failure -> it.copy(isLoading = false, loginError = result.message)
+                }
+            }
+        }
+    }
+
+    /**
+     * 구글 ID 토큰을 서버로 보내 커스텀 토큰을 받은 뒤 Firebase에 로그인
+     * UI(LoginScreen)에서는 이 함수를 호출하도록 변경
+     */
+    fun signInWithGoogleViaServer(idToken: String) {
+        _uiState.update { it.copy(isLoading = true, isLoginSuccess = false, loginError = null) }
+        viewModelScope.launch {
+            val result = repository.loginWithGoogleViaServer(idToken)
             _uiState.update {
                 when (result) {
                     is AuthResult.Success -> it.copy(isLoading = false, isLoginSuccess = true)
@@ -174,7 +186,6 @@ class AuthViewModel : ViewModel() {
             }
         }
     }
-
 
     // 회원가입 로직 실행
     fun signUp() {
@@ -219,20 +230,11 @@ class AuthViewModel : ViewModel() {
     /**
      * 상태 초기화 함수 : 특정 액션이 끝난 후, 관련 상태를 초기화하여 UI를 정리
      * -> 일회성 상태 제거 -> 에러메세지, 작업 성공 여부 등 더 이상 필요 없는 상태값 초기화
-     * -> ui 호출 : ㅘ면 이동, 메세지 표시 등의 동작 직후에 함수 호출 후 정리
-     */
-
-    /**
-     * 로그인 실패 시 loginError에 '비밀번호가 틀렸습니다.' 에러메세지 저장
-     * -> 사용자가 다시 입력하게 되면, 위 에러메시지는 사라짐
-     *
+     * -> ui 호출 : 화면 이동, 메세지 표시 등의 동작 직후에 함수 호출 후 정리
      */
     fun clearLoginError() { _uiState.update { it.copy(loginError = null, isLoginSuccess = false) } }
-
-
     fun clearSignUpResult() { _uiState.update { it.copy(signUpResult = null, isSignUpAndLoginSuccess = false) } }
     fun clearFindAccountResult() { _uiState.update { it.copy(findAccountResult = null) } }
-
 }
 
 /**
