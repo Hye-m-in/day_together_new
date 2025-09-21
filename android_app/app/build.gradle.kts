@@ -24,8 +24,19 @@ android {
         }
 
         // 네이버 로그인 관련 설정
-        manifestPlaceholders["naverClientId"] = providers.gradleProperty("NAVER_CLIENT_ID").getOrElse("YOUR_NAVER_CLIENT_ID")
+        // Manifest의 <data android:scheme="${naverClientId}"/> 에 주입될 값은
+        // "항상 소문자"여야 경고/에러가 나지 않음 (스킴은 소문자만 허용)
+        // gradle.properties의 NAVER_CLIENT_ID가 대문자여도 여기서 lowercase()로 강제 변환
+        // 기본값도 소문자로 둠
+        manifestPlaceholders["naverClientId"] =
+            providers.gradleProperty("NAVER_CLIENT_ID")
+                .orNull
+                ?.lowercase()              // 소문자 강제
+                ?: "your_naver_client_id"  // 기본값도 소문자
 
+        // 아래 BuildConfig 값들은 앱 내부 로직에서 쓰는 상수이므로
+        // 원문 그대로(대소문자 유지) 쓰는 것이 보통 더 안전함
+        // 즉, 스킴만 소문자 강제, 나머지 상수는 원래 케이스 유지
         val naverClientId = providers.gradleProperty("NAVER_CLIENT_ID").get()
         val naverClientSecret = providers.gradleProperty("NAVER_CLIENT_SECRET").get()
         val naverClientName = providers.gradleProperty("NAVER_CLIENT_NAME").get()
@@ -81,7 +92,6 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
 
-
     // Navigation
     val navVersion = "2.7.7"
     implementation("androidx.navigation:navigation-compose:$navVersion")
@@ -114,7 +124,6 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
 
     implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
-
 
     // Media3(필요시)
     implementation(libs.androidx.media3.common.ktx)

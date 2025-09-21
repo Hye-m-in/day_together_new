@@ -56,7 +56,7 @@ import com.navercorp.nid.oauth.OAuthLoginCallback
 // import com.android.volley.toolbox.Volley
 // import org.json.JSONObject
 
-// Firebase 커스텀 토큰 로그인 - 더 이상 필요하지 않으므로 주석 처리함
+// Firebase 커스텀 토큰 로그인 - 더 이상 필요하지 않으므로 주석 처리
 // import com.google.firebase.auth.FirebaseAuth
 
 /**
@@ -122,7 +122,10 @@ fun LoginScreen(
                 Toast.makeText(context, "ID 토큰을 가져오지 못했습니다. 잠시 후 다시 시도해주세요.", Toast.LENGTH_LONG).show()
                 return@rememberLauncherForActivityResult
             }
-            authViewModel.signInWithGoogle(idToken)
+            // 서버 경유 로그인으로 통일
+            // authViewModel.signInWithGoogle(idToken)  (Firebase 직접 로그인)
+            // 서버로 idToken을 보내 커스텀 토큰을 받아 Firebase에 로그인
+            authViewModel.signInWithGoogleViaServer(idToken)
         } catch (e: ApiException) {
             // 오류 코드별 사용자 메시지 매핑
             val msg = when (e.statusCode) {
@@ -326,7 +329,7 @@ fun LoginScreen(
 
                                 // ViewModel에 작업 위임
                                 authViewModel.onNaverLoginSuccess(accessToken)
-                                
+
                             }
 
                             override fun onFailure(httpStatus: Int, message: String) {
@@ -342,7 +345,7 @@ fun LoginScreen(
                         })
                     }
 
-                    // 구글 로그인
+                    // 구글 로그인 (서버 경유)
                     SocialLoginIconButton(iconRes = R.drawable.ic_logo_google, text = "구글") {
                         googleSignInLauncher.launch(googleSignInClient.signInIntent)
                     }
