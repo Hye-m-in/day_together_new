@@ -32,7 +32,7 @@ def is_too_similar(new_q: str, old_qs: List[str], threshold: float) -> Tuple[boo
     return (max_sim >= threshold, max_sim, max_q)
 
 # =============== 프롬프트 빌더 ===============
-def build_prompt(family_name: str, today: str, recent_topics_hint: Optional[str]) -> Tuple[str, str]:
+def build_prompt(chat_room_name: str, today: str, recent_topics_hint: Optional[str]) -> Tuple[str, str]:
     categories = ["가족대화","일상","취미·문화","주말계획","미래·새도전"]
     tones = ["따뜻하게","유쾌하게","잔잔하게","호기심을 담아","격려하는 톤으로"]
     timeframes = ["오늘","이번주","이번달","최근","어릴 때","곧 다가올 주말"]
@@ -60,8 +60,7 @@ def build_prompt(family_name: str, today: str, recent_topics_hint: Optional[str]
     )
     user = f"""
 [목표]
-- {family_name}의 소통을 부드럽게 시작할 개방형 질문 1개 생성
-- 이후 대화가 이어지도록 가벼운 되묻기 1개도 함께 제안
+- {chat_room_name}의 소통을 부드럽게 시작할 개방형 질문 1개 생성
 
 [문체/어미]
 - 과거형 대신 현재형/권유형: '…있나요?', '…어떤가요?', '…해볼까요?'
@@ -91,7 +90,7 @@ def build_prompt(family_name: str, today: str, recent_topics_hint: Optional[str]
 
 # =============== 메인 함수 ===============
 def generate_daily_question(
-    family_name: str = "가족",
+    chat_room_name: str,
     recent_questions: Optional[List[str]] = None,
     max_retries: int = 3,
     similarity_threshold: float = 0.88,
@@ -115,7 +114,7 @@ def generate_daily_question(
     for attempt in range(1, max_retries + 1):
         if debug:
             print(f"\n[시도 {attempt}/{max_retries}] ---------------------------")
-        system, user = build_prompt(family_name, today, recent_hint)
+        system, user = build_prompt(chat_room_name, today, recent_hint)
 
         try:
             resp = openai.ChatCompletion.create(
@@ -202,7 +201,7 @@ if __name__ == "__main__":
         "요즘 즐겨 먹는 간식이나 음식이 있다면 가족과 함께 나눠보고 싶은 건 무엇인가요?"
     ]
     data = generate_daily_question(
-        family_name="김씨네가족",
+        chat_room_name="김씨네가족",
         recent_questions=recent,
         max_retries=3,
         similarity_threshold=0.88,  # 필요 시 0.90~0.92로 완화/강화

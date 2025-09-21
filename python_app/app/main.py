@@ -136,13 +136,12 @@ app.add_middleware(
 def google_login(body: GoogleTokenRequest = Body(..., description="Google ID 토큰을 담은 객체")):
     """
     1) Android 클라이언트가 보낸 Google ID 토큰 검증
-    2) 이메일 중복 체크 : 같은 이메일로 이미 가입된 계정이 있다면 오류 반환
-    3) Firebase Authentication에 사용자 레코드 생성(없다면)
-    4) Firestore에 프로필 저장
-    5) Firebase 커스텀 토큰 생성 및 반환
+    2) Firebase 사용자 확인 (있으면 로그인, 없으면 가입)
+    3) Firestore에 프로필 저장
+    4) Firebase 커스텀 토큰 생성 및 반환
     """
     try:
-        #1. Google 토큰 검증
+        # 1. Google 토큰 검증
         request = google.auth.transport.requests.Request()
         id_info = google.oauth2.id_token.verify_oauth2_token(
             body.id_token, request
@@ -153,39 +152,33 @@ def google_login(body: GoogleTokenRequest = Body(..., description="Google ID 토
         name    = id_info.get("name")
         picture = id_info.get("picture")
 
-
-        #2. 이메일 중복 체크
+        # 2. Firebase 사용자 확인
         try:
-            fb_auth.get_user_by_email(email)
-            #이미 같은 이메일로 가입된 계정이 있으면
-            raise HTTPException(status_code=400, detail="이미 등록된 이메일 입니다.")
+            user_record = fb_auth.get_user_by_email(email)
+            print(f"[DEBUG] Found existing user for {email}, uid={user_record.uid}")
         except fb_auth.UserNotFoundError:
-            #가입된 계정이 없으면 계속 진행
-            pass
+            # 신규 회원가입 처리
+            try:
+                fb_auth.get_user(uid)
+                print(f"[DEBUG] Auth user {uid} already exists")
+            except (fb_auth.UserNotFoundError, ValueError) as e:
+                print(f"[DEBUG] Creating Auth user {uid}: {e}")
+                fb_auth.create_user(
+                    uid=uid,
+                    email=email,
+                    display_name=name,
+                    photo_url=picture
+                )
 
-
-        #3. Authentication에 사용자 생성(없다면)
-        try:
-            fb_auth.get_user(uid)
-            print(f"[DEBUG] Auth user {uid} already exists")
-        except (fb_auth.UserNotFoundError, ValueError) as e:
-            print(f"[DEBUG] Creating Auth user {uid}: {e}")
-            fb_auth.create_user(
-                uid=uid,
-                email=email,
-                display_name=name,
-                photo_url=picture
-            )
-
-        #4. Firestore에 프로필 저장
+        # 3. Firestore에 프로필 저장 (신규든 기존이든 항상 업데이트)
         user_ref = db.collection("users").document(uid)
         user_ref.set({
             "email":    email,
             "name":     name,
             "profile_image": picture,
         }, merge=True)
-        
-        #5. 커스텀토큰 생성 및 반환
+
+        # 4. 커스텀토큰 생성 및 반환
         custom_token_bytes = fb_auth.create_custom_token(uid)
         custom_token = custom_token_bytes.decode("utf-8")
         return TokenResponse(custom_token=custom_token)
@@ -193,7 +186,6 @@ def google_login(body: GoogleTokenRequest = Body(..., description="Google ID 토
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid Google ID token: {e}")
     except HTTPException:
-        #위에서 던진 400에러는 그대로 통과
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Server error: {e}")
@@ -261,30 +253,69 @@ async def naver_login(body: NaverTokenRequest):
     print(f"[DEBUG] Returning custom token for {uid}")
     return TokenResponse(custom_token=custom_token)
 
+
+
+
+
+
 #----------gpt------------
 @app.post("/daily-question")
 async def daily_question():
-
     seoul_tz = pytz.timezone("Asia/Seoul")
     tomorrow = (datetime.now(seoul_tz) + timedelta(days=1)).date()
-    #최근 질문 가져오기
-    recent_docs = db.collection("daily_questions").order_by("date", direction="DESCENDING").limit(5).stream()
-    recent_questions = [doc.to_dict().get("question", "") for doc in recent_docs]
 
-    # 질문 생성
-    data = qg.generate_daily_question(family_name="김씨네가족", recent_questions=recent_questions)
+    # 모든 chatRooms 가져오기
+    chat_rooms = db.collection("chatRooms").stream()
 
-    # Firestore에 저장
-    doc_ref = db.collection("daily_questions").document()
-    doc_ref.set({
+    results = {}
+    for room in chat_rooms:
+        room_id = room.id
+        #roomid 가져오고 각 가족채팅방 이름도 가져오는데 이름이 없다면 이름없는방으로 ->무조건 있어야 함 
+        chat_room_name= room.to_dict().get("chatRoomName", "이름없는방")
+
+    # 최근 질문 5개 (이 방 전용) 가져오기
+        recent_docs = (
+            db.collection("chatRooms")
+              .document(room_id)
+              .collection("messages")
+              .where("type", "==", "system")
+              .order_by("timestamp", direction=firestore.Query.DESCENDING)
+              .limit(5)
+              .stream()
+        )
+        recent_questions = [doc.to_dict().get("content", "") for doc in recent_docs]
+
+
+    # GPT 질문 생성
+    data = qg.generate_daily_question(
+        chat_room_name=chat_room_name, 
+        recent_questions=recent_questions
+    )
+
+    # 1) daily_questions 컬렉션 저장 (로그/통계용)
+    db.collection("daily_questions").add({
+        "room_id": room_id,
         "question": data["question"],
         "category": data["category"],
         "tone": data["tone"],
         "timeframe": data["timeframe"],
-        "created_at" : firestore.SERVER_TIMESTAMP, #생성시각 (로그/참조용)
-        "target_date" : tomorrow.isoformat() # 질문이 적용될 날짜
+        "created_at": firestore.SERVER_TIMESTAMP,
+        "target_date": tomorrow.isoformat()
     })
+    # 2) 해당 방 messages에 저장
+    db.collection("chatRooms").document(room_id).collection("messages").add({
+        "sender": "system",
+        "content": data["question"],
+        "timestamp": firestore.SERVER_TIMESTAMP,
+        "type": "system",
+        "target_date": tomorrow.isoformat()
+    })       
 
-    return data
+    print(f"[DailyQuestion API] 질문 저장 완료 → roomId={room_id}")
+    results[room_id] = data
+
+
+    return results
+
 
 
