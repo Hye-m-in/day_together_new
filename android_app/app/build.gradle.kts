@@ -10,6 +10,11 @@ android {
     namespace = "com.example.day_together"
     compileSdk = 35
 
+    buildFeatures{
+        buildConfig = true
+        compose = true
+    }
+
     defaultConfig {
         applicationId = "com.example.day_together"
         minSdk = 24
@@ -44,6 +49,7 @@ android {
         buildConfigField("String", "NAVER_CLIENT_ID", "\"$naverClientId\"")
         buildConfigField("String", "NAVER_CLIENT_SECRET", "\"$naverClientSecret\"")
         buildConfigField("String", "NAVER_CLIENT_NAME", "\"$naverClientName\"")
+
     }
 
     buildTypes {
@@ -140,6 +146,32 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     // Coroutines
+    implementation(platform("com.google.firebase:firebase-bom:33.13.0"))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-messaging")
+
+
+    //retrofit2관련 의존성
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.google.firebase:firebase-auth-ktx:23.0.0")
+
+    //Jake Wharton 코루틴 어댑터
+    implementation("com.jakewharton.retrofit:retrofit2-kotlin-coroutines-adapter:0.9.2")
+
+    // 코루틴
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
+
+    // 코루틴 (Android)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
+
+    // OkHttp + 로깅 인터셉터
+    implementation("com.squareup.okhttp3:okhttp:4.11.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
+
+    //Naver 의존성
+    implementation("com.navercorp.nid:oauth:5.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")

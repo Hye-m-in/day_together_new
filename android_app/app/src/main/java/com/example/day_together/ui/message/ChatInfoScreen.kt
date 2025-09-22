@@ -33,6 +33,7 @@ import com.example.day_together.ui.theme.*
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.day_together.data.repository.AppRepository
+import com.example.day_together.data.repository.QuestionRepository
 import com.example.day_together.ui.dialogs.InviteMemberDialog
 
 // 가족 멤버를 표현하는 데이터 클래스 정의
@@ -46,7 +47,7 @@ data class FamilyMember(
 @Composable
 fun ChatInfoScreen(
     navController: NavController,
-    viewModel: MessageViewModel = viewModel(factory = MessageViewModelFactory(AppRepository))
+    viewModel: MessageViewModel = viewModel(factory = MessageViewModelFactory(AppRepository, QuestionRepository()))
 ) {
     val uiState by viewModel.uiState.collectAsState() // ViewModel 상태 구독
 

@@ -3,12 +3,15 @@ package com.example.day_together.ui.auth
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.day_together.data.repository.AuthRepository
+import com.google.firebase.auth.FirebaseAuth
 import com.example.day_together.data.repository.AppRepository
 import com.example.day_together.data.repository.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
 
 /**
  * 데이터를 한 곳(ViewModel)에서만 통제함으로써 코드가 꼬이는 것을 막음
@@ -23,6 +26,7 @@ class AuthViewModel : ViewModel() {
 
     private val repository: AppRepository = AppRepository
 
+
     /**
      * 인증 화면의 모든 UI 상태를 관리하는 StateFlow. View는 이 State를 구독(실시간 상태 감지)하여 UI에 반영
      * StateFlow : 실시간으로 업데이트되는 '상태 게시판'
@@ -34,6 +38,7 @@ class AuthViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(AuthUiState())
     // public : ViewModel 외부에서는 오직 읽기만 가능한 공개용 게시판
     val uiState = _uiState.asStateFlow()
+
 
     /**
      * 이벤트 핸들러 함수들

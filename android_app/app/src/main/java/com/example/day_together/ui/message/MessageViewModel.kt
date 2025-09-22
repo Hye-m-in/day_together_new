@@ -1,6 +1,7 @@
 package com.example.day_together.ui.message
 
 import android.util.Log
+import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -9,6 +10,7 @@ import com.example.day_together.AuthManager
 import com.example.day_together.FirebaseService
 import com.example.day_together.data.repository.AppRepository
 import com.example.day_together.data.repository.AuthResult
+import com.example.day_together.data.repository.QuestionRepository
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -82,17 +84,20 @@ sealed interface MessageEvent {
 /**
  * MessageScreen과 ChatInfoScreen의 상태 및 로직 담당 ViewModel
  */
-class MessageViewModel(
-    private val repository: AppRepository
+open class MessageViewModel(
+    private val repository: AppRepository,
+    // 오늘의 질문용 Repository 주입
+    private val questionRepository: QuestionRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(MessageUiState())
+    protected val _uiState = MutableStateFlow(MessageUiState())
     val uiState: StateFlow<MessageUiState> = _uiState.asStateFlow()
 
     private var messagesListener: ListenerRegistration? = null
 
     init {
         fetchChatRoomInfo()
+        fetchTodayQuestion()// 초기화 시 오늘의 질문도 불러오기
     }
 
     override fun onCleared() {
@@ -140,6 +145,7 @@ class MessageViewModel(
         }
     }
 
+
     private fun listenForMessages(chatRoomId: String) {
         messagesListener?.remove()
         messagesListener = repository.listenForMessages(chatRoomId) { newMessages ->
@@ -176,6 +182,19 @@ class MessageViewModel(
                 } else {
                     Log.e("MessageViewModel", "이미지 업로드 실패")
                 }
+            }
+        }
+    }
+
+    private fun fetchTodayQuestion(){
+        val uid = AuthManager.getCurrentUserId() ?: return
+        questionRepository.loadTodayQuestion(uid) { question ->
+            question?.let { q ->
+                val currentMessages = _uiState.value.messages.toMutableList()
+                currentMessages.add(
+                    ChatMessage(content = q, sender = "system")
+                )
+                _uiState.update { it.copy(messages = currentMessages) }
             }
         }
     }
@@ -242,11 +261,14 @@ class MessageViewModel(
     }
 }
 
-class MessageViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
+class MessageViewModelFactory(
+    private val repository: AppRepository,
+    private val questionRepository: QuestionRepository
+) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(MessageViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return MessageViewModel(repository) as T
+            return MessageViewModel(repository, questionRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

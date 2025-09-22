@@ -14,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -44,6 +45,7 @@ import com.example.day_together.navigation.AppDestinations
 import com.example.day_together.ui.message.ChatMessage
 import com.example.day_together.R
 import com.example.day_together.data.repository.AppRepository
+import com.example.day_together.data.repository.QuestionRepository
 import com.example.day_together.ui.dialogs.InviteMemberDialog
 import com.example.day_together.ui.theme.*
 
@@ -52,7 +54,9 @@ import com.example.day_together.ui.theme.*
 fun MessageScreen(
     navController: NavHostController,
     modifier: Modifier = Modifier,
-    viewModel: MessageViewModel = viewModel(factory = MessageViewModelFactory(AppRepository))
+    viewModel: MessageViewModel = viewModel(
+        factory = MessageViewModelFactory(AppRepository, QuestionRepository())
+    )
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
@@ -109,7 +113,7 @@ fun MessageScreen(
 }
 
 @Composable
-fun ColumnScope.ChatScreenContent(
+fun ChatScreenContent(
     messages: List<ChatMessage>,
     currentUserName: String,
     messageText: String,
@@ -117,27 +121,111 @@ fun ColumnScope.ChatScreenContent(
     onSendClick: () -> Unit,
     onInviteClick: () -> Unit
 ) {
-    if (messages.isEmpty()) {
-        // 메세지가 없을 때
-        EmptyChatMessagesView(
-            modifier = Modifier.weight(1f),
-            onInviteClick = onInviteClick)
-    } else {
-        // 메세지가 있을 때
-        LazyColumn(modifier = Modifier.weight(1f).padding(8.dp)) {
-            items(messages, key = { it.timestamp.time }) { message ->
-                MessageBubble(message = message, isMine = message.sender == currentUserName)
-                Spacer(modifier = Modifier.height(12.dp))
+    // 메시지 중 시스템(오늘 질문) 제외
+    val scrollableMessages = messages.filter { it.sender != "system" }
+    val listState = rememberLazyListState()
+
+    Box(modifier = Modifier.fillMaxSize()) {
+
+        // 상단 오늘 질문 + 메시지 영역
+        Column(modifier = Modifier.fillMaxSize().padding(bottom = 64.dp)) { // 입력창 여유
+            // 오늘 질문
+            val todayQuestion = messages.find { it.sender == "system" }?.content
+            if (!todayQuestion.isNullOrEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = todayQuestion,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            // 실제 메시지 영역
+            if (scrollableMessages.isEmpty()) {
+                EmptyChatMessagesView(
+                    modifier = Modifier.weight(1f),
+                    onInviteClick = onInviteClick
+                )
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize().padding(8.dp)
+                ) {
+                    items(scrollableMessages, key = { it.timestamp.time }) { message ->
+                        MessageBubble(message = message, isMine = message.sender == currentUserName)
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                }
+
+                // 새 메시지 오면 맨 아래로 스크롤
+                LaunchedEffect(scrollableMessages.size) {
+                    if (scrollableMessages.isNotEmpty()) {
+                        listState.animateScrollToItem(scrollableMessages.size - 1)
+                    }
+                }
+            }
+        }
+
+        // 입력창 고정
+        MessageInputArea(
+            text = messageText,
+            onTextChanged = onTextChange,
+            onSendClick = onSendClick,
+            onClipClick = { /* TODO: 첨부 기능 */ },
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
+    }
+}
+
+// MessageInputArea도 modifier 받도록 수정
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MessageInputArea(
+    text: String,
+    onTextChanged: (String) -> Unit,
+    onSendClick: () -> Unit,
+    onClipClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shadowElevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onClipClick) {
+                Icon(painterResource(id = R.drawable.ic_clip_attach), contentDescription = "파일 첨부")
+            }
+            OutlinedTextField(
+                value = text,
+                onValueChange = onTextChanged,
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("메시지 입력") },
+                shape = RoundedCornerShape(24.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary
+                )
+            )
+            IconButton(onClick = onSendClick, enabled = text.isNotBlank()) {
+                Icon(painterResource(id = R.drawable.ic_send_arrow), contentDescription = "전송")
             }
         }
     }
-    MessageInputArea(
-        text = messageText,
-        onTextChanged = onTextChange,
-        onSendClick = onSendClick,
-        onClipClick = { /* TODO: Attachment panel event */ }
-    )
 }
+
+
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
