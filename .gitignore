@@ -85,7 +85,7 @@ gradle-app.setting
 *.hprof
 
 # === Crashlytics 관련 ===
-android-app/app/src/main/assets/crashlytics-build.properties
+android_app/app/src/main/assets/crashlytics-build.properties
 fabric.properties
 
 # === JetBrains 개인 설정 ===
@@ -106,3 +106,6 @@ release/
 secrets.properties
 local.properties
 key.properties
+strings.xml
+
+android_app\app\src\main\res\values\strings.xml
