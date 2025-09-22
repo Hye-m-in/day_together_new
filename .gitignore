@@ -106,6 +106,3 @@ release/
 secrets.properties
 local.properties
 key.properties
-strings.xml
-
-android_app\app\src\main\res\values\strings.xml
