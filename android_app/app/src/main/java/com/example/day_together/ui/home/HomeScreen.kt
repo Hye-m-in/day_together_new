@@ -16,7 +16,7 @@ import androidx.navigation.NavController
 // 프로젝트 내부 다른 파일 및 클래스
 import com.example.day_together.R
 import com.example.day_together.data.model.CalendarEvent
-//import com.example.day_together.data.model.WeeklyCalendarDay
+import com.example.day_together.data.model.WeeklyCalendarDay
 import com.example.day_together.ui.WheelCustomYearMonthPickerDialog
 import com.example.day_together.ui.home.composables.ActualHomeScreenContent
 import com.example.day_together.ui.home.composables.AddEventInputView
@@ -73,22 +73,22 @@ fun HomeScreen(
 
     // 오늘 날짜를 기준으로 주간 달력 데이터를 계산
     val today = LocalDate.now()
-    val weeklyCalendarDataState = remember(today, uiState.eventsByDate, isMonthlyView) {
-        if(!isMonthlyView) {
+    val weeklyCalendarDataState: List<WeeklyCalendarDay> = remember(today, uiState.eventsByDate, isMonthlyView) {
+        if (!isMonthlyView) {
             val firstDayOfRelevantWeek = today.with(JavaDayOfWeek.MONDAY)
-            (0 until 7).map { dayOffset ->
-                val date = firstDayOfRelevantWeek.plusDays(dayOffset.toLong())
-//                WeeklyCalendarDay(
-//                    date = date.dayOfMonth.toString(),
-//                    dayOfWeek = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.KOREAN),
-//                    isToday = date.isEqual(today),
-//                    events = uiState.eventsByDate[date] ?: emptyList()
-//                )
+            (0 until 7).map { offset ->
+                val date = firstDayOfRelevantWeek.plusDays(offset.toLong())
+                WeeklyCalendarDay(
+                    // date = date.toString(), // "2025-09-26" 같은 문자열
+                    date = date.dayOfMonth.toString().padStart(2,'0'), // 2자리 형식, 1자리일 경우 0 추가
+                    dayOfWeek = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.KOREAN),
+                    events = uiState.eventsByDate[date] ?: emptyList(),
+                    isToday = date.isEqual(today)
+                )
             }
-        } else {
-            emptyList()
-        }
+        } else emptyList()
     }
+
 
     // 배경에 표시될 구름 이미지 리소스 목록
     val allCloudDrawables = remember {
@@ -117,7 +117,7 @@ fun HomeScreen(
             selectedDateForDetails = selectedDateForDetails,
             dateForBorderOnly = dateForBorderOnly,
             eventsByDate = uiState.eventsByDate,
-            //weeklyCalendarData = weeklyCalendarDataState,
+            weeklyCalendarData = weeklyCalendarDataState,
             isQuestionAnsweredByAll = uiState.isQuestionAnsweredByAll,
             aiQuestion = uiState.aiQuestion?.text ?: "로딩 중",
             familyQuote = uiState.familyQuote,
@@ -308,7 +308,7 @@ private fun DeleteConfirmationDialog(
 }
 
 /**
- * [기능 통합] 채팅방 초대 도착 시 표시되는 다이얼로그 Composable
+ * 채팅방 초대 도착 시 표시되는 다이얼로그 Composable
  * @param onAccept 사용자가 입장하기를 눌렀을 때 호출될 콜백
  * @param onDismiss 사용자가 나중에를 누르거나 다이얼로그 바깥을 클릭했을 때 호출될 콜백
  */

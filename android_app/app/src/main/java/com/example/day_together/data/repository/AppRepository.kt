@@ -242,19 +242,25 @@ object AppRepository {
         return "\"가족 사랑은 평화의 시작이다.\""
     }
 
-    suspend fun getCalendarEvents(): Map<LocalDate, List<CalendarEvent>> {
-        delay(600)
-        val today = LocalDate.now()
-        return mapOf()
+    // Home WeeklyCalendar
+    suspend fun getCalendarEvents(chatRoomId: String): Map<LocalDate, List<CalendarEvent>> {
+        val events = calendarManager.getEvents(chatRoomId) // Firestore에서 실제 조회
+        return events.groupBy { it.date }                  // LocalDate 기준으로 그룹핑
     }
+
 
     // GalleryViewModel
     suspend fun getGalleryPhotos(): List<PhotoItem> {
         delay(800)
         return listOf(
-            PhotoItem("p1", "https://picsum.photos/seed/202501/200/300", LocalDate.now().minusMonths(2).toString()),
-            PhotoItem("p2", "https://picsum.photos/seed/202503/200/300", LocalDate.now().minusMonths(1).toString()),
-            PhotoItem("p3", "https://picsum.photos/seed/202504/200/300", LocalDate.now().toString())
+            PhotoItem("p1", "https://cdn.pixabay.com/photo/2020/02/17/04/24/cooking-4855385_1280.jpg", LocalDate.now().minusMonths(2).toString()),
+            PhotoItem("p2", "https://cdn.pixabay.com/photo/2013/09/23/01/31/jeju-185135_1280.jpg", LocalDate.now().minusMonths(2).toString()),
+            PhotoItem("p3", "https://i.pinimg.com/1200x/e9/b3/5d/e9b35daefd82a4b1f05a4c752548d63c.jpg", LocalDate.now().minusMonths(2).toString()),
+            PhotoItem("p4", "https://i.pinimg.com/736x/f9/52/25/f95225fbaeacb716c4651fe67520993c.jpg", LocalDate.now().minusMonths(2).toString()),
+            PhotoItem("p5", "https://i.pinimg.com/736x/45/65/a4/4565a4c82444770918ec09ac8e722155.jpg", LocalDate.now().minusMonths(2).toString()),
+            PhotoItem("p6", "https://cdn.pixabay.com/photo/2015/10/09/09/55/jeju-island-978991_1280.jpg", LocalDate.now().minusMonths(1).toString()),
+            PhotoItem("p7", "https://i.pinimg.com/1200x/a5/b1/34/a5b134d6c99851ca995d93c21105387d.jpg", LocalDate.now().toString()),
+            PhotoItem("p8", "https://i.pinimg.com/1200x/d7/b4/09/d7b4093b254fe348f21453170d975db6.jpg", LocalDate.now().toString())
         )
     }
 

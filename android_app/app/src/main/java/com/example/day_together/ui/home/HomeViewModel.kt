@@ -39,22 +39,28 @@ class HomeViewModel : ViewModel() {
             val user = repository.getCurrentUser()
             val question = repository.getTodaysQuestion()
             val quote = repository.getFamilyQuote()
-            val events = repository.getCalendarEvents()
+
+            // 채팅방 찾기 → 일정 로드
+            val chatRoomId = user?.uid?.let { repository.findUserChatRoomId(it) }
+            val eventsByDate = if (chatRoomId != null) {
+                repository.getCalendarEvents(chatRoomId)   // 매개변수 전달
+            } else emptyMap()
 
             // 디데이 정보 계산
-            val dDayInfo = calculateDDayInfo(events)
+            val dDayInfo = calculateDDayInfo(eventsByDate)
 
             _uiState.value = _uiState.value.copy(
                 user = user,
                 aiQuestion = question,
                 familyQuote = quote,
-                eventsByDate = events,
+                eventsByDate = eventsByDate,
                 dDayText = dDayInfo.first,
                 dDayTitle = dDayInfo.second,
                 isLoading = false
             )
         }
     }
+
 
     fun refreshQuestion() {
         viewModelScope.launch {
