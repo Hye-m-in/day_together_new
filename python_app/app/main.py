@@ -176,6 +176,7 @@ def google_login(body: GoogleTokenRequest = Body(..., description="Google ID 토
             "email":    email,
             "name":     name,
             "profile_image": picture,
+            "invitedChatRoomId": None # Firestore에서 null로 저장됨
         }, merge=True)
 
         # 4. 커스텀토큰 생성 및 반환
