@@ -244,7 +244,7 @@ async def naver_login(body: NaverTokenRequest):
             "name":          profile.get("name"),
             "nickname":      profile.get("nickname"),
             "profile_image": profile.get("profile_image"),
-            "invitedChatRoomId" : profile.get("null")
+            "invitedChatRoomId" : None
         }, merge=True)
         print(f"[DEBUG] Firestore 저장 완료: users/{uid}")
 
