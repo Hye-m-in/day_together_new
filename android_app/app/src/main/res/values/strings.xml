@@ -4,7 +4,7 @@
 
 
     <!-- 구글 로그인 -->
-    <string name="google_web_client_id">498422146257-uvu0vjql7muhttt801e6t31fa4mopgrk.apps.googleusercontent.com</string>
+    <string name="default_web_client_id">498422146257-uvu0vjql7muhttt801e6t31fa4mopgrk.apps.googleusercontent.com</string>
 
 
 
