@@ -74,7 +74,7 @@ fun MainScreen(appNavController: NavHostController) {
     DisposableEffect(ChatRoomManager.auth.currentUser) {
         val userId = ChatRoomManager.auth.currentUser?.uid
         if (userId != null) {
-            // 현재 로그인한 사용자의 ID로 초대를 실시간으로 감지하는 리스너 설정
+            // [수정됨] 주석 처리했던 초대 감지 리스너를 다시 활성화합니다.
             invitationListener = ChatRoomManager.listenForInvitations(userId) { pendingInvitationId ->
                 // 새로운 초대가 감지되면 상태 변수에 채팅방 ID를 저장하여 UI에 알림
                 invitedChatRoomId.value = pendingInvitationId

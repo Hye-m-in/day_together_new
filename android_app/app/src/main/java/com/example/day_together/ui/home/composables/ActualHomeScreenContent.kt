@@ -13,7 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.day_together.data.model.CalendarEvent
-//import com.example.day_together.data.model.WeeklyCalendarDay
+import com.example.day_together.data.model.WeeklyCalendarDay // 주간 데이터 모델 사용
 import com.example.day_together.ui.theme.ScreenBackground
 import com.example.day_together.ui.theme.TextPrimary
 import java.time.LocalDate
@@ -37,7 +37,7 @@ fun ActualHomeScreenContent(
     selectedDateForDetails: LocalDate?,
     dateForBorderOnly: LocalDate?,
     eventsByDate: Map<LocalDate, List<CalendarEvent>>,
-    //weeklyCalendarData: List<WeeklyCalendarDay>,
+    weeklyCalendarData: List<WeeklyCalendarDay>, // 항상 주간 캘린더 7칸을 그리기 위한 데이터
     isQuestionAnsweredByAll: Boolean,
     aiQuestion: String,
     familyQuote: String,
@@ -71,11 +71,14 @@ fun ActualHomeScreenContent(
                 dDayText = dDayText,
                 dDayTitle = dDayTitle,
                 cloudImageResList = randomCloudResIds,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
             )
             Spacer(modifier = Modifier.height(24.dp))
 
             if (isMonthlyView) {
+                // 월간 캘린더
                 MonthlyCalendarView(
                     currentMonth = currentYearMonth,
                     onMonthChange = onMonthChange,
@@ -94,25 +97,27 @@ fun ActualHomeScreenContent(
                     onTodayHeaderButtonClick = onMonthlyTodayButtonClick
                 )
             } else {
+                // 주간 캘린더: 이벤트 유무와 무관하게 항상 표시
                 Column(
                     modifier = Modifier
-
                         .padding(horizontal = 20.dp)
                 ) {
                     Text(
-
                         text = displayYearMonthFormatted,
                         color = TextPrimary,
-                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Medium, fontSize = 21.sp),
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 21.sp
+                        ),
                         modifier = Modifier
                             .align(Alignment.Start)
                             .clickable { onToggleCalendarView() }
                             .padding(bottom = 20.dp) // 연월과 주간 캘린더 사이 간격
                     )
-                    //WeeklyCalendarView(
-                      //  weeklyCalendarData = weeklyCalendarData,
-                      //  modifier = Modifier.fillMaxWidth()
-                    //)
+                    WeeklyCalendarView(
+                        weeklyCalendarData = weeklyCalendarData,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
 
@@ -139,17 +144,22 @@ fun ActualHomeScreenContent(
             if (showQuote) {
                 QuoteView(
                     quote = familyQuote,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 20.dp)
                 )
             } else {
                 if (isMonthlyView) {
                     Spacer(modifier = Modifier.height(20.dp))
                 } else {
-
-                    Spacer(modifier = Modifier.height(20.dp + (MaterialTheme.typography.bodyMedium.fontSize.value.dp * 2)))
+                    // 본문 흐름 유지용 여백
+                    Spacer(
+                        modifier = Modifier.height(
+                            20.dp + (MaterialTheme.typography.bodyMedium.fontSize.value.dp * 2)
+                        )
+                    )
                 }
             }
-
 
             if (!isMonthlyView) {
                 Spacer(Modifier.weight(1f))
