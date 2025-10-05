@@ -6,8 +6,8 @@ import com.google.firebase.firestore.PropertyName
  * 앱 사용자의 정보를 담는 데이터 모델
  */
 data class User(
-    // 사용자의 고유 식별자 (Firebase Auth의 UID)
-    @get:PropertyName("uid") @set:PropertyName("uid")
+    // 사용자의 고유 식별자 (Firebase Auth의 member_id)
+    @get:PropertyName("member_id") @set:PropertyName("member_id")
     var uid: String = "",
 
     // 사용자 이름 (닉네임)

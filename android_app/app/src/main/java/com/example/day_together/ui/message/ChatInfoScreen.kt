@@ -234,12 +234,3 @@ fun FamilyMemberItem(member: FamilyMember) {
         )
     }
 }
-
-// 미리 보기용 Preview 컴포저블 함수
-@Preview(showBackground = true, name = "ChatInfoScreen Preview")
-@Composable
-fun ChatInfoScreenPreview() {
-    Day_togetherTheme {
-        ChatInfoScreen(navController = rememberNavController())
-    }
-}

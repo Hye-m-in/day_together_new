@@ -1,13 +1,12 @@
 package com.example.day_together.ui.message
 
 import android.util.Log
-import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.day_together.AuthManager
 import com.example.day_together.FirebaseService
+import com.example.day_together.data.model.User 
 import com.example.day_together.data.repository.AppRepository
 import com.example.day_together.data.repository.AuthResult
 import com.example.day_together.data.repository.QuestionRepository
@@ -28,21 +27,24 @@ data class ChatMessage(
     val content: String = "",
     val sender: String = "",
     val timestamp: Date = Date(),
-    val imageUrl: String = ""
+    val imageUrl: String? = null 
 )
+
+
+
+
 
 /**
  * ChatInfoScreen 및 MessageScreen의 UI 상태 관리 위한 데이터 클래스
  */
 data class MessageUiState(
-    // 공통 상태
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
     val chatRoomId: String? = null,
-    val chatRoomName: String? = "가족 채팅방 테스트", //기본값
+    val chatRoomName: String? = "가족 채팅방",
+    val currentUser: User? = null,
     val currentUserName: String = "사용자",
 
-    // MessageScreen 상태
     val messages: List<ChatMessage> = emptyList(),
     val messageText: String = "",
     val searchText: String = "",
@@ -54,7 +56,6 @@ data class MessageUiState(
     val selectedDisplayDate: Int? = null,
     val datesWithConversations: Set<LocalDate> = emptySet(),
 
-    // ChatInfoScreen 상태
     val creationDate: String = "",
     val familyMembers: List<FamilyMember> = emptyList(),
     val showInviteDialog: Boolean = false,
@@ -86,7 +87,6 @@ sealed interface MessageEvent {
  */
 open class MessageViewModel(
     private val repository: AppRepository,
-    // 오늘의 질문용 Repository 주입
     private val questionRepository: QuestionRepository
 ) : ViewModel() {
 
@@ -97,7 +97,7 @@ open class MessageViewModel(
 
     init {
         fetchChatRoomInfo()
-        fetchTodayQuestion()// 초기화 시 오늘의 질문도 불러오기
+        fetchTodayQuestion()
     }
 
     override fun onCleared() {
@@ -105,11 +105,11 @@ open class MessageViewModel(
         super.onCleared()
     }
 
-    fun loadChatRoomName(chatRoomId: String){
+    fun loadChatRoomName(chatRoomId: String) {
         FirebaseService.db.collection("chatRooms").document(chatRoomId).get()
             .addOnSuccessListener { document ->
                 if (document.exists()) {
-                    val name = document.getString("name") ?: "가족 채팅방 테스트"
+                    val name = document.getString("chatRoomName") ?: "가족 채팅방"
                     _uiState.update { it.copy(chatRoomName = name) }
                 }
             }
@@ -117,27 +117,22 @@ open class MessageViewModel(
                 Log.e("MessageViewModel", "채팅방 이름 불러오기 실패", it)
             }
     }
-    /**
-     * ChatActivity의 fetchAcceptedChatRoomId와 사용자 이름 로딩 로직 통합
-     */
+
     private fun fetchChatRoomInfo() {
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
             val currentUser = repository.getCurrentUser()
             if (currentUser == null) {
                 _uiState.update { it.copy(isLoading = false, errorMessage = "로그인이 필요합니다.") }
-                Log.d("MessageViewModel", "현재 로그인된 사용자 없음")
-                return@launch // 코루틴 종료
+                return@launch
             }
 
-            // 사용자 이름과 채팅방 ID를 순서대로 가져옴
-            _uiState.update { it.copy(currentUserName = currentUser.name) }
-            Log.d("MessageViewModel", "현재 사용자 UID: ${currentUser.uid}, 이름: ${currentUser.name}")
+            _uiState.update { it.copy(currentUser = currentUser, currentUserName = currentUser.name) }
             val chatRoomId = repository.findUserChatRoomId(currentUser.uid)
-            Log.d("MessageViewModel", "찾은 채팅방 ID: $chatRoomId")
 
             if (chatRoomId != null) {
                 _uiState.update { it.copy(chatRoomId = chatRoomId) }
+                loadChatRoomName(chatRoomId)
                 listenForMessages(chatRoomId)
             } else {
                 _uiState.update { it.copy(isLoading = false) }
@@ -156,37 +151,58 @@ open class MessageViewModel(
     }
 
     private fun sendMessage() {
-        val currentState = _uiState.value
-        if (currentState.messageText.isBlank() || currentState.chatRoomId == null) return
+        val uiState = _uiState.value
+        val currentUser = uiState.currentUser ?: return
+        if (uiState.messageText.isBlank() || uiState.chatRoomId == null) {
+            return
+        }
 
-        repository.sendMessage(
-            currentState.chatRoomId, currentState.messageText, currentState.currentUserName,
-            imageUrl = TODO()
-        )
-        _uiState.update { it.copy(messageText = "") }
-    }
-
-    private fun sendImage(uri: String){
-        val currentState = _uiState.value
-        val chatRoomId = currentState.chatRoomId ?: return
-
+        // suspend 함수는 viewModelScope.launch 안에서 호출
         viewModelScope.launch {
-            repository.uploadImageToStorage(uri) { imageUrl ->
-                if (imageUrl != null) {
-                    repository.sendMessage(
-                        chatRoomId = chatRoomId,
-                        sender = currentState.currentUserName,
-                        text = "", // 텍스트는 비워둠
-                        imageUrl = imageUrl // 이미지 URL 저장
-                    )
-                } else {
-                    Log.e("MessageViewModel", "이미지 업로드 실패")
-                }
+            try {
+                repository.sendMessage(
+                    chatRoomId = uiState.chatRoomId,
+                    sender = currentUser.name,
+                    text = uiState.messageText,
+                    imageUrl = null
+                    // onComplete 콜백 없음
+                )
+                _uiState.update { it.copy(messageText = "") }
+            } catch (e: Exception) {
+                Log.e("MessageViewModel", "메시지 전송 실패", e)
             }
         }
     }
 
-    private fun fetchTodayQuestion(){
+    private fun sendImage(uri: String) {
+        val currentState = _uiState.value
+        val chatRoomId = currentState.chatRoomId ?: return
+        val currentUser = currentState.currentUser ?: return
+
+        // uploadImageToStorage는 콜백 사용
+        repository.uploadImageToStorage(uri) { imageUrl ->
+            if (imageUrl != null) {
+                // sendMessage는 suspend 함수이므로 viewModelScope.launch로 호출
+                viewModelScope.launch {
+                    try {
+                        repository.sendMessage(
+                            chatRoomId = chatRoomId,
+                            sender = currentUser.name,
+                            text = "",
+                            imageUrl = imageUrl
+                            // onComplete 콜백 없음
+                        )
+                    } catch (e: Exception) {
+                        Log.e("MessageViewModel", "이미지 메시지 전송 실패", e)
+                    }
+                }
+            } else {
+                Log.e("MessageViewModel", "이미지 업로드 실패")
+            }
+        }
+    }
+
+    private fun fetchTodayQuestion() {
         val uid = AuthManager.getCurrentUserId() ?: return
         questionRepository.loadTodayQuestion(uid) { question ->
             question?.let { q ->
@@ -235,13 +251,13 @@ open class MessageViewModel(
         }
     }
 
-    private fun updateChatRoomName(newName: String){
+    private fun updateChatRoomName(newName: String) {
         val chatRoomId = _uiState.value.chatRoomId ?: return
         viewModelScope.launch {
-            try{
+            try {
                 repository.updateChatRoomName(chatRoomId, newName)
-                _uiState.update{ it.copy(chatRoomName = newName)}
-            } catch (e: Exception){
+                _uiState.update { it.copy(chatRoomName = newName) }
+            } catch (e: Exception) {
                 Log.e("MessageViewModel", "채팅방 이름 수정 실패", e)
             }
         }
@@ -250,12 +266,13 @@ open class MessageViewModel(
     fun onEvent(event: MessageEvent) {
         when (event) {
             is MessageEvent.OnMessageTextChanged -> _uiState.update { it.copy(messageText = event.text) }
+            is MessageEvent.SendImage -> sendImage(event.uri)
             MessageEvent.SendMessage -> sendMessage()
             MessageEvent.CreateNewChatRoom -> createNewChatRoom()
             MessageEvent.ShowInviteDialog -> _uiState.update { it.copy(showInviteDialog = true) }
             MessageEvent.DismissInviteDialog -> _uiState.update { it.copy(showInviteDialog = false) }
             is MessageEvent.InviteMember -> inviteMember(event.email)
-            is MessageEvent.EditChatRoomName -> {updateChatRoomName(event.newName)}
+            is MessageEvent.EditChatRoomName -> updateChatRoomName(event.newName)
             else -> {}
         }
     }

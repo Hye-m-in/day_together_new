@@ -43,7 +43,11 @@ import com.example.day_together.ui.theme.*
 import java.time.LocalDate
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.draw.clipToBounds
+import com.google.firebase.Timestamp
+import java.time.ZoneId
 import java.util.UUID
+import java.util.Date
+
 @Composable
 internal fun MonthlyCalendarHeader(
     currentMonth: YearMonth,
@@ -338,7 +342,8 @@ private fun MonthlyDayCell(
                         val maxEventsToShow = if (cellHeight < 50.dp) 1 else if (cellHeight < 70.dp) 2 else 4
                         events.take(maxEventsToShow).forEach { event ->
                             Text(
-                                text = event.description,
+                                // [수정] event.description -> event.title
+                                text = event.title,
                                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                                 maxLines = 1,
@@ -384,11 +389,10 @@ fun EventDetailsDialog(
                 Text("등록된 일정이 없습니다.", modifier = Modifier.padding(vertical = 16.dp).fillMaxWidth(), textAlign = TextAlign.Center)
             } else {
                 LazyColumn(modifier = Modifier.heightIn(max = 240.dp)) {
-                    // LazyColumn의 items 함수를 List를 직접 받는 형태로 수정
                     items(
                         items = events,
                         key = { event -> event.id }
-                    ) { event: CalendarEvent -> // event 타입을 명시적으로 CalendarEvent로 지정
+                    ) { event: CalendarEvent ->
                         var showMenu by remember { mutableStateOf(false) }
                         Row(
                             modifier = Modifier
@@ -397,7 +401,8 @@ fun EventDetailsDialog(
                                 .padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(event.description, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            // [수정] event.description -> event.title
+                            Text(event.title, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                             Box {
                                 IconButton(onClick = { showMenu = true }, modifier = Modifier.size(36.dp)) {
                                     Icon(Icons.Filled.MoreVert, contentDescription = "더보기", tint = TextPrimary)
@@ -438,29 +443,18 @@ fun EventDetailsDialog(
 fun MonthlyCalendarViewFullPreview() {
     Day_togetherTheme {
         val today = LocalDate.now()
+        // [수정] Preview용 더미 데이터도 새로운 모델에 맞게 수정
+        val todayTimestamp = Timestamp(Date.from(today.atStartOfDay(ZoneId.systemDefault()).toInstant()))
+
         val dummyEvents = mapOf(
             today.plusDays(1) to listOf(
-                CalendarEvent(description = "회의", date = today.plusDays(1)),
-                CalendarEvent(description = "점심 약속", date = today.plusDays(1)),
-                CalendarEvent(description = "저녁 식사", date = today.plusDays(1)),
-                CalendarEvent(description = "추가 일정", date = today.plusDays(1))
-            ),
-            today.plusDays(2) to listOf(CalendarEvent(description = "발표 준비 데드라인", date = today.plusDays(2))),
-            today.plusDays(3) to listOf(
-                CalendarEvent(description = "스터디", date = today.plusDays(3)),
-                CalendarEvent(description = "운동", date = today.plusDays(3)),
-                CalendarEvent(description = "장보기 목록 작성", date = today.plusDays(3)),
-                CalendarEvent(description = "친구와 저녁 약속", date = today.plusDays(3)),
-                CalendarEvent(description = "도서관 책 반납", date = today.plusDays(3))
+                CalendarEvent(title = "회의", startTime = todayTimestamp),
+                CalendarEvent(title = "점심 약속", startTime = todayTimestamp)
             ),
             today to listOf(
-                CalendarEvent(description = "오늘의 할일 1", date = today),
-                CalendarEvent(description = "오늘의 할일 2", date = today),
-                CalendarEvent(description = "오늘의 할일 3", date = today),
-                CalendarEvent(description = "오늘의 할일 4 (길게 써보기 테스트으으으으으으으으으)", date = today),
-                CalendarEvent(description = "오늘의 할일 5", date = today)
-            ),
-            today.minusDays(2) to listOf(CalendarEvent(description = "지난 일정", date = today.minusDays(2)))
+                CalendarEvent(title = "오늘의 할일 1", startTime = todayTimestamp),
+                CalendarEvent(title = "오늘의 할일 2", startTime = todayTimestamp)
+            )
         )
 
         var currentMonthPreview by remember { mutableStateOf(YearMonth.now()) }

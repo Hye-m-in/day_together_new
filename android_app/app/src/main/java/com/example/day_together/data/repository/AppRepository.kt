@@ -33,6 +33,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.ZoneId
 import java.util.Date
 import java.util.UUID
 import kotlin.coroutines.resume
@@ -46,7 +47,7 @@ object AppRepository {
     // 실제 로직 담당 매니저들 선언
     private val authManager = AuthManager
     private val chatRoomManager = ChatRoomManager
-    private val calendarManager = CalendarManager()
+    private val calendarManager = CalendarManager
     private val db = chatRoomManager.db // 편의를 위해 db 인스턴스 가져오기
 
     /**
@@ -64,7 +65,7 @@ object AppRepository {
     }
 
     /**
-     * (기존) 구글 ID 토큰으로 Firebase에 직접 로그인 요청
+     * 기존 -> 구글 ID 토큰으로 Firebase에 직접 로그인 요청
      * - 서버를 거치지 않고 FirebaseAuth.signInWithCredential로 로그인
      * - 서버 세션/권한이 필요 없는 경우에만 사용
      */
@@ -170,25 +171,15 @@ object AppRepository {
 
     /**
      * 현재 로그인된 사용자의 프로필 정보를 가져옴
-     * TODO: Firestore에서 실제 사용자 정보 가져오기
      */
     suspend fun getCurrentUser(): User? {
-        val uid = authManager.getCurrentUserId()
-        return suspendCancellableCoroutine { continuation ->
-            if (uid != null) {
-                db.collection("users").document(uid).get()
-                    .addOnSuccessListener { document ->
-                        if (continuation.isActive) {
-                            val name = document.getString("name") ?: "Unknown"
-                            val email = document.getString("email") ?: "Unknown"
-                            val position = document.getString("position") ?: "가족"
-                            continuation.resume(User(uid = uid, name = name, email = email, position = position))
-                        }
-                    }
-                    .addOnFailureListener {
-                        if (continuation.isActive) continuation.resume(null)
-                    }
-            }
+        val uid = authManager.getCurrentUserId() ?: return null
+        return try {
+            val document = db.collection("users").document(uid).get().await()
+            document.toObject(User::class.java)
+        } catch (e: Exception) {
+            Log.e("AppRepository", "사용자 정보 가져오기 실패", e)
+            null
         }
     }
 
@@ -231,7 +222,7 @@ object AppRepository {
         return User(uid = userId, name = "가족 구성원", email = "family@example.com")
     }
 
-    // HomeViewModel
+    // --- HomeViewModel 관련 함수들 ---
     suspend fun getTodaysQuestion(): Question {
         delay(300)
         return Question(id = "q1", text = "우리 가족만의 특별한 루틴이 있나요?")
@@ -242,14 +233,36 @@ object AppRepository {
         return "\"가족 사랑은 평화의 시작이다.\""
     }
 
-    // Home WeeklyCalendar
-    suspend fun getCalendarEvents(chatRoomId: String): Map<LocalDate, List<CalendarEvent>> {
-        val events = calendarManager.getEvents(chatRoomId) // Firestore에서 실제 조회
-        return events.groupBy { it.date }                  // LocalDate 기준으로 그룹핑
+    // --- 캘린더 관련 함수들 ---
+
+    /**
+     * CalendarManager의 실시간 리스너를 ViewModel과 연결하는 함수.
+     * List<CalendarEvent>를 ViewModel이 사용하기 좋은 Map<LocalDate, List<CalendarEvent>> 형태로 가공.
+     */
+    fun listenForCalendarEvents(
+        chatRoomId: String,
+        onEventsUpdated: (Map<LocalDate, List<CalendarEvent>>) -> Unit
+    ): ListenerRegistration {
+        return calendarManager.listenForEvents(chatRoomId) { events ->
+            val eventsByDate = events.groupBy {
+                it.startTime.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+            }
+            onEventsUpdated(eventsByDate)
+        }
+    }
+
+    // ViewModel이 Repository를 통해 이벤트를 추가할 수 있도록 함수를 연결
+    suspend fun addOrUpdateCalendarEvent(chatRoomId: String, event: CalendarEvent){
+        calendarManager.addEvent(chatRoomId, event)
+    }
+
+    // ViewModel이 Repository를 통해 이벤트를 삭제할 수 있도록 함수를 연결
+    suspend fun deleteCalendarEvent(chatRoomId: String, eventId: String){
+        calendarManager.deleteEvent(chatRoomId, eventId)
     }
 
 
-    // GalleryViewModel
+    // 갤러리 관련 함수(GalleryViewModel)
     suspend fun getGalleryPhotos(): List<PhotoItem> {
         delay(800)
         return listOf(
@@ -274,7 +287,7 @@ object AppRepository {
         println("TODO: ${yearMonth}에 댓글 추가 - ${comment.text}")
     }
 
-    // MessageViewModel
+    // 채팅 관련 함수(MessageViewModel)
     suspend fun getCurrentUserName(): String {
         return suspendCancellableCoroutine { continuation ->
             val uid = authManager.getCurrentUserId()
@@ -295,25 +308,32 @@ object AppRepository {
     }
 
     suspend fun findUserChatRoomId(userId: String): String? {
-        return suspendCancellableCoroutine { continuation ->
-            db.collection("users").document(userId).collection("invitations")
-                .whereEqualTo("status", "accepted").limit(1).get()
-                .addOnSuccessListener { documents ->
-                    val acceptedRoomId = documents.firstOrNull()?.id
-                    if (acceptedRoomId != null) {
-                        if (continuation.isActive) continuation.resume(acceptedRoomId)
-                        return@addOnSuccessListener
-                    }
-                    db.collection("chatRooms").whereArrayContains("members", userId).limit(1).get()
-                        .addOnSuccessListener { chatRooms ->
-                            val ownRoomId = chatRooms.firstOrNull()?.id
-                            if (continuation.isActive) continuation.resume(ownRoomId)
-                        }
-                        .addOnFailureListener { if (continuation.isActive) continuation.resume(null) }
-                }
-                .addOnFailureListener { if (continuation.isActive) continuation.resume(null) }
+        // userId가 비어있으면 아무것도 하지 않고 null을 반환
+        if (userId.isBlank()) {
+            Log.e("AppRepository", "findUserChatRoomId 호출 시 userId가 비어있습니다.")
+            return null
+        }
+
+        return try {
+            // 1. 사용자의 invitations 컬렉션에서 accepted 상태인 문서 찾음
+            val invitations = db.collection("users").document(userId).collection("invitations")
+                .whereEqualTo("status", "accepted").limit(1).get().await()
+            val acceptedRoomId = invitations.documents.firstOrNull()?.id
+
+            // 찾았다면 해당 채팅방 ID를 즉시 반환
+            if (acceptedRoomId != null) {
+                return acceptedRoomId
+            }
+
+            // 2. 초대 수락 기록이 없다면, chatRooms 컬렉션에서 사용자가 members 배열에 포함된 경우를 찾음
+            val chatRooms = db.collection("chatRooms").whereArrayContains("members", userId).limit(1).get().await()
+            chatRooms.documents.firstOrNull()?.id
+        } catch (e: Exception) {
+            Log.e("AppRepository", "findUserChatRoomId 실행 중 오류 발생", e)
+            null
         }
     }
+
 
     suspend fun updateChatRoomName(chatRoomId: String, newName: String) {
         db.collection("chatRooms").document(chatRoomId)
@@ -322,20 +342,17 @@ object AppRepository {
     }
 
     suspend fun createNewChatRoom(inviterUserId: String): String? {
-        return suspendCancellableCoroutine { continuation ->
+        return try {
             val newChatRoomRef = db.collection("chatRooms").document()
             val chatRoomId = newChatRoomRef.id
             val data = hashMapOf(
                 "members" to listOf(inviterUserId),
                 "createdAt" to Date()
             )
-            newChatRoomRef.set(data)
-                .addOnSuccessListener {
-                    if (continuation.isActive) continuation.resume(chatRoomId)
-                }
-                .addOnFailureListener {
-                    if (continuation.isActive) continuation.resume(null)
-                }
+            newChatRoomRef.set(data).await()
+            chatRoomId
+        } catch (e: Exception) {
+            null
         }
     }
 
@@ -374,45 +391,49 @@ object AppRepository {
     }
 
     suspend fun getChatMessages(chatRoomId: String): List<ChatMessage> {
-        return suspendCancellableCoroutine { continuation ->
-            chatRoomManager.db.collection("chatRooms")
+        return try {
+            val snapshot = chatRoomManager.db.collection("chatRooms")
                 .document(chatRoomId)
                 .collection("messages")
                 .orderBy("timestamp", Query.Direction.ASCENDING)
                 .get()
-                .addOnSuccessListener { snapshot ->
-                    val messages = snapshot.documents.mapNotNull { doc ->
-                        doc.toObject(ChatMessage::class.java)
-                    }
-                    if (continuation.isActive) continuation.resume(messages)
-                }
-                .addOnFailureListener {
-                    if (continuation.isActive) continuation.resume(emptyList())
-                }
+                .await()
+            snapshot.documents.mapNotNull { it.toObject(ChatMessage::class.java) }
+        } catch (e: Exception) {
+            emptyList()
         }
     }
 
-    fun sendMessage(chatRoomId: String, text: String, sender: String, imageUrl: String? = null) {
-        if (text.isBlank() || sender.isBlank()) return
-        val message = hashMapOf(
-            "sender" to sender,
-            "content" to text,
-            "timestamp" to Date(),
-            "imageUrl" to imageUrl
+
+
+    suspend fun sendMessage(chatRoomId: String, text: String, sender: String, imageUrl: String? = null) {
+
+        if ((text.isBlank() && imageUrl.isNullOrBlank()) || sender.isBlank() || sender == "사용자") {
+            Log.e("AppRepository", "Sender 이름이 유효하지 않아 메시지를 보내지 않습니다.")
+            return
+        }
+
+        val message = ChatMessage(
+            sender = sender,
+            content = text,
+            timestamp = Date(),
+            imageUrl = imageUrl
         )
-        chatRoomManager.db.collection("chatRooms")
+        db.collection("chatRooms")
             .document(chatRoomId)
             .collection("messages")
             .add(message)
+            .await()
     }
+
 
     fun uploadImageToStorage(uri: String, onComplete: (String?) -> Unit) {
         val storageRef = FirebaseStorage.getInstance().reference
         val imageRef = storageRef.child("chat_images/${UUID.randomUUID()}.jpg")
         imageRef.putFile(Uri.parse(uri))
             .addOnSuccessListener {
-                imageRef.downloadUrl.addOnSuccessListener { uri ->
-                    onComplete(uri.toString())
+                imageRef.downloadUrl.addOnSuccessListener { downloadUrl ->
+                    onComplete(downloadUrl.toString())
                 }
             }
             .addOnFailureListener {
