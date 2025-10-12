@@ -278,6 +278,11 @@ object AppRepository {
         calendarManager.addEvent(chatRoomId, event)
     }
 
+    // ViewModel이 Repository를 통해 이벤트를 삭제할 수 있도록 함수를 연결
+    suspend fun deleteCalendarEvent(chatRoomId: String, eventId: String){
+        calendarManager.deleteEvent(chatRoomId, eventId)
+    }
+
     /**
      * 채팅의 모든 사진 목록을 가져옴
      */

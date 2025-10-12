@@ -48,8 +48,7 @@ data class FamilyMember(
 fun ChatInfoScreen(
     navController: NavController,
     viewModel: MessageViewModel = viewModel(factory = MessageViewModel.MessageViewModelFactory(
-        AppRepository
-    ))
+        AppRepository, QuestionRepository()))
 ) {
     val uiState by viewModel.uiState.collectAsState() // ViewModel 상태 구독
 

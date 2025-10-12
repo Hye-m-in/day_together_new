@@ -161,7 +161,10 @@ fun MainScreen(appNavController: NavHostController) {
             // 메시지 경로일 때 MessageScreen 보여줌
             composable(BottomNavItem.Message.route) {
                 val messageViewModel: MessageViewModel = viewModel(
-                    factory = MessageViewModel.MessageViewModelFactory(AppRepository)
+                    factory = MessageViewModel.MessageViewModelFactory(
+                        AppRepository,
+                        QuestionRepository()
+                    )
                 )
                 MessageScreen(navController = appNavController, viewModel = messageViewModel)
             }

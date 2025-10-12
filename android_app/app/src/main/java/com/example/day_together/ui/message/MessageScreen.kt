@@ -48,7 +48,7 @@ fun MessageScreen(
     navController: NavHostController,
     modifier: Modifier = Modifier,
     viewModel: MessageViewModel = viewModel(factory = MessageViewModel.MessageViewModelFactory(
-        AppRepository))
+        AppRepository, QuestionRepository()))
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()

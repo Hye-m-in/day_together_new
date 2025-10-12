@@ -206,6 +206,19 @@ open class MessageViewModel(
         }
     }
 
+    private fun fetchTodayQuestion() {
+        val uid = AuthManager.getCurrentUserId() ?: return
+        questionRepository.loadTodayQuestion(uid) { question ->
+            question?.let { q ->
+                val currentMessages = _uiState.value.messages.toMutableList()
+                currentMessages.add(
+                    ChatMessage(content = q, sender = "system")
+                )
+                _uiState.update { it.copy(messages = currentMessages) }
+            }
+        }
+    }
+
     private fun createNewChatRoom() {
         val currentUserId = AuthManager.getCurrentUserId() ?: return
 
@@ -263,20 +276,24 @@ open class MessageViewModel(
             MessageEvent.ShowInviteDialog -> _uiState.update { it.copy(showInviteDialog = true) }
             MessageEvent.DismissInviteDialog -> _uiState.update { it.copy(showInviteDialog = false) }
             is MessageEvent.InviteMember -> inviteMember(event.email)
-            is MessageEvent.EditChatRoomName -> { updateChatRoomName(event.newName) }
+            is MessageEvent.EditChatRoomName -> {
+                updateChatRoomName(event.newName)
+            }
+
             else -> {}
         }
     }
 
-class MessageViewModelFactory(
-    private val repository: AppRepository,
-    private val questionRepository: QuestionRepository
-) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(MessageViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return MessageViewModel(repository, questionRepository) as T
+    class MessageViewModelFactory(
+        private val repository: AppRepository,
+        private val questionRepository: QuestionRepository
+    ) : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(MessageViewModel::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return MessageViewModel(repository, questionRepository) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class")
         }
-        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
