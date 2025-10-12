@@ -90,7 +90,6 @@ object AppRepository {
 
     /**
      * 현재 로그인된 사용자의 프로필 정보를 가져옴
-     * TODO: 백엔드에 현재 사용자 정보를 Firestore에서 가져오는 기능 구현 및 연결 필요
      */
     suspend fun getCurrentUser(): User? {
         val uid = authManager.getCurrentUserId()
@@ -110,6 +109,19 @@ object AppRepository {
                     }
             }
         }
+    }
+
+    //내 채팅방ID 찾기
+    suspend fun getMyChatRoomId(): String? = suspendCancellableCoroutine { cont ->
+        val uid = authManager.getCurrentUserId() ?: return@suspendCancellableCoroutine cont.resume(null)
+        db.collection("chatRooms")
+            .whereArrayContains("members", uid)
+            .get()
+            .addOnSuccessListener { docs ->
+                val chatRoomId = docs.firstOrNull()?.id
+                cont.resume(chatRoomId)
+            }
+            .addOnFailureListener { cont.resume(null) }
     }
 
     /**
@@ -149,12 +161,6 @@ object AppRepository {
         delay(1000)
         return AuthResult.Success
     }
-
-    suspend fun getUser(userId: String): User? {
-        println("TODO: 특정 사용자 정보 가져오기: $userId")
-        return User(uid = userId, name = "가족 구성원", email = "family@example.com")
-    }
-
 
     // HomeViewModel
 
@@ -197,16 +203,38 @@ object AppRepository {
     // GalleryViewModel
 
     /**
-     * 갤러리의 모든 사진 목록을 가져옴
-     * TODO: Firebase Storage 등에서 실제 사진 목록을 가져오도록 구현 필요
+     * 채팅의 모든 사진 목록을 가져옴
      */
-    suspend fun getGalleryPhotos(): List<PhotoItem> {
-        delay(800)
-        return listOf(
-            PhotoItem("p1", "https://picsum.photos/seed/202501/200/300", LocalDate.now().minusMonths(2).toString()),
-            PhotoItem("p2", "https://picsum.photos/seed/202503/200/300", LocalDate.now().minusMonths(1).toString()),
-            PhotoItem("p3", "https://picsum.photos/seed/202504/200/300", LocalDate.now().toString())
-        )
+    suspend fun getImages(chatRoomId: String): List<PhotoItem> {
+        delay(500)
+        return suspendCancellableCoroutine { continuation ->
+            db.collection("chatRooms")
+                .document(chatRoomId)
+                .collection("messages")
+                .whereNotEqualTo("imageUrl", "")
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    val photoItems = snapshot.documents.mapNotNull { doc ->
+                        val msg = doc.toObject(ChatMessage::class.java)
+                        if (msg?.imageUrl.isNullOrBlank() || msg?.timestamp == null) return@mapNotNull null
+
+                        // ChatMessage → PhotoItem 변환
+                        PhotoItem(
+                            id = doc.id,
+                            imageUrl = msg.imageUrl ?: "",
+                            date = msg.timestamp.toInstant()
+                                .atZone(java.time.ZoneId.systemDefault())
+                                .toLocalDate()
+                                .toString()
+                        )
+                    }
+
+                    if (continuation.isActive) continuation.resume(photoItems)
+                }
+                .addOnFailureListener {
+                    if (continuation.isActive) continuation.resume(emptyList())
+                }
+        }
     }
 
     /**
@@ -373,26 +401,38 @@ object AppRepository {
     /**
      * 새로운 채팅 메시지 전송
      */
-    fun sendMessage(chatRoomId: String, text: String, sender: String, imageUrl: String?=null) {
-        if (text.isBlank() || sender.isBlank()) return
+    fun sendMessage(
+        chatRoomId: String,
+        text: String,
+        sender: String,
+        imageUrl: String? = null,
+        type: String
+    ) {
+        // 아무 내용도 없으면 리턴
+        if (sender.isBlank() || (text.isBlank() && imageUrl.isNullOrBlank())) return
+
+        // 메시지 타입 자동 판별
+        val type = if (!imageUrl.isNullOrBlank()) "image" else "text"
 
         val message = hashMapOf(
             "sender" to sender,
             "content" to text,
             "timestamp" to Date(),
-            "imageUrl" to imageUrl
+            "imageUrl" to imageUrl,
+            "type" to type
         )
-        chatRoomManager.db.collection("chatRooms")
+
+        db.collection("chatRooms")
             .document(chatRoomId)
             .collection("messages")
             .add(message)
     }
 
-    fun uploadImageToStorage(uri: String, onComplete: (String?) -> Unit) {
+    fun uploadImageToStorage(uri: Uri, onComplete: (String?) -> Unit) {
         val storageRef = FirebaseStorage.getInstance().reference
         val imageRef = storageRef.child("chat_images/${UUID.randomUUID()}.jpg")
 
-        imageRef.putFile(Uri.parse(uri))
+        imageRef.putFile(uri)
             .addOnSuccessListener {
                 imageRef.downloadUrl.addOnSuccessListener { uri ->
                     onComplete(uri.toString())

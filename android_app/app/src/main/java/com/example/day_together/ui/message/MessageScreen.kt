@@ -1,20 +1,14 @@
 package com.example.day_together.ui.message
 
-import android.content.Intent
+import android.Manifest
 import android.net.Uri
-import android.provider.MediaStore
-import android.util.Log
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -31,17 +25,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import coil.compose.AsyncImage
 import com.example.day_together.AuthManager.auth
 import com.example.day_together.navigation.AppDestinations
-import com.example.day_together.ui.message.ChatMessage
 import com.example.day_together.R
 import com.example.day_together.data.repository.AppRepository
 import com.example.day_together.ui.dialogs.InviteMemberDialog
@@ -52,11 +44,39 @@ import com.example.day_together.ui.theme.*
 fun MessageScreen(
     navController: NavHostController,
     modifier: Modifier = Modifier,
-    viewModel: MessageViewModel = viewModel(factory = MessageViewModelFactory(AppRepository))
+    viewModel: MessageViewModel = viewModel(factory = MessageViewModel.MessageViewModelFactory(
+        AppRepository
+    )
+    )
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val currentUserId = auth.currentUser?.uid
+
+    // 런타임 권한 요청
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) Toast.makeText(context, "이미지 접근 권한 필요", Toast.LENGTH_SHORT).show()
+    }
+
+    LaunchedEffect(Unit) {
+        permissionLauncher.launch(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                Manifest.permission.READ_MEDIA_IMAGES
+            else
+                Manifest.permission.READ_EXTERNAL_STORAGE
+        )
+    }
+
+    // 미디어 선택 런처
+    val mediaPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
+        uris.forEach { uri ->
+            viewModel.onEvent(MessageEvent.SendImage(uri))
+        }
+    }
 
     if (uiState.showInviteDialog) {
         InviteMemberDialog(
@@ -100,8 +120,11 @@ fun MessageScreen(
                     currentUserName = uiState.currentUserName,
                     messageText = uiState.messageText,
                     onTextChange = { text -> viewModel.onEvent(MessageEvent.OnMessageTextChanged(text)) },
-                    onSendClick = { viewModel.onEvent(MessageEvent.SendMessage) },
-                    onInviteClick = { viewModel.onEvent(MessageEvent.ShowInviteDialog) }
+                    onSendClick = {
+                        val text = viewModel.uiState.value.messageText // 입력창 내용 가져오기
+                        viewModel.onEvent(MessageEvent.SendMessage(text)) },
+                    onInviteClick = { viewModel.onEvent(MessageEvent.ShowInviteDialog) },
+                    onClipClick = { mediaPickerLauncher.launch("image/*") }
                 )
             }
         }
@@ -115,7 +138,8 @@ fun ColumnScope.ChatScreenContent(
     messageText: String,
     onTextChange: (String) -> Unit,
     onSendClick: () -> Unit,
-    onInviteClick: () -> Unit
+    onInviteClick: () -> Unit,
+    onClipClick: () -> Unit,
 ) {
     if (messages.isEmpty()) {
         // 메세지가 없을 때
@@ -135,7 +159,7 @@ fun ColumnScope.ChatScreenContent(
         text = messageText,
         onTextChanged = onTextChange,
         onSendClick = onSendClick,
-        onClipClick = { /* TODO: Attachment panel event */ }
+        onClipClick = onClipClick
     )
 }
 
@@ -226,10 +250,6 @@ fun EmptyChatMessagesView(modifier: Modifier = Modifier, onInviteClick: () -> Un
     Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("아직 대화가 없습니다.\n첫 메세지를 보내보세요!", textAlign = TextAlign.Center)
-//            Spacer(modifier = Modifier.height(16.dp))
-//            Button(onClick = onInviteClick) {
-//                Text("가족 초대")
-//            }
         }
     }
 }
@@ -240,6 +260,7 @@ fun MessageBubble(message: ChatMessage, isMine: Boolean) {
         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
         horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
     ) {
+        // 보낸 사람 이름(상대방)
         if (!isMine) {
             Text(
                 text = message.sender,
@@ -253,11 +274,35 @@ fun MessageBubble(message: ChatMessage, isMine: Boolean) {
             color = if (isMine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
             tonalElevation = 1.dp
         ) {
-            Text(
-                text = message.content,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                color = if (isMine) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-            )
+            Column(
+                modifier = Modifier.padding(8.dp),
+                horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
+            ) {
+                // 이미지가 있을 경우 표시
+                if (!message.imageUrl.isNullOrEmpty()) {
+                    AsyncImage(
+                        model = message.imageUrl,
+                        contentDescription = "Image message",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .sizeIn(maxWidth = 200.dp, maxHeight = 200.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // 텍스트 메시지가 있을 경우 표시
+                if (!message.content.isNullOrEmpty()) {
+                    Text(
+                        text = message.content,
+                        modifier = Modifier.padding(top = 4.dp),
+                        color = if (isMine)
+                            MaterialTheme.colorScheme.onPrimary
+                        else
+                            MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
         }
     }
 }

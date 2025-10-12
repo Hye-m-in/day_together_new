@@ -23,7 +23,6 @@ import com.example.day_together.ui.gallery.GalleryScreen
 import com.example.day_together.ui.home.HomeScreen
 import com.example.day_together.ui.message.MessageScreen
 import com.example.day_together.ui.message.MessageViewModel
-import com.example.day_together.ui.message.MessageViewModelFactory
 import com.example.day_together.ui.navigation.BottomNavItem
 import com.example.day_together.ui.settings.SettingsScreen
 import com.example.day_together.ui.theme.Day_togetherTheme
@@ -161,7 +160,7 @@ fun MainScreen(appNavController: NavHostController) {
             // 메시지 경로일 때 MessageScreen 보여줌
             composable(BottomNavItem.Message.route) {
                 val messageViewModel: MessageViewModel = viewModel(
-                    factory = MessageViewModelFactory(AppRepository)
+                    factory = MessageViewModel.MessageViewModelFactory(AppRepository)
                 )
                 MessageScreen(navController = appNavController, viewModel = messageViewModel)
             }

@@ -1,10 +1,10 @@
 package com.example.day_together.ui.message
 
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.day_together.AuthManager
 import com.example.day_together.FirebaseService
 import com.example.day_together.data.repository.AppRepository
@@ -64,8 +64,8 @@ data class MessageUiState(
 sealed interface MessageEvent {
     data class OnMessageTextChanged(val text: String) : MessageEvent
     data class OnSearchTextChanged(val text: String) : MessageEvent
-    data object SendMessage : MessageEvent
-    data class SendImage(val uri: String) : MessageEvent
+    data class SendMessage(val text: String) : MessageEvent
+    data class SendImage(val imageUri: Uri) : MessageEvent
     data object ToggleSearchBar : MessageEvent
     data object ToggleDatePicker : MessageEvent
     data object DismissDatePicker : MessageEvent
@@ -100,7 +100,7 @@ class MessageViewModel(
         super.onCleared()
     }
 
-    fun loadChatRoomName(chatRoomId: String){
+    fun loadChatRoomName(chatRoomId: String) {
         FirebaseService.db.collection("chatRooms").document(chatRoomId).get()
             .addOnSuccessListener { document ->
                 if (document.exists()) {
@@ -112,6 +112,7 @@ class MessageViewModel(
                 Log.e("MessageViewModel", "채팅방 이름 불러오기 실패", it)
             }
     }
+
     /**
      * ChatActivity의 fetchAcceptedChatRoomId와 사용자 이름 로딩 로직 통합
      */
@@ -143,24 +144,42 @@ class MessageViewModel(
     private fun listenForMessages(chatRoomId: String) {
         messagesListener?.remove()
         messagesListener = repository.listenForMessages(chatRoomId) { newMessages ->
+            // 메시지 변환 시 imageUrl 기본값 보장
+            val updatedMessages = newMessages.map { msg ->
+                msg.copy(
+                    content = msg.content ?: "",
+                    imageUrl = msg.imageUrl ?: ""
+                )
+            }
+
             _uiState.update {
-                it.copy(messages = newMessages, isLoading = false)
+                it.copy(messages = updatedMessages, isLoading = false)
             }
         }
     }
 
+    // 텍스트 메세지 전송
     private fun sendMessage() {
         val currentState = _uiState.value
-        if (currentState.messageText.isBlank() || currentState.chatRoomId == null) return
+        val chatRoomId = currentState.chatRoomId ?: return
+        val messageText = currentState.messageText.trim()
 
-        repository.sendMessage(
-            currentState.chatRoomId, currentState.messageText, currentState.currentUserName,
-            imageUrl = TODO()
-        )
-        _uiState.update { it.copy(messageText = "") }
+        if (messageText.isBlank()) return
+
+        viewModelScope.launch {
+            repository.sendMessage(
+                chatRoomId = chatRoomId,
+                sender = currentState.currentUserName,
+                text = messageText,
+                imageUrl = null,
+                type = "text"
+            )
+            _uiState.update { it.copy(messageText = "") }
+        }
     }
 
-    private fun sendImage(uri: String){
+    // 이미지 메세지 전송
+    private fun sendImage(uri: Uri) {
         val currentState = _uiState.value
         val chatRoomId = currentState.chatRoomId ?: return
 
@@ -170,11 +189,13 @@ class MessageViewModel(
                     repository.sendMessage(
                         chatRoomId = chatRoomId,
                         sender = currentState.currentUserName,
-                        text = "", // 텍스트는 비워둠
-                        imageUrl = imageUrl // 이미지 URL 저장
+                        text = "",
+                        imageUrl = imageUrl,
+                        type = "image"
                     )
                 } else {
                     Log.e("MessageViewModel", "이미지 업로드 실패")
+                    _uiState.update { it.copy(errorMessage = "이미지 업로드에 실패했습니다.") }
                 }
             }
         }
@@ -216,13 +237,13 @@ class MessageViewModel(
         }
     }
 
-    private fun updateChatRoomName(newName: String){
+    private fun updateChatRoomName(newName: String) {
         val chatRoomId = _uiState.value.chatRoomId ?: return
         viewModelScope.launch {
-            try{
+            try {
                 repository.updateChatRoomName(chatRoomId, newName)
-                _uiState.update{ it.copy(chatRoomName = newName)}
-            } catch (e: Exception){
+                _uiState.update { it.copy(chatRoomName = newName) }
+            } catch (e: Exception) {
                 Log.e("MessageViewModel", "채팅방 이름 수정 실패", e)
             }
         }
@@ -231,23 +252,24 @@ class MessageViewModel(
     fun onEvent(event: MessageEvent) {
         when (event) {
             is MessageEvent.OnMessageTextChanged -> _uiState.update { it.copy(messageText = event.text) }
-            MessageEvent.SendMessage -> sendMessage()
+            is MessageEvent.SendMessage -> sendMessage()
+            is MessageEvent.SendImage -> sendImage(event.imageUri)
             MessageEvent.CreateNewChatRoom -> createNewChatRoom()
             MessageEvent.ShowInviteDialog -> _uiState.update { it.copy(showInviteDialog = true) }
             MessageEvent.DismissInviteDialog -> _uiState.update { it.copy(showInviteDialog = false) }
             is MessageEvent.InviteMember -> inviteMember(event.email)
-            is MessageEvent.EditChatRoomName -> {updateChatRoomName(event.newName)}
+            is MessageEvent.EditChatRoomName -> { updateChatRoomName(event.newName) }
             else -> {}
         }
     }
-}
 
-class MessageViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(MessageViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return MessageViewModel(repository) as T
+    class MessageViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(MessageViewModel::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return MessageViewModel(repository) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class")
         }
-        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

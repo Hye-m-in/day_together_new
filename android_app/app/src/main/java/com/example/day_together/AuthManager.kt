@@ -12,8 +12,6 @@ object AuthManager {
     val db = FirebaseService.db
     val auth = FirebaseService.auth
 
-
-
     //회원가입
     fun registerUser(
         name: String,

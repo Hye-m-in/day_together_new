@@ -1,5 +1,6 @@
 package com.example.day_together.ui.gallery
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.day_together.data.repository.AppRepository
@@ -10,6 +11,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.ZoneId
+import java.util.UUID
 
 
 /**
@@ -28,6 +31,7 @@ import java.time.YearMonth
  * @property newCommentText 사용자가 입력 중인 댓글
  */
 data class GalleryUiState(
+    val chatRoomId: String? = null,
     val isLoading: Boolean = true,
     val allMonthlyPhotoGroups: List<MonthlyPhotoGroupData> = emptyList(),
     val currentDisplayYearMonth: YearMonth = YearMonth.now(),
@@ -35,8 +39,6 @@ data class GalleryUiState(
     val comments: List<MonthlyComment> = emptyList(),
     val newCommentText: String = ""
 )
-
-
 
 class GalleryViewModel(
     private val repository: AppRepository = AppRepository
@@ -47,24 +49,28 @@ class GalleryViewModel(
     val uiState: StateFlow<GalleryUiState> = _uiState.asStateFlow()
 
     init {
-        // ViewModel이 생성될 때 초기 사진 파일 로드
-        loadPhotos()
+        viewModelScope.launch {
+            val user = repository.getCurrentUser()
+            val chatRoomId = user?.invitedChatRoomId ?: repository.getMyChatRoomId()
+            chatRoomId?.let { loadImages(it) }
+        }
     }
-
 
     /**
      * 2. 데이터 로딩
      * Repository에서 사진 데이터를 비동기적으로 불러와 UI 상태 업데이트
      * 로딩 시작 -> 데이터 요청 -> 상태 업데이트
      */
-    private fun loadPhotos() {
+    private fun loadImages(chatRoomId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            val photos = repository.getGalleryPhotos() // 비동기 호출
 
-            // 비동기 호출이 끝난 후, 상태 업데이트 로직 하나의 블록으로 묶어 처리
+            val photos = repository.getImages(chatRoomId)
+
             _uiState.update { currentState ->
-                val photosByYearMonth = photos.groupBy { photo -> YearMonth.from(LocalDate.parse(photo.date)) }
+                val photosByYearMonth = photos.groupBy { photo ->
+                    YearMonth.from(LocalDate.parse(photo.date))
+                }
 
                 val distinctYearMonths = (photosByYearMonth.keys + currentState.currentDisplayYearMonth)
                     .distinct()
@@ -73,7 +79,7 @@ class GalleryViewModel(
                 val monthlyGroups = distinctYearMonths.map { ym ->
                     MonthlyPhotoGroupData(
                         yearMonth = ym,
-                        photos = photosByYearMonth[ym]?.sortedBy { photo -> LocalDate.parse(photo.date) } ?: emptyList()
+                        photos = photosByYearMonth[ym]?.sortedBy { it.date } ?: emptyList()
                     )
                 }
 
@@ -92,8 +98,6 @@ class GalleryViewModel(
             _uiState.update { it.copy(comments = comments) }
         }
     }
-
-
 
     /** 3. 이벤트 처리 함수
      * 타임피커에서 특정 년/월을 선택했을 때 호출
