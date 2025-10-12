@@ -7,8 +7,10 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.day_together.AuthManager
 import com.example.day_together.FirebaseService
+import com.example.day_together.data.model.User
 import com.example.day_together.data.repository.AppRepository
 import com.example.day_together.data.repository.AuthResult
+import com.example.day_together.data.repository.QuestionRepository
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,11 +35,11 @@ data class ChatMessage(
  * ChatInfoScreen 및 MessageScreen의 UI 상태 관리 위한 데이터 클래스
  */
 data class MessageUiState(
-    // 공통 상태
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
     val chatRoomId: String? = null,
-    val chatRoomName: String? = "가족 채팅방 테스트", //기본값
+    val chatRoomName: String? = "가족 채팅방",
+    val currentUser: User? = null,
     val currentUserName: String = "사용자",
 
     // MessageScreen 상태
@@ -82,17 +84,19 @@ sealed interface MessageEvent {
 /**
  * MessageScreen과 ChatInfoScreen의 상태 및 로직 담당 ViewModel
  */
-class MessageViewModel(
-    private val repository: AppRepository
+open class MessageViewModel(
+    private val repository: AppRepository,
+    private val questionRepository: QuestionRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(MessageUiState())
+    protected val _uiState = MutableStateFlow(MessageUiState())
     val uiState: StateFlow<MessageUiState> = _uiState.asStateFlow()
 
     private var messagesListener: ListenerRegistration? = null
 
     init {
         fetchChatRoomInfo()
+        fetchTodayQuestion()
     }
 
     override fun onCleared() {
@@ -104,7 +108,7 @@ class MessageViewModel(
         FirebaseService.db.collection("chatRooms").document(chatRoomId).get()
             .addOnSuccessListener { document ->
                 if (document.exists()) {
-                    val name = document.getString("name") ?: "가족 채팅방 테스트"
+                    val name = document.getString("name") ?: "가족 채팅방"
                     _uiState.update { it.copy(chatRoomName = name) }
                 }
             }
@@ -122,8 +126,7 @@ class MessageViewModel(
             val currentUser = repository.getCurrentUser()
             if (currentUser == null) {
                 _uiState.update { it.copy(isLoading = false, errorMessage = "로그인이 필요합니다.") }
-                Log.d("MessageViewModel", "현재 로그인된 사용자 없음")
-                return@launch // 코루틴 종료
+                return@launch
             }
 
             // 사용자 이름과 채팅방 ID를 순서대로 가져옴
@@ -134,6 +137,7 @@ class MessageViewModel(
 
             if (chatRoomId != null) {
                 _uiState.update { it.copy(chatRoomId = chatRoomId) }
+                loadChatRoomName(chatRoomId)
                 listenForMessages(chatRoomId)
             } else {
                 _uiState.update { it.copy(isLoading = false) }
@@ -182,6 +186,7 @@ class MessageViewModel(
     private fun sendImage(uri: Uri) {
         val currentState = _uiState.value
         val chatRoomId = currentState.chatRoomId ?: return
+        val currentUser = currentState.currentUser ?: return
 
         viewModelScope.launch {
             repository.uploadImageToStorage(uri) { imageUrl ->
@@ -263,13 +268,15 @@ class MessageViewModel(
         }
     }
 
-    class MessageViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(MessageViewModel::class.java)) {
-                @Suppress("UNCHECKED_CAST")
-                return MessageViewModel(repository) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
+class MessageViewModelFactory(
+    private val repository: AppRepository,
+    private val questionRepository: QuestionRepository
+) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(MessageViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return MessageViewModel(repository, questionRepository) as T
         }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

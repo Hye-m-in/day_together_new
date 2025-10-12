@@ -3,7 +3,7 @@ package com.example.day_together
 import android.util.Log
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.ListenerRegistration // import 추가
+import com.google.firebase.firestore.ListenerRegistration
 
 object ChatRoomManager {
 
@@ -30,7 +30,7 @@ object ChatRoomManager {
             .addOnSuccessListener { resolvedUids ->
                 val finalUids = resolvedUids.filterNotNull()
 
-                if(finalUids.isEmpty()){
+                if (finalUids.isEmpty()) {
                     onComplete(false, "초대한 사용자 정보를 찾을 수 없습니다.")
                     return@addOnSuccessListener
                 }
@@ -44,25 +44,21 @@ object ChatRoomManager {
                         .collection("invitations")
                         .document(chatRoomId)
 
-                    batch.set(invitationRef, mapOf(
-                        "chatRoomId" to chatRoomId,
-                        "status" to "pending",
-                        "invitedAt" to FieldValue.serverTimestamp()
-                    ))
+                    batch.set(
+                        invitationRef, mapOf(
+                            "chatRoomId" to chatRoomId,
+                            "status" to "pending",
+                            "invitedAt" to FieldValue.serverTimestamp()
+                        )
+                    )
                 }
 
-                batch.set(chatRoomRef, mapOf(
-                    "chatRoomId" to chatRoomId,
-                    "chatRoomName" to "가족채팅방 테스트", //초기값 지정
-                    "members" to listOf(inviterUserId),
-                    "invitedUsers" to finalUids,
-                    "createdAt" to FieldValue.serverTimestamp()
-                ))
-
-                val calendarManager = CalendarManager()
-                calendarManager.createCalendarDocument(chatRoomId)
-
-                batch.update(chatRoomRef, "invitedUsers", FieldValue.arrayUnion(*finalUids.toTypedArray()))
+                // 기존 채팅방 문서에 초대된 사용자 ID 목록만 업데이트
+                batch.update(
+                    chatRoomRef,
+                    "invitedUsers",
+                    FieldValue.arrayUnion(*finalUids.toTypedArray())
+                )
 
                 batch.commit()
                     .addOnSuccessListener {
@@ -94,6 +90,9 @@ object ChatRoomManager {
             batch.update(chatRoomRef, "members", FieldValue.arrayUnion(uid))
             batch.update(userRef, "invitedChatRoomId", chatRoomId)
         }.addOnSuccessListener {
+            // [추가됨] 초대 수락에 성공하면, 캘린더에 자신의 생일 일정을 자동으로 등록합니다.
+            CalendarManager.registerBirthday(chatRoomId, uid)
+
             onComplete(true, null)
         }.addOnFailureListener { e ->
             Log.e("ChatRoomManager", "초대 수락 실패: ${e.message}", e)
@@ -102,7 +101,10 @@ object ChatRoomManager {
     }
 
     // 실시간 초대 감지 리스너 함수
-    fun listenForInvitations(userId: String, onInvitationReceived: (String?) -> Unit): ListenerRegistration {
+    fun listenForInvitations(
+        userId: String,
+        onInvitationReceived: (String?) -> Unit
+    ): ListenerRegistration {
         return db.collection("users").document(userId).collection("invitations")
             .whereEqualTo("status", "pending")
             .limit(1)

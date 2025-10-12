@@ -34,11 +34,11 @@ import java.util.Locale
 fun AddEventInputView(
     visible: Boolean,
     targetDate: LocalDate,
-    eventDescription: String,
+    eventTitle: String,
     isEditing: Boolean,
-    isPriority: Boolean, // 디데이 우선 설정 파라미터
-    onPriorityChange: (Boolean) -> Unit, // 디데이 우선 설정 파라미터
-    onDescriptionChange: (String) -> Unit,
+    isPriority: Boolean,
+    onTitleChange: (String) -> Unit,
+    onPriorityChange: (Boolean) -> Unit,
     onSave: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
@@ -46,7 +46,6 @@ fun AddEventInputView(
     val dateFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd (E)", Locale.KOREAN)
     val focusManager = LocalFocusManager.current
     val cardBackgroundColor = ScreenBackground
-
 
     val headerTitle = if (isEditing) "일정 편집" else "새 일정"
 
@@ -57,17 +56,15 @@ fun AddEventInputView(
         modifier = modifier.fillMaxWidth()
     ) {
         Card(
-            modifier = Modifier
-                .fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
             colors = CardDefaults.cardColors(containerColor = cardBackgroundColor),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            border = BorderStroke(1.dp, WeeklyCalendarBorderColor.copy(alpha = 0.5f))
+            border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.2f))
         ) {
             Column(
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 32.dp)
             ) {
-
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -81,31 +78,29 @@ fun AddEventInputView(
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = TextPrimary)
                     )
                     TextButton(
-                        onClick = { if (eventDescription.isNotBlank()) { focusManager.clearFocus(); onSave() } },
-                        enabled = eventDescription.isNotBlank()
+                        onClick = { if (eventTitle.isNotBlank()) { focusManager.clearFocus(); onSave() } },
+                        enabled = eventTitle.isNotBlank()
                     ) {
                         Text(
                             "저장",
                             style = MaterialTheme.typography.bodyLarge.copy(
-                                color = if (eventDescription.isNotBlank()) ButtonActiveBackground else TextPrimary.copy(alpha = 0.4f),
+                                color = if (eventTitle.isNotBlank()) ButtonActiveBackground else TextPrimary.copy(alpha = 0.4f),
                                 fontWeight = FontWeight.Bold
                             )
                         )
                     }
                 }
 
-
                 OutlinedTextField(
-                    value = eventDescription,
-                    onValueChange = onDescriptionChange,
-
+                    value = eventTitle,
+                    onValueChange = onTitleChange,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                     label = { Text("제목", style = MaterialTheme.typography.labelMedium.copy(color = TextPrimary.copy(alpha = 0.7f))) },
                     placeholder = { Text("일정 제목을 입력하세요", style = MaterialTheme.typography.bodyMedium.copy(color = TextPrimary.copy(alpha = 0.5f))) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = {
-                        if (eventDescription.isNotBlank()) {
+                        if (eventTitle.isNotBlank()) {
                             focusManager.clearFocus()
                             onSave()
                         } else {
@@ -126,7 +121,7 @@ fun AddEventInputView(
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = TextPrimary)
                 )
 
-                // 디데이 설정 스위치 UI 추가
+                // 디데이 설정 스위치 UI
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

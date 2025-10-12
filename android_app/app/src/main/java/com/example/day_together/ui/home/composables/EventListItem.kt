@@ -29,7 +29,8 @@ fun EventListItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = event.description,
+            // event.description -> event.title 로 변경
+            text = event.title,
             style = MaterialTheme.typography.bodyLarge,
             color = TextPrimary,
             modifier = Modifier.weight(1f).padding(end = 8.dp),

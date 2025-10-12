@@ -18,6 +18,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.day_together.data.repository.AppRepository
+import com.example.day_together.data.repository.QuestionRepository
 import com.example.day_together.navigation.AppNavigation
 import com.example.day_together.ui.gallery.GalleryScreen
 import com.example.day_together.ui.home.HomeScreen

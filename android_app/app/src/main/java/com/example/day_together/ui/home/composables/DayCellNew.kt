@@ -36,13 +36,11 @@ fun DayCellNew(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .fillMaxHeight()
-
             .padding(horizontal = 4.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.Top
     ) {
 
         Spacer(modifier = Modifier.height(5.dp))
-
 
         val annotatedDateString = buildAnnotatedString {
             withStyle(style = SpanStyle(fontSize = 13.sp, color = TextPrimary, fontWeight = FontWeight.SemiBold)) {
@@ -60,7 +58,6 @@ fun DayCellNew(
                 .padding(bottom = 1.dp)
         )
 
-
         HorizontalDivider(
             modifier = Modifier
                 .fillMaxWidth()
@@ -68,7 +65,6 @@ fun DayCellNew(
             thickness = 1.dp,
             color = TextPrimary.copy(alpha = 0.2f)
         )
-
 
         Column(
             modifier = Modifier
@@ -79,7 +75,8 @@ fun DayCellNew(
         ) {
             dateData.events.take(4).forEach { event ->
                 Text(
-                    text = event.description,
+                    // event.description -> event.title 로 변경
+                    text = event.title,
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
                     maxLines = 1,
@@ -93,6 +90,3 @@ fun DayCellNew(
         }
     }
 }
-
-
-

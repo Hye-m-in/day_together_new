@@ -76,3 +76,103 @@ lint/intermediates/
 # /.idea/assetWizardSettings.xml # Added a comment above about this.
 
 /build
+
+# === 파이썬 ===
+venv/
+.env/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# === 환경변수 및 민감정보 ===
+.env
+API.env
+firebase-service-account*.json
+google-services.json
+
+# === IDE 및 편집기 설정 ===
+.vscode/
+.idea/
+*.iml
+
+# === MacOS, Windows 임시파일 ===
+.DS_Store
+Thumbs.db
+
+# === 로그 및 임시파일 ===
+*.log
+*.tmp
+*.temp
+
+# === 안드로이드 스튜디오 필수 제외 목록 ===
+android-app/.gradle/
+android-app/build/
+android-app/local.properties
+android-app/captures/
+android-app/.idea/
+android-app/.externalNativeBuild/
+android-app/.cxx/
+android-app/.DS_Store
+android-app/.navigation/
+android-app/.settings/
+android-app/app/build/
+android-app/app/release/
+android-app/app/debug/
+android-app/app/proguard/
+android-app/app/proguard-rules.pro
+android-app/gradle/wrapper/gradle-wrapper.jar
+
+# === 빌드 아티팩트 및 출력물 ===
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+*.jar
+*.war
+*.ear
+
+# === Kotlin 및 Java 관련 캐시파일 ===
+*.kt~
+*.class~
+*.java~
+
+# === Android keystore (서명키 파일, 절대 제외 필수!) ===
+*.jks
+*.keystore
+
+# === 네이티브 빌드 산출물 ===
+*.so
+*.dll
+*.dylib
+
+# === Gradle 임시 파일 ===
+.gradle/
+gradle-app.setting
+
+# === Android Studio 특정 파일 ===
+*.hprof
+
+# === Crashlytics 관련 ===
+android-app/app/src/main/assets/crashlytics-build.properties
+fabric.properties
+
+# === JetBrains 개인 설정 ===
+workspace.xml
+tasks.xml
+misc.xml
+runConfigurations.xml
+dictionaries/
+
+# === 테스트 출력 파일 ===
+android-app/app/reports/
+android-app/app/test-results/
+
+# === 릴리즈 버전 생성물 ===
+release/
+
+# === 기타 민감 정보 ===
+secrets.properties
+local.properties
+key.properties

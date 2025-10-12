@@ -9,6 +9,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -36,6 +38,7 @@ import com.example.day_together.AuthManager.auth
 import com.example.day_together.navigation.AppDestinations
 import com.example.day_together.R
 import com.example.day_together.data.repository.AppRepository
+import com.example.day_together.data.repository.QuestionRepository
 import com.example.day_together.ui.dialogs.InviteMemberDialog
 import com.example.day_together.ui.theme.*
 
@@ -45,9 +48,7 @@ fun MessageScreen(
     navController: NavHostController,
     modifier: Modifier = Modifier,
     viewModel: MessageViewModel = viewModel(factory = MessageViewModel.MessageViewModelFactory(
-        AppRepository
-    )
-    )
+        AppRepository))
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()

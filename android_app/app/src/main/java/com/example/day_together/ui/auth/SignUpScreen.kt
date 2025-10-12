@@ -56,7 +56,7 @@ fun SignUpScreen(
     navController: NavController,
     authViewModel: AuthViewModel = viewModel()
 ) {
-    // --- 1. 상태 및 기본 설정 초기화 ---
+    //  1. 상태 및 기본 설정 초기화
     val uiState by authViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -76,7 +76,7 @@ fun SignUpScreen(
         }
     )
 
-    // --- 2. 부가 효과(Side Effects) 처리 ---
+    // 2. 부가 효과(Side Effects) 처리
     LaunchedEffect(key1 = uiState.isSignUpAndLoginSuccess) {
         if (uiState.isSignUpAndLoginSuccess) {
             Toast.makeText(context, "회원가입 및 로그인 성공!", Toast.LENGTH_SHORT).show()
@@ -100,7 +100,7 @@ fun SignUpScreen(
         }
     }
 
-    // --- 3. UI 상태에 따른 동적 변수 계산 ---
+    //  3. UI 상태에 따른 동적 변수 계산
     val isFamilyMemberSelected = uiState.familyMemberSelections.values.any { it } ||
             (uiState.otherFamilyMemberChecked && uiState.otherFamilyMemberText.isNotBlank())
 
@@ -115,14 +115,14 @@ fun SignUpScreen(
             uiState.signUpBirthDateError == null &&
             isFamilyMemberSelected && !uiState.isLoading
 
-    // --- 4. UI 레이아웃 구성 ---
+    //  4. UI 레이아웃 구성
     Day_togetherTheme {
         Scaffold(
             topBar = {
                 TopAppBar(
                     title = { /* 제목은 비워둠 */ },
                     navigationIcon = {
-                        // [핵심 수정 2] 뒤로가기 버튼 클릭 시, activity.finish() 대신 navController.popBackStack()을 호출합니다.
+                        // 뒤로가기 버튼 클릭 시, navController.popBackStack()을 호출
                         IconButton(onClick = { navController.popBackStack() }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로가기", tint = TextPrimary)
                         }
@@ -219,7 +219,7 @@ fun SignUpScreen(
                     )
                 }
 
-                // 이메일, 비밀번호, 가족 구성원 등 나머지 필드 ... (내부 코드는 기존과 동일)
+                // 이메일, 비밀번호, 가족 구성원 등 나머지 필드
                 Column(modifier = Modifier.padding(bottom = 4.dp)) {
                     SignUpTextField(label = "ID(Email)", value = uiState.signUpEmail, onValueChange = authViewModel::onSignUpEmailChange, placeholder = "이메일@도메인.com", keyboardType = KeyboardType.Email, imeAction = ImeAction.Next, focusManager = focusManager, error = uiState.signUpEmailError)
                 }
@@ -292,8 +292,3 @@ fun SignUpScreen(
 }
 
 
-/**
- *
- *  SignupActivity.kt 파일 삭제 : intent -> navcontroller 사용 방식으로 변경함
- *  * signupscreen.kt 파일 내 반영 완료
- */

@@ -4,21 +4,24 @@
     package="com.example.day_together">
 
     <!-- Android 13+(API 33)에서 갤러리 이미지 접근 -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
     <!-- 33+에서 READ_EXTERNAL_STORAGE는 폐지되므로 32까지만 허용 -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
     <!-- 네트워크 통신 -->
-    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- Android 13+(API 33) 이상에서 푸시/알림 표시 허용 필요 -->
     <uses-permission
         android:name="android.permission.POST_NOTIFICATIONS"
         tools:targetApi="33" />
 
+    <!-- 앱 전역 평문 HTTP 허용 (HTTP 서버와 통신하려면 필요) -->
     <application
+        android:name=".DayTogetherApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -27,9 +30,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Day_together"
-        tools:targetApi="35"> <!-- targetSdk=35에 맞춰 tools:targetApi도 35로 상향 -->
+        tools:targetApi="35"
+        android:usesCleartextTraffic="true"
+        android:networkSecurityConfig="@xml/network_security_config">
 
-        <!-- 앱의 시작점을 MainActivity -->
+        <!-- 앱의 시작점 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -40,6 +45,20 @@
             </intent-filter>
         </activity>
 
+        <!-- 네이버 OAuth 브릿지 액티비티 (네이버 로그인 콜백 수신용)
+             - 스킴은 반드시 '소문자'여야 함
+             - build.gradle의 manifestPlaceholders에서 naverClientId 주입 -->
+        <activity
+            android:name="com.navercorp.nid.oauth.NidOAuthBridgeActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="${naverClientId}" />
+            </intent-filter>
+        </activity>
 
     </application>
 </manifest>
