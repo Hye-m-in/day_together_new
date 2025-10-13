@@ -186,11 +186,13 @@ open class MessageViewModel(
     private fun sendImage(uri: Uri) {
         val currentState = _uiState.value
         val chatRoomId = currentState.chatRoomId ?: return
-        val currentUser = currentState.currentUser ?: return
+
+        Log.d("MessageViewModel", "sendImage 호출됨, URI = $uri")
 
         viewModelScope.launch {
             repository.uploadImageToStorage(uri) { imageUrl ->
                 if (imageUrl != null) {
+                    Log.d("MessageViewModel", "이미지 업로드 성공: $imageUrl")
                     repository.sendMessage(
                         chatRoomId = chatRoomId,
                         sender = currentState.currentUserName,
@@ -198,6 +200,7 @@ open class MessageViewModel(
                         imageUrl = imageUrl,
                         type = "image"
                     )
+                    Log.d("MessageViewModel", "이미지 메시지 전송 완료")
                 } else {
                     Log.e("MessageViewModel", "이미지 업로드 실패")
                     _uiState.update { it.copy(errorMessage = "이미지 업로드에 실패했습니다.") }
