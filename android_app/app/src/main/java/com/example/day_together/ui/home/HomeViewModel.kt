@@ -93,7 +93,7 @@ class HomeViewModel : ViewModel() {
 
         viewModelScope.launch {
             repository.addOrUpdateCalendarEvent(chatRoomId, event)
-            // 데이터 저장은 위 함수에서 처리되고, UI 업데이트는 실시간 리스너가 자동으로 처리함
+            // 데이터 저장은 위 함수에서 처리되고, UI 업데이트는 실시간 리스D-Day너가 자동으로 처리함
         }
     }
 
@@ -109,7 +109,7 @@ class HomeViewModel : ViewModel() {
         }
     }
 
-    
+
 
     private fun calculateDDayInfo(events: Map<LocalDate, List<CalendarEvent>>): Pair<String, String> {
         val today = LocalDate.now()
@@ -118,13 +118,16 @@ class HomeViewModel : ViewModel() {
             eventDate.isAfter(today) || eventDate.isEqual(today)
         }
 
-        // isPriority가 true인 이벤트를 먼저 찾음
-        val priorityEvent = allFutureEvents
-            .filter { it.isPriority }
-            .minByOrNull { it.startTime.seconds }
+        // 1. D-Day 스위치가 켜진(isPriority=true) 미래 이벤트 목록을 찾음
+        val priorityEvents = allFutureEvents.filter { it.isPriority }
 
-        // 우선순위 이벤트가 없으면, 전체 미래 일정 중 가장 가까운 것 찾음
-        val closestEvent = priorityEvent ?: allFutureEvents.minByOrNull { it.startTime.seconds }
+        // 2. 그 중에서 '가장 최근에 스위치를 켠' (prioritySetAt이 가장 큰) 이벤트를 찾음, (prioritySetAt이 null일 수 있으므로 null이 아닌 것만 필터링)
+        val latestPriorityEvent = priorityEvents
+            .filter { it.prioritySetAt != null }
+            .maxByOrNull { it.prioritySetAt!!.seconds }
+
+        // 3. '가장 최근에 켠 D-Day'가 있으면 사용하고(latestPriorityEvent), 없으면(?:) 모든 미래 일정 중 가장 가까운 일정 사용
+        val closestEvent = latestPriorityEvent ?: allFutureEvents.minByOrNull { it.startTime.seconds }
 
         return if (closestEvent != null) {
             val eventDate = closestEvent.startTime.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()

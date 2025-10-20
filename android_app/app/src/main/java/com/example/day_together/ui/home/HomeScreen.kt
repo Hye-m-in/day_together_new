@@ -201,15 +201,47 @@ fun HomeScreen(
                     onSave = {
                         val titleToSave = currentEventTitleInput.trim()
                         if (titleToSave.isNotBlank()) {
+
+                            // D-Day 스위치 상태에 따라 prioritySetAt을 결정하는 로직
+                            val newPrioritySetAt: Timestamp?
+
+                            if (eventToEdit != null) {
+
+                                val oldPriority = eventToEdit!!.isPriority
+                                val newPriority = currentEventIsPriority
+
+                                if (newPriority && !oldPriority) {
+                                    // 1. 스위치가 OFF -> ON으로 켜진 경우: 현재 시간으로 설정
+                                    newPrioritySetAt = Timestamp.now()
+                                } else if (newPriority && oldPriority) {
+                                    // 2. 스위치가 ON -> ON (유지): 기존 시간 유지
+                                    newPrioritySetAt = eventToEdit!!.prioritySetAt
+                                } else {
+                                    // 3. 스위치가 OFF가 된 경우: null로 설정
+                                    newPrioritySetAt = null
+                                }
+                            } else {
+                                // [새 이벤트 모드]
+                                if (currentEventIsPriority) {
+                                    // 1. 새 이벤트이며 스위치가 ON: 현재 시간으로 설정
+                                    newPrioritySetAt = Timestamp.now()
+                                } else {
+                                    // 2. 새 이벤트이며 스위치가 OFF: null로 설정
+                                    newPrioritySetAt = null
+                                }
+                            }
+
                             val eventToSave = eventToEdit?.copy(
                                 title = titleToSave,
-                                isPriority = currentEventIsPriority
+                                isPriority = currentEventIsPriority,
+                                prioritySetAt = newPrioritySetAt // prioritySetAt 필드 저장
                             ) ?: CalendarEvent(
                                 title = titleToSave,
                                 startTime = Timestamp(Date.from(dateForNewEvent!!.atStartOfDay(ZoneId.systemDefault()).toInstant())),
                                 creatorId = uiState.user?.uid ?: "",
                                 creatorName = uiState.user?.name ?: "",
-                                isPriority = currentEventIsPriority
+                                isPriority = currentEventIsPriority,
+                                prioritySetAt = newPrioritySetAt // [수정] prioritySetAt 필드 저장
                             )
                             homeViewModel.addOrUpdateEvent(eventToSave)
                         }
