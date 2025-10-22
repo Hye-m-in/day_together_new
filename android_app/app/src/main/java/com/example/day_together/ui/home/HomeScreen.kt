@@ -142,7 +142,7 @@ fun HomeScreen(
                 dateForNewEvent = date
                 eventToEdit = event
                 currentEventTitleInput = event.title
-                // [최종 수정] '오래된 데이터'도 스위치가 켜져 보이도록 수정
+                // 오래된 데이터도 스위치가 켜져 보이도록 수정
                 currentEventIsPriority = event.isPriority
                 showAddEventSheet = true
                 selectedDateForDetails = null
@@ -172,7 +172,7 @@ fun HomeScreen(
                         dateForNewEvent = selectedDateForDetails
                         eventToEdit = eventToEditFromSheet
                         currentEventTitleInput = eventToEditFromSheet.title
-                        // [최종 수정] '오래된 데이터'도 스위치가 켜져 보이도록 수정
+                        // 오래된 데이터도 스위치가 켜져 보이도록 수정
                         currentEventIsPriority = eventToEditFromSheet.isPriority
                         showAddEventSheet = true
                         selectedDateForDetails = null
@@ -204,7 +204,7 @@ fun HomeScreen(
                         val titleToSave = currentEventTitleInput.trim()
                         if (titleToSave.isNotBlank()) {
 
-                            // [최종 수정] D-Day 로직 단순화 (버그 수정)
+                            // D-Day 로직 단순화
                             val newPriority = currentEventIsPriority
                             val newPrioritySetAt: Timestamp?
 
@@ -229,8 +229,7 @@ fun HomeScreen(
                                 prioritySetAt = newPrioritySetAt
                             )
 
-                            // [최종 수정] 스위치가 켜졌으면(true) setExclusiveDDay 호출
-                            //            꺼졌으면(false) addOrUpdateEvent 호출
+                            // 스위치가 켜졌으면(true) setExclusiveDDay 호출, 꺼졌으면(false) addOrUpdateEvent 호출
                             if (newPriority) {
                                 homeViewModel.setExclusiveDDay(eventToSave)
                             } else {

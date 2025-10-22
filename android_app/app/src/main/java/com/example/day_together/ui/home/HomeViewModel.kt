@@ -150,8 +150,7 @@ class HomeViewModel : ViewModel() {
             .filter { it.prioritySetAt != null }
             .maxByOrNull { it.prioritySetAt!!.seconds }
 
-        // 3. 가장 최근에 켠 D-Day가 있으면 그것을 사용하고(latestPriorityEvent),
-        //    없으면(?:) 모든 미래 일정 중 가장 가까운 일정을 사용
+        // 3. 가장 최근에 켠 D-Day가 있으면 그것을 사용하고(latestPriorityEvent), 없으면 모든 미래 일정 중 가장 가까운 일정을 사용
         val closestEvent = latestPriorityEvent ?: allFutureEvents.minByOrNull { it.startTime.seconds }
 
         return if (closestEvent != null) {
