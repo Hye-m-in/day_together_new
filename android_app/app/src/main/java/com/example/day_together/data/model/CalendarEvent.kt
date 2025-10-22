@@ -16,6 +16,9 @@ data class CalendarEvent(
     val creatorId: String = "",
     val creatorName: String = "",
     val type: String = "general",
+
+    // Firebase가 isPriority 필드를 인식하도록 @field:JvmField 추가
+    @field:JvmField
     val isPriority: Boolean = false, // D-Day 우선순위 설정을 위한 필드
 
     // D-Day 스위치를 켠 시간을 저장하기 위한 필드

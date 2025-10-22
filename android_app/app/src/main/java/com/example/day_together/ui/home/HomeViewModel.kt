@@ -86,14 +86,39 @@ class HomeViewModel : ViewModel() {
 
     /**
      * UI에서 받은 이벤트를 Firestore에 저장/수정하도록 Repository에 요청
+     * (D-Day 스위치를 'OFF'로 끌 때 사용됨)
      */
     fun addOrUpdateEvent(event: CalendarEvent) {
-        // UI State에 저장된 chatRoomId를 사용
         val chatRoomId = _uiState.value.chatRoomId ?: return
 
         viewModelScope.launch {
             repository.addOrUpdateCalendarEvent(chatRoomId, event)
-            // 데이터 저장은 위 함수에서 처리되고, UI 업데이트는 실시간 리스D-Day너가 자동으로 처리함
+        }
+    }
+
+    /**
+     * 새로운 D-Day를 설정하고, 나머지 D-Day는 모두 끄는 함수
+     * D-Day 스위치를 ON으로 켤 때 사용됨
+     */
+    fun setExclusiveDDay(newEvent: CalendarEvent) {
+        val chatRoomId = _uiState.value.chatRoomId ?: return
+
+        viewModelScope.launch {
+            // 1. 현재 D-Day로 설정된 다른 모든 이벤트(newEvent 제외)를 가져옴
+            val oldDDayEvents = _uiState.value.eventsByDate.values.flatten()
+                .filter { it.id != newEvent.id && it.isPriority }
+
+            // 2. 다른 모든 이벤트의 스위치를 끔 (isPriority=false, prioritySetAt=null)
+            for (oldEvent in oldDDayEvents) {
+                val updatedOldEvent = oldEvent.copy(
+                    isPriority = false,
+                    prioritySetAt = null
+                )
+                repository.addOrUpdateCalendarEvent(chatRoomId, updatedOldEvent)
+            }
+
+            // 3. 마지막으로 새로 D-Day로 설정한 이벤트 저장
+            repository.addOrUpdateCalendarEvent(chatRoomId, newEvent)
         }
     }
 
@@ -105,12 +130,11 @@ class HomeViewModel : ViewModel() {
 
         viewModelScope.launch {
             repository.deleteCalendarEvent(chatRoomId, event.id)
-            // 데이터 삭제는 위 함수에서 처리되고, UI 업데이트는 실시간 리스너가 자동으로 처리함
         }
     }
 
 
-
+    // D-Day 계산 로직: 가장 최근에 켠 스위치 기준
     private fun calculateDDayInfo(events: Map<LocalDate, List<CalendarEvent>>): Pair<String, String> {
         val today = LocalDate.now()
         val allFutureEvents = events.values.flatten().filter {
@@ -121,12 +145,13 @@ class HomeViewModel : ViewModel() {
         // 1. D-Day 스위치가 켜진(isPriority=true) 미래 이벤트 목록을 찾음
         val priorityEvents = allFutureEvents.filter { it.isPriority }
 
-        // 2. 그 중에서 '가장 최근에 스위치를 켠' (prioritySetAt이 가장 큰) 이벤트를 찾음, (prioritySetAt이 null일 수 있으므로 null이 아닌 것만 필터링)
+        // 2. 그 중에서 가장 최근에 스위치를 켠(=prioritySetAt이 가장 큰) 이벤트를 찾음
         val latestPriorityEvent = priorityEvents
             .filter { it.prioritySetAt != null }
             .maxByOrNull { it.prioritySetAt!!.seconds }
 
-        // 3. '가장 최근에 켠 D-Day'가 있으면 사용하고(latestPriorityEvent), 없으면(?:) 모든 미래 일정 중 가장 가까운 일정 사용
+        // 3. 가장 최근에 켠 D-Day가 있으면 그것을 사용하고(latestPriorityEvent),
+        //    없으면(?:) 모든 미래 일정 중 가장 가까운 일정을 사용
         val closestEvent = latestPriorityEvent ?: allFutureEvents.minByOrNull { it.startTime.seconds }
 
         return if (closestEvent != null) {

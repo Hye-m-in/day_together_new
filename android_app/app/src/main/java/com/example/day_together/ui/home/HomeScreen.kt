@@ -142,7 +142,8 @@ fun HomeScreen(
                 dateForNewEvent = date
                 eventToEdit = event
                 currentEventTitleInput = event.title
-                currentEventIsPriority = event.isPriority // isPriority 상태 설정
+                // [최종 수정] '오래된 데이터'도 스위치가 켜져 보이도록 수정
+                currentEventIsPriority = event.isPriority
                 showAddEventSheet = true
                 selectedDateForDetails = null
             },
@@ -171,7 +172,8 @@ fun HomeScreen(
                         dateForNewEvent = selectedDateForDetails
                         eventToEdit = eventToEditFromSheet
                         currentEventTitleInput = eventToEditFromSheet.title
-                        currentEventIsPriority = eventToEditFromSheet.isPriority // isPriority 상태 설정
+                        // [최종 수정] '오래된 데이터'도 스위치가 켜져 보이도록 수정
+                        currentEventIsPriority = eventToEditFromSheet.isPriority
                         showAddEventSheet = true
                         selectedDateForDetails = null
                     },
@@ -202,48 +204,38 @@ fun HomeScreen(
                         val titleToSave = currentEventTitleInput.trim()
                         if (titleToSave.isNotBlank()) {
 
-                            // D-Day 스위치 상태에 따라 prioritySetAt을 결정하는 로직
+                            // [최종 수정] D-Day 로직 단순화 (버그 수정)
+                            val newPriority = currentEventIsPriority
                             val newPrioritySetAt: Timestamp?
 
-                            if (eventToEdit != null) {
-
-                                val oldPriority = eventToEdit!!.isPriority
-                                val newPriority = currentEventIsPriority
-
-                                if (newPriority && !oldPriority) {
-                                    // 1. 스위치가 OFF -> ON으로 켜진 경우: 현재 시간으로 설정
-                                    newPrioritySetAt = Timestamp.now()
-                                } else if (newPriority && oldPriority) {
-                                    // 2. 스위치가 ON -> ON (유지): 기존 시간 유지
-                                    newPrioritySetAt = eventToEdit!!.prioritySetAt
-                                } else {
-                                    // 3. 스위치가 OFF가 된 경우: null로 설정
-                                    newPrioritySetAt = null
-                                }
+                            if (newPriority) {
+                                // 스위치가 ON이면, 켠 시간을 지금으로 기록
+                                newPrioritySetAt = Timestamp.now()
                             } else {
-                                // [새 이벤트 모드]
-                                if (currentEventIsPriority) {
-                                    // 1. 새 이벤트이며 스위치가 ON: 현재 시간으로 설정
-                                    newPrioritySetAt = Timestamp.now()
-                                } else {
-                                    // 2. 새 이벤트이며 스위치가 OFF: null로 설정
-                                    newPrioritySetAt = null
-                                }
+                                // 스위치가 OFF면, 켠 시간을 null로
+                                newPrioritySetAt = null
                             }
 
                             val eventToSave = eventToEdit?.copy(
                                 title = titleToSave,
-                                isPriority = currentEventIsPriority,
-                                prioritySetAt = newPrioritySetAt // prioritySetAt 필드 저장
+                                isPriority = newPriority, // 현재 스위치 상태
+                                prioritySetAt = newPrioritySetAt // 켠 시간 (혹은 null)
                             ) ?: CalendarEvent(
                                 title = titleToSave,
                                 startTime = Timestamp(Date.from(dateForNewEvent!!.atStartOfDay(ZoneId.systemDefault()).toInstant())),
                                 creatorId = uiState.user?.uid ?: "",
                                 creatorName = uiState.user?.name ?: "",
-                                isPriority = currentEventIsPriority,
-                                prioritySetAt = newPrioritySetAt // [수정] prioritySetAt 필드 저장
+                                isPriority = newPriority,
+                                prioritySetAt = newPrioritySetAt
                             )
-                            homeViewModel.addOrUpdateEvent(eventToSave)
+
+                            // [최종 수정] 스위치가 켜졌으면(true) setExclusiveDDay 호출
+                            //            꺼졌으면(false) addOrUpdateEvent 호출
+                            if (newPriority) {
+                                homeViewModel.setExclusiveDDay(eventToSave)
+                            } else {
+                                homeViewModel.addOrUpdateEvent(eventToSave)
+                            }
                         }
                         showAddEventSheet = false
                         eventToEdit = null
