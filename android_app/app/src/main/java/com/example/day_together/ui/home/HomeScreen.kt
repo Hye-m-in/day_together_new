@@ -39,7 +39,7 @@ import java.time.DayOfWeek as JavaDayOfWeek
 @Composable
 fun HomeScreen(
     appNavController: NavController,
-    homeViewModel: HomeViewModel = viewModel(),
+    homeViewModel: HomeViewModel,
     invitedChatRoomId: MutableState<String?>,
     onAcceptInvitation: (String) -> Unit,
     onDismissInvitation: () -> Unit

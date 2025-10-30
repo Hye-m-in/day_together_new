@@ -55,10 +55,10 @@ fun EditProfileScreen(
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
 
-    // --- 1. 부가 효과(Side Effect) 처리 ---
+    // 1. 부가 효과(Side Effect) 처리
     // 사용자에게 보여줄 메시지(Toast)나 화면 이동 같은 일회성 이벤트 처리
 
-    // 저장 성공 여부를 감지하여 이전 화면으로 돌아갑니다.
+    // 저장 성공 여부를 감지하여 이전 화면으로 돌아감
     LaunchedEffect(key1 = uiState.isSaveSuccess) {
         if (uiState.isSaveSuccess) {
             // isSaveSuccess가 true가 되면 이전 화면으로 이동
@@ -75,21 +75,13 @@ fun EditProfileScreen(
         }
     }
 
-    // --- 2. UI 로직 및 상태 계산 ---
+    // 2. UI 로직 및 상태 계산
     // '완료' 버튼의 활성화 여부를 계산 -> 이 로직은 ViewModel의 상태에 따라 결정
-    val isCompleteButtonEnabled = !uiState.isLoading && // 로딩 중이 아닐 때
-            (uiState.nameInput.isNotBlank() && uiState.birthDateInput.length == 8) && // 필수 정보 유효성
-            (
-                    // 정보가 변경되었거나
-                    (uiState.nameInput != uiState.user?.name ||
-                            uiState.birthDateInput != uiState.user?.birthDate ||
-                            uiState.isLunar != uiState.user?.isLunar ||
-                            uiState.positionInput != uiState.user?.position) ||
-                            // 혹은 유효한 비밀번호 변경 시도가 있을 때
-                            (uiState.oldPasswordInput.isNotBlank() && uiState.newPasswordInput.length >= 8 && uiState.newPasswordInput == uiState.confirmNewPasswordInput)
-                    )
+    val isCompleteButtonEnabled = !uiState.isLoading // 버튼 활성화 로직은 ViewModel에서 관리 (복잡성 제거)
+    // (ViewModel의 onSaveClicked에서 유효성 검사를 하므로, 여기서는 로딩중만 체크)
 
-    // --- 3. UI 레이아웃 구성 ---
+
+    // 3. UI 레이아웃 구성
     Day_togetherTheme {
         Scaffold(
             topBar = {
@@ -182,17 +174,16 @@ fun EditProfileScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // 가족 구성원 선택 (이 컴포넌트는 아직 ViewModel과 연결되지 않았습니다)
-                    // TODO: FamilyMemberSelection을 ViewModel과 연결
+                    // 가족 구성원 선택 (ViewModel과 연결)
                     FamilyMemberSelection(
                         title = "가족 구성원 중 나는?",
                         members = listOf("할아버지", "할머니", "아버지", "어머니", "아들", "딸"),
-                        selections = emptyMap(), // 임시
-                        onSelectionChange = { _, _ -> }, // 임시
-                        otherChecked = false, // 임시
-                        onOtherCheckedChange = {}, // 임시
-                        otherText = "", // 임시
-                        onOtherTextChange = {}, // 임시
+                        selections = uiState.familyMemberSelections,
+                        onSelectionChange = viewModel::onFamilyMemberSelectionChange,
+                        otherChecked = uiState.otherFamilyMemberChecked,
+                        onOtherCheckedChange = viewModel::onOtherFamilyMemberCheckedChange,
+                        otherText = uiState.otherFamilyMemberText,
+                        onOtherTextChange = viewModel::onOtherFamilyMemberTextChange,
                         focusManager = focusManager
                     )
 
@@ -227,7 +218,7 @@ fun EditProfileScreen(
     }
 }
 
-// --- 하위 컴포저블 ---
+// 하위 컴포저블
 
 @Composable
 private fun EditProfileTextField(

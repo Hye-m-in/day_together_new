@@ -69,7 +69,7 @@ class AuthViewModel : ViewModel() {
     fun onSignUpEmailChange(email: String) {
         // 이메일 형식 실시간 검증
         val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$")
-        val error = if (email.isNotEmpty() && !email.matches(emailRegex)) "이메일 형식이 올바르지 않아요." else null
+        val error = if (email.isNotEmpty() && !email.matches(emailRegex)) "이메일 형식이 올바르지 않습니다." else null
         _uiState.update { it.copy(signUpEmail = email, signUpEmailError = error) }
     }
 
@@ -88,7 +88,7 @@ class AuthViewModel : ViewModel() {
     }
 
     fun onSignUpConfirmPasswordChange(password: String) {
-        val error = if (password.isNotEmpty() && password != _uiState.value.signUpPassword) "비밀번호가 일치하지 않아요." else null
+        val error = if (password.isNotEmpty() && password != _uiState.value.signUpPassword) "비밀번호가 일치하지 않습니다." else null
         _uiState.update { it.copy(signUpConfirmPassword = password, signUpConfirmPasswordError = error) }
     }
 
@@ -96,15 +96,30 @@ class AuthViewModel : ViewModel() {
         _uiState.update { it.copy(profileImageUri = uri) }
     }
 
+    // 가족 역할 선택 로직 (라디오 버튼처럼 동작)
     fun onFamilyMemberSelectionChange(member: String, isSelected: Boolean) {
-        val updatedSelections = _uiState.value.familyMemberSelections.toMutableMap().apply { this[member] = isSelected }
-        _uiState.update { it.copy(familyMemberSelections = updatedSelections) }
+        val updatedSelections = _uiState.value.familyMemberSelections.toMutableMap().apply {
+            // 모든 선택을 해제
+            keys.forEach { put(it, false) }
+            // 현재 것만 선택
+            if (isSelected) {
+                put(member, true)
+            }
+        }
+        // 기타가 아닌 것을 선택하면 '기타' 체크 해제
+        _uiState.update { it.copy(familyMemberSelections = updatedSelections, otherFamilyMemberChecked = false, otherFamilyMemberText = "") }
     }
+
     fun onOtherFamilyMemberCheckedChange(isChecked: Boolean) {
-        // '기타' 체크 해제 시, 입력 텍스트도 초기화
+        // 기타를 체크하면 다른 모든 선택지 해제
+        val updatedSelections = _uiState.value.familyMemberSelections.toMutableMap().apply {
+            keys.forEach { put(it, false) }
+        }
+        // 기타 체크 해제 시, 입력 텍스트도 초기화
         val newText = if (!isChecked) "" else _uiState.value.otherFamilyMemberText
-        _uiState.update { it.copy(otherFamilyMemberChecked = isChecked, otherFamilyMemberText = newText) }
+        _uiState.update { it.copy(otherFamilyMemberChecked = isChecked, otherFamilyMemberText = newText, familyMemberSelections = updatedSelections) }
     }
+
     fun onOtherFamilyMemberTextChange(text: String) { if (text.length <= 10) _uiState.update { it.copy(otherFamilyMemberText = text) } }
     fun onFindPwNameChange(name: String) { _uiState.update { it.copy(findPwName = name) } }
     fun onFindPwEmailChange(email: String) { _uiState.update { it.copy(findPwEmail = email) } }
@@ -195,15 +210,29 @@ class AuthViewModel : ViewModel() {
     // 회원가입 로직 실행
     fun signUp() {
         _uiState.update { it.copy(isLoading = true, signUpResult = null) }
+
+        // UI 상태에서 'position' 문자열을 생성
+        val currentState = _uiState.value
+        val selectedPosition = currentState.familyMemberSelections.filterValues { it }.keys.firstOrNull()
+        val position = if (currentState.otherFamilyMemberChecked) {
+            currentState.otherFamilyMemberText
+        } else {
+            selectedPosition ?: "" // 선택된 것이 없으면 빈 문자열 (버튼 활성화 로직이 있으므로 빈 값일 수 없음)
+        }
+
         viewModelScope.launch {
+            // [수정] repository.signUp 호출 시 모든 정보 전달
             val result = repository.signUp(
-                name = _uiState.value.signUpName,
-                email = _uiState.value.signUpEmail,
-                password = _uiState.value.signUpPassword
+                name = currentState.signUpName,
+                email = currentState.signUpEmail,
+                password = currentState.signUpPassword,
+                birthDate = currentState.signUpBirthDate, // 생년월일
+                isLunar = currentState.signUpIsLunar,     // 음력여부
+                position = position                       // 가족 역할
             )
             // 회원가입 성공 시, 자동 로그인 수행
             if (result is AuthResult.Success) {
-                repository.login(_uiState.value.signUpEmail, _uiState.value.signUpPassword)
+                repository.login(currentState.signUpEmail, currentState.signUpPassword)
                 _uiState.update { it.copy(isLoading = false, signUpResult = result, isSignUpAndLoginSuccess = true) }
             } else {
                 _uiState.update { it.copy(isLoading = false, signUpResult = result) }

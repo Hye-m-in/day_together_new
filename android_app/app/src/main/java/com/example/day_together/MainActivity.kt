@@ -22,6 +22,7 @@ import com.example.day_together.data.repository.QuestionRepository
 import com.example.day_together.navigation.AppNavigation
 import com.example.day_together.ui.gallery.GalleryScreen
 import com.example.day_together.ui.home.HomeScreen
+import com.example.day_together.ui.home.HomeViewModel
 import com.example.day_together.ui.message.MessageScreen
 import com.example.day_together.ui.message.MessageViewModel
 import com.example.day_together.ui.navigation.BottomNavItem
@@ -91,6 +92,9 @@ fun MainScreen(appNavController: NavHostController) {
         BottomNavItem.Home, BottomNavItem.Message, BottomNavItem.Gallery, BottomNavItem.Settings
     )
 
+    // HomeViewModel을 NavHost보다 상위 스코프에서 생성 -> HomeScreen이 사라져도 ViewModel이 유지되고, onAcceptInvitation에서 동일한 ViewModel 참조 가능
+    val homeViewModel: HomeViewModel = viewModel()
+
 
     Scaffold(
         // 하단 네비게이션 바 UI 정의
@@ -144,10 +148,13 @@ fun MainScreen(appNavController: NavHostController) {
             composable(BottomNavItem.Home.route) {
                 HomeScreen(
                     appNavController = appNavController,
+                    homeViewModel = homeViewModel, // 상위 스코프의 ViewModel 전달
                     invitedChatRoomId = invitedChatRoomId,
                     onAcceptInvitation = { chatRoomId ->
                         ChatRoomManager.acceptInvitation(chatRoomId) { success, _ ->
                             if (success) {
+                                // 초대 수락 성공 시, 개인 일정을 가족방으로 이전하도록 VM에 요청
+                                homeViewModel.migratePersonalEventsToFamilyRoom(chatRoomId)
                                 invitedChatRoomId.value = null // 성공 시 초대 상태 초기화
                             }
                         }

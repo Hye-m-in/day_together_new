@@ -1,5 +1,9 @@
 package com.example.day_together.ui.home
 
+
+import android.icu.util.Calendar
+import android.icu.util.ChineseCalendar
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.day_together.data.model.Anniversary
@@ -7,6 +11,7 @@ import com.example.day_together.data.model.CalendarEvent
 import com.example.day_together.data.model.Question
 import com.example.day_together.data.model.User
 import com.example.day_together.data.repository.AppRepository
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,6 +20,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Date
 import java.util.UUID
@@ -33,46 +39,83 @@ class HomeViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    // 실시간 리스너를 관리하기 위한 변수
-    private var calendarListener: ListenerRegistration? = null
+    // 리스너 변수 이름 변경 (가족/개인 공용)
+    private var calendarEventsListener: ListenerRegistration? = null
 
     init {
         loadInitialData()
     }
 
-    private fun loadInitialData() {
+    // 'public'으로 유지 (초대 수락 시 MainActivity에서 호출해야 함)
+    fun loadInitialData() {
         _uiState.update { it.copy(isLoading = true) }
+
+        // 리스너가 남아있으면 제거 (개인 -> 가족 전환 시 중복 방지)
+        calendarEventsListener?.remove()
+
         viewModelScope.launch {
-            // 사용자 정보, 질문, 명언 등은 기존과 동일하게 불러옴
+            // 1. 기본 정보 로드 (사용자, 질문, 명언)
             val user = repository.getCurrentUser()
             val question = repository.getTodaysQuestion()
             val quote = repository.getFamilyQuote()
             _uiState.update { it.copy(user = user, aiQuestion = question, familyQuote = quote) }
 
-            // 채팅방 ID를 찾음
-            val chatRoomId = user?.uid?.let { repository.findUserChatRoomId(it) }
+            if (user == null) {
+                _uiState.update { it.copy(isLoading = false) }
+                return@launch
+            }
 
-            // 채팅방이 존재하면, 해당 채팅방의 캘린더 이벤트를 실시간으로 구독
-            if (chatRoomId != null) {
-                _uiState.update { it.copy(chatRoomId = chatRoomId) } // UI State에 chatRoomId 저장
+            // 2. 채팅방 ID 탐색
+            val chatRoomId = repository.findUserChatRoomId(user.uid)
+            _uiState.update { it.copy(chatRoomId = chatRoomId) } // chatRoomId가 null이든 아니든 state에 저장
 
-                // AppRepository에 추가한 실시간 리스너 함수 호출
-                calendarListener = repository.listenForCalendarEvents(chatRoomId) { eventsByDate ->
-                    // 캘린더 데이터가 변경될 때마다 D-Day 다시 계산
-                    val dDayInfo = calculateDDayInfo(eventsByDate)
-                    // 최신 데이터로 UI 상태 업데이트
+            // 3. 분기 처리
+            if (chatRoomId == null) {
+                // 3a. 채팅방 없음: 개인 캘린더 모드
+                Log.d("HomeViewModel", "채팅방 없음. [개인 캘린더] 모드로 시작.")
+                // 3a-1. 내 생일만 불러옴
+                val myBirthdayEvents = createBirthdayEvents(listOf(user))
+                _uiState.update { it.copy(birthdayEventsByDate = myBirthdayEvents) }
+
+                // 3a-2. 개인 일정 실시간 구독
+                calendarEventsListener = repository.listenForPersonalEvents(user.uid) { personalEvents ->
+                    // 개인 일정 + 내 생일 병합
+                    val mergedEvents = mergeEventMaps(personalEvents, myBirthdayEvents)
+                    val dDayInfo = calculateDDayInfo(mergedEvents)
+
                     _uiState.update {
                         it.copy(
-                            eventsByDate = eventsByDate,
+                            eventsByDate = mergedEvents,
                             dDayText = dDayInfo.first,
                             dDayTitle = dDayInfo.second,
-                            isLoading = false // 데이터 로드가 완료되었으므로 로딩 상태 해제
+                            isLoading = false
                         )
                     }
                 }
+
             } else {
-                // 채팅방이 없으면 로딩 상태만 해제
-                _uiState.update { it.copy(isLoading = false) }
+                // 3b. 채팅방 있음: 가족 캘린더 모드
+                Log.d("HomeViewModel", "채팅방($chatRoomId) 발견. [가족 캘린더] 모드로 시작.")
+                // 3b-1. '가족 구성원 전체' 생일 불러오기
+                val familyMembers = repository.getFamilyMembers(chatRoomId)
+                val familyBirthdayEvents = createBirthdayEvents(familyMembers)
+                _uiState.update { it.copy(birthdayEventsByDate = familyBirthdayEvents) }
+
+                // 3b-2. 가족 일정 실시간 구독
+                calendarEventsListener = repository.listenForCalendarEvents(chatRoomId) { familyEvents ->
+                    // 가족 일정 + 가족 생일 병합
+                    val mergedEvents = mergeEventMaps(familyEvents, familyBirthdayEvents)
+                    val dDayInfo = calculateDDayInfo(mergedEvents)
+
+                    _uiState.update {
+                        it.copy(
+                            eventsByDate = mergedEvents,
+                            dDayText = dDayInfo.first,
+                            dDayTitle = dDayInfo.second,
+                            isLoading = false
+                        )
+                    }
+                }
             }
         }
     }
@@ -85,23 +128,33 @@ class HomeViewModel : ViewModel() {
     }
 
     /**
-     * UI에서 받은 이벤트를 Firestore에 저장/수정하도록 Repository에 요청
-     * (D-Day 스위치를 'OFF'로 끌 때 사용됨)
+     * UI에서 받은 이벤트를 상황(개인/가족)에 맞게 저장
      */
     fun addOrUpdateEvent(event: CalendarEvent) {
-        val chatRoomId = _uiState.value.chatRoomId ?: return
+        val currentChatRoomId = _uiState.value.chatRoomId
+        val currentUserId = _uiState.value.user?.uid
+
+        if (currentUserId == null) return // 사용자가 없으면 아무것도 안 함
 
         viewModelScope.launch {
-            repository.addOrUpdateCalendarEvent(chatRoomId, event)
+            if (currentChatRoomId != null) {
+                // 가족 캘린더에 저장
+                repository.addOrUpdateCalendarEvent(currentChatRoomId, event)
+            } else {
+                // 개인 캘린더에 저장
+                repository.addOrUpdatePersonalEvent(currentUserId, event)
+            }
         }
     }
 
     /**
-     * 새로운 D-Day를 설정하고, 나머지 D-Day는 모두 끄는 함수
-     * D-Day 스위치를 ON으로 켤 때 사용됨
+     * D-Day 스위치 로직 (가족 전용)
+     * (개인 캘린더 모드에서는 D-Day 스위치를 '켜는' 로직이 약간 다를 수 있으나,우선 가족 캘린더와 동일하게 배타적(exclusive)으로 동작하도록 구현)
      */
     fun setExclusiveDDay(newEvent: CalendarEvent) {
-        val chatRoomId = _uiState.value.chatRoomId ?: return
+        val currentChatRoomId = _uiState.value.chatRoomId
+        val currentUserId = _uiState.value.user?.uid
+        if (currentUserId == null) return
 
         viewModelScope.launch {
             // 1. 현재 D-Day로 설정된 다른 모든 이벤트(newEvent 제외)를 가져옴
@@ -114,27 +167,61 @@ class HomeViewModel : ViewModel() {
                     isPriority = false,
                     prioritySetAt = null
                 )
-                repository.addOrUpdateCalendarEvent(chatRoomId, updatedOldEvent)
+                // 상황에 맞게 저장
+                if (currentChatRoomId != null) {
+                    repository.addOrUpdateCalendarEvent(currentChatRoomId, updatedOldEvent)
+                } else {
+                    repository.addOrUpdatePersonalEvent(currentUserId, updatedOldEvent)
+                }
             }
 
-            // 3. 마지막으로 새로 D-Day로 설정한 이벤트 저장
-            repository.addOrUpdateCalendarEvent(chatRoomId, newEvent)
+            // 3. 마지막으로 새로 D-Day로 설정한 이벤트 저장, 상황에 맞게 저장
+            if (currentChatRoomId != null) {
+                repository.addOrUpdateCalendarEvent(currentChatRoomId, newEvent)
+            } else {
+                repository.addOrUpdatePersonalEvent(currentUserId, newEvent)
+            }
         }
     }
 
     /**
-     * UI에서 요청한 이벤트를 Firestore에서 삭제하도록 Repository에 요청
+     * UI에서 요청한 이벤트를 상황(개인/가족)에 맞게 삭제
      */
     fun deleteEvent(event: CalendarEvent) {
-        val chatRoomId = _uiState.value.chatRoomId ?: return
+        val currentChatRoomId = _uiState.value.chatRoomId
+        val currentUserId = _uiState.value.user?.uid
+
+        if (currentUserId == null) return
 
         viewModelScope.launch {
-            repository.deleteCalendarEvent(chatRoomId, event.id)
+            if (currentChatRoomId != null) {
+                // 가족 캘린더에서 삭제
+                repository.deleteCalendarEvent(currentChatRoomId, event.id)
+            } else {
+                // 개인 캘린더에서 삭제
+                repository.deletePersonalEvent(currentUserId, event.id)
+            }
+        }
+    }
+
+    /**
+     * 개인 일정을 가족 캘린더로 이전하는 함수
+     */
+    fun migratePersonalEventsToFamilyRoom(newChatRoomId: String) {
+        val currentUserId = _uiState.value.user?.uid
+        if (currentUserId == null) return
+
+        viewModelScope.launch {
+            val success = repository.migratePersonalEventsToFamilyRoom(currentUserId, newChatRoomId)
+            if (success) {
+                // 이전이 성공하면, HomeViewModel의 데이터를 [가족 캘린더] 모드로 새로고침
+                loadInitialData()
+            }
         }
     }
 
 
-    // D-Day 계산 로직: 가장 최근에 켠 스위치 기준
+    // D-Day 계산 로직
     private fun calculateDDayInfo(events: Map<LocalDate, List<CalendarEvent>>): Pair<String, String> {
         val today = LocalDate.now()
         val allFutureEvents = events.values.flatten().filter {
@@ -166,11 +253,138 @@ class HomeViewModel : ViewModel() {
     }
 
     /**
+     * User 목록을 기반으로 [올해]의 생일 CalendarEvent 맵 생성
+     */
+    // 음력 날짜 보정 로직 포함
+    private fun createBirthdayEvents(members: List<User>): Map<LocalDate, List<CalendarEvent>> {
+        val events = mutableListOf<CalendarEvent>()
+        val today = LocalDate.now()
+        // 회원가입 시 "YYYYMMDD" 형식으로 저장했으므로 해당 포맷 사용
+        val birthDateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
+
+        for (member in members) {
+            val birthDateStr = member.birthDate
+            try {
+                // 생년월일 정보가 있고, 8자리일 경우에만 처리
+                if (birthDateStr != null && birthDateStr.length == 8) {
+
+                    val isLunar = member.isLunar == true
+                    // 문자열을 LocalDate로 파싱 (원래 생일)
+                    val birthDate = LocalDate.parse(birthDateStr, birthDateFormatter)
+
+                    var thisYearBirthday: LocalDate
+                    val title: String
+                    val lunarMonth = birthDate.monthValue - 1 // 음력 월 (0-based)
+                    var lunarDay = birthDate.dayOfMonth       // 음력 일 (1-based)
+
+                    if (isLunar) {
+                        // 음력 생일 계산
+                        val lunarCal = ChineseCalendar()
+                        lunarCal.clear() // 필드 초기화
+
+                        // 기준이 되는 태양력 연도를 설정 (올해)
+                        lunarCal.set(Calendar.YEAR, today.year)
+                        // 찾고 싶은 음력 월 설정
+                        lunarCal.set(ChineseCalendar.MONTH, lunarMonth)
+
+                        // 이 달의 마지막 날짜 확인
+                        val maxDay = lunarCal.getActualMaximum(ChineseCalendar.DAY_OF_MONTH)
+
+                        // 만약 저장된 날짜(예: 30)가 이 달의 마지막 날(예: 29)보다 크다면, 마지막 날(29)로 보정
+                        if (lunarDay > maxDay) {
+                            lunarDay = maxDay
+                        }
+                        lunarCal.set(ChineseCalendar.DAY_OF_MONTH, lunarDay)
+
+                        // 위 음력 날짜에 해당하는 태양력 날짜를 가져옴
+                        lunarCal.get(Calendar.YEAR) // 강제 재계산
+                        thisYearBirthday = lunarCal.time.toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+
+                        // 만약 계산된 날짜가 오늘보다 너무 이르면 (예: 올해 음력 생일이 이미 지났음)
+                        // 내년 음력 생일로 계산(약 30일 이전이라면 내년으로)
+                        if (thisYearBirthday.isBefore(today.minusDays(30))) {
+                            lunarCal.clear()
+                            lunarCal.set(Calendar.YEAR, today.year + 1) // 내년으로
+                            lunarCal.set(ChineseCalendar.MONTH, lunarMonth)
+
+                            // 내년의 마지막 날짜도 다시 확인
+                            val nextYearMaxDay = lunarCal.getActualMaximum(ChineseCalendar.DAY_OF_MONTH)
+                            lunarDay = birthDate.dayOfMonth // 원본 날짜로 리셋
+                            if (lunarDay > nextYearMaxDay) {
+                                lunarDay = nextYearMaxDay
+                            }
+                            lunarCal.set(ChineseCalendar.DAY_OF_MONTH, lunarDay)
+
+                            lunarCal.get(Calendar.YEAR) // 강제 재계산
+                            thisYearBirthday = lunarCal.time.toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+                        }
+
+                        title = "${member.name} 님의 생일(음력)"
+
+                    } else {
+                        // 양력 생일 계산
+                        thisYearBirthday = birthDate.withYear(today.year)
+
+                        // 양력도 이미 지났으면 내년 생일로 계산
+                        if (thisYearBirthday.isBefore(today.minusDays(1))) { // 오늘 이전이면
+                            thisYearBirthday = thisYearBirthday.plusYears(1)
+                        }
+
+                        title = "${member.name} 님의 생일(양력)"
+                    }
+
+                    // CalendarEvent 객체 생성
+                    val birthdayEvent = CalendarEvent(
+                        id = "birthday_${member.uid}", // 고유하고 안정적인 ID 부여
+                        title = title, // (음력/양력)이 포함된 제목
+                        description = if (isLunar) "음력 ${lunarMonth+1}월 ${lunarDay}일" else "양력 ${birthDate.monthValue}월 ${birthDate.dayOfMonth}일", // 상세 설명
+                        // LocalDate를 Timestamp로 변환
+                        startTime = Timestamp(Date.from(thisYearBirthday.atStartOfDay(ZoneId.systemDefault()).toInstant())),
+                        endTime = null, // 하루 종일 이벤트
+                        creatorId = "SYSTEM_BIRTHDAY", // 시스템이 생성
+                        creatorName = "가족 캘린더",
+                        type = "BIRTHDAY", // Anniversary 모델의 type 활용
+                        isPriority = false // 생일을 D-Day 기본값으로는 설정하지 않음
+                    )
+                    events.add(birthdayEvent)
+                }
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "${member.name}님의 생일($birthDateStr) 변환 중 오류", e)
+            }
+        }
+
+        // 생성된 모든 생일 이벤트를 날짜(LocalDate)별로 그룹화
+        return events.groupBy {
+            it.startTime.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+        }
+    }
+
+
+    /**
+     * 두 개의 이벤트 맵(일반 일정, 생일 일정)을 하나로 병합
+     */
+    private fun mergeEventMaps(
+        regularEvents: Map<LocalDate, List<CalendarEvent>>,
+        birthdayEvents: Map<LocalDate, List<CalendarEvent>>
+    ): Map<LocalDate, List<CalendarEvent>> {
+        // 두 맵의 모든 고유한 날짜 키(LocalDate)를 합침
+        val allKeys = regularEvents.keys + birthdayEvents.keys
+
+        // 병합된 새 맵 생성
+        return allKeys.associateWith { date ->
+            // 각 날짜(key)에 대해, 두 맵의 리스트(value)를 합침 -> 해당 날짜에 이벤트가 없으면 null이므로 emptyList()로 처리
+            (regularEvents[date] ?: emptyList()) + (birthdayEvents[date] ?: emptyList())
+        }
+    }
+
+
+    /**
      * ViewModel이 소멸될 때 Firestore 리스너를 반드시 제거하여 메모리 누수 방지
      */
     override fun onCleared() {
         super.onCleared()
-        calendarListener?.remove()
+        // 변수명 변경
+        calendarEventsListener?.remove()
     }
 }
 
@@ -185,5 +399,8 @@ data class HomeUiState(
     val upcomingAnniversary: Anniversary? = null,
     val dDayText: String = "",
     val dDayTitle: String = "",
-    val eventsByDate: Map<LocalDate, List<CalendarEvent>> = emptyMap()
+    val eventsByDate: Map<LocalDate, List<CalendarEvent>> = emptyMap(),
+
+    // 생일 이벤트를 별도로 저장할 맵
+    val birthdayEventsByDate: Map<LocalDate, List<CalendarEvent>> = emptyMap()
 )

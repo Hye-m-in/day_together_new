@@ -21,8 +21,11 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.gson.Gson
 import retrofit2.HttpException
 
+
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.WriteBatch
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -150,10 +153,23 @@ object AppRepository {
     /**
      * 사용자 정보로 회원가입 요청
      */
-    suspend fun signUp(name: String, email: String, password: String): AuthResult {
-        val defaultPosition = "가족" // 회원가입 시 기본 역할
+    suspend fun signUp(
+        name: String,
+        email: String,
+        password: String,
+        birthDate: String,
+        isLunar: Boolean,
+        position: String
+    ): AuthResult {
         return suspendCancellableCoroutine { continuation ->
-            authManager.registerUser(name, email, password, defaultPosition) { success, errorMessage ->
+            authManager.registerUser(
+                name,
+                email,
+                password,
+                position,
+                birthDate,
+                isLunar
+            ) { success, errorMessage ->
                 if (continuation.isActive) {
                     if (success) continuation.resume(AuthResult.Success)
                     else continuation.resume(AuthResult.Failure(errorMessage ?: "회원가입 실패"))
@@ -179,15 +195,16 @@ object AppRepository {
                 db.collection("users").document(uid).get()
                     .addOnSuccessListener { document ->
                         if (continuation.isActive) {
-                            val name = document.getString("name") ?: "Unknown"
-                            val email = document.getString("email") ?: "Unknown"
-                            val position = document.getString("position") ?: "가족"
-                            continuation.resume(User(uid = uid, name = name, email = email, position = position))
+                            // [수정] document.toObject()를 사용해 User 모델 전체를 가져옴
+                            val user = document.toObject(User::class.java)
+                            continuation.resume(user)
                         }
                     }
                     .addOnFailureListener {
                         if (continuation.isActive) continuation.resume(null)
                     }
+            } else {
+                if (continuation.isActive) continuation.resume(null)
             }
         }
     }
@@ -209,25 +226,41 @@ object AppRepository {
      * 수정된 사용자 정보 DB에 업데이트
      */
     suspend fun updateUser(updatedUser: User) {
-        println("TODO: DB에 사용자 정보 업데이트: $updatedUser")
-        delay(500)
+        val uid = updatedUser.uid
+        if (uid.isBlank()) {
+            Log.e("AppRepository", "updateUser: UID가 비어있습니다.")
+            return
+        }
+        try {
+            db.collection("users").document(uid).set(updatedUser).await()
+            Log.d("AppRepository", "사용자 정보 업데이트 성공: $uid")
+        } catch (e: Exception) {
+            Log.e("AppRepository", "사용자 정보 업데이트 실패", e)
+        }
     }
 
     /**
      * 비밀번호 변경
      */
     suspend fun changePassword(email: String, newPassword: String) {
-        println("TODO: DB에 비밀번호 변경 요청: $email")
-        delay(500)
+        try {
+            authManager.auth.currentUser?.updatePassword(newPassword)?.await()
+            Log.d("AppRepository", "비밀번호 변경 성공")
+        } catch (e: Exception) {
+            Log.e("AppRepository", "비밀번호 변경 실패", e)
+        }
     }
 
     /**
      * 비밀번호 재설정 요청
      */
     suspend fun resetPassword(email: String): AuthResult {
-        println("TODO: 비밀번호 재설정 이메일 전송 요청: $email")
-        delay(1000)
-        return AuthResult.Success
+        return try {
+            authManager.auth.sendPasswordResetEmail(email).await()
+            AuthResult.Success
+        } catch (e: Exception) {
+            AuthResult.Failure(e.message ?: "알 수 없는 오류")
+        }
     }
 
     /**
@@ -240,11 +273,16 @@ object AppRepository {
     }
 
     suspend fun getUser(userId: String): User? {
-        println("TODO: 특정 사용자 정보 가져오기: $userId")
-        return User(uid = userId, name = "가족 구성원", email = "family@example.com")
+        return try {
+            val document = db.collection("users").document(userId).get().await()
+            document.toObject(User::class.java)
+        } catch (e: Exception) {
+            Log.e("AppRepository", "getUser 실패", e)
+            null
+        }
     }
 
-    // --- HomeViewModel 관련 함수들 ---
+
     suspend fun getTodaysQuestion(): Question {
         delay(300)
         return Question(id = "q1", text = "우리 가족만의 특별한 루틴이 있나요?")
@@ -255,11 +293,10 @@ object AppRepository {
         return "\"가족 사랑은 평화의 시작이다.\""
     }
 
-    // --- 캘린더 관련 함수들 ---
+
 
     /**
-     * CalendarManager의 실시간 리스너를 ViewModel과 연결하는 함수.
-     * List<CalendarEvent>를 ViewModel이 사용하기 좋은 Map<LocalDate, List<CalendarEvent>> 형태로 가공.
+     * 가족 캘린더 (chatRooms/{id}/events)의 이벤트를 실시간 구독
      */
     fun listenForCalendarEvents(
         chatRoomId: String,
@@ -273,15 +310,153 @@ object AppRepository {
         }
     }
 
-    // ViewModel이 Repository를 통해 이벤트를 추가할 수 있도록 함수를 연결
+    /**
+     * 가족 캘린더에 이벤트 추가/수정
+     */
     suspend fun addOrUpdateCalendarEvent(chatRoomId: String, event: CalendarEvent){
         calendarManager.addEvent(chatRoomId, event)
     }
 
-    // ViewModel이 Repository를 통해 이벤트를 삭제할 수 있도록 함수를 연결
+    /**
+     * 가족 캘린더에서 이벤트 삭제
+     */
     suspend fun deleteCalendarEvent(chatRoomId: String, eventId: String){
         calendarManager.deleteEvent(chatRoomId, eventId)
     }
+
+
+    /**
+     * 채팅방 ID를 기반으로 모든 가족 구성원의 User 객체 목록을 가져옴 -> HomeViewModel에서 가족 생일을 불러올 때 필요
+     */
+    suspend fun getFamilyMembers(chatRoomId: String): List<User> {
+        if (chatRoomId.isBlank()) {
+            Log.w("AppRepository", "getFamilyMembers 호출 시 chatRoomId가 비어있습니다.")
+            return emptyList()
+        }
+
+        return try {
+            // 1. 채팅방 문서에서 멤버 ID 목록(uid 목록) 가져오기
+            val chatRoomDoc = db.collection("chatRooms").document(chatRoomId).get().await()
+            val memberIds = chatRoomDoc.get("members") as? List<String>
+
+            if (memberIds.isNullOrEmpty()) {
+                Log.w("AppRepository", "채팅방($chatRoomId)에 멤버가 없습니다.")
+                return emptyList()
+            }
+
+            // 2. 멤버 ID 목록을 사용하여 'users' 컬렉션에서 사용자 정보 일괄 조회
+            val userDocs = db.collection("users")
+                .whereIn(FieldPath.documentId(), memberIds) // 문서 ID(UID)로 쿼리
+                .get()
+                .await()
+
+            // 3. DocumentSnapshot을 User 객체로 변환
+            userDocs.mapNotNull { it.toObject(User::class.java) }
+
+        } catch (e: Exception) {
+            Log.e("AppRepository", "가족 구성원 정보 로드 실패", e)
+            emptyList()
+        }
+    }
+
+
+    /**
+     * 개인 캘린더 (users/{uid}/events)의 이벤트를 실시간 구독
+     */
+    fun listenForPersonalEvents(
+        userId: String,
+        onEventsUpdated: (Map<LocalDate, List<CalendarEvent>>) -> Unit
+    ): ListenerRegistration {
+        return db.collection("users").document(userId).collection("events")
+            .orderBy("startTime")
+            .addSnapshotListener { snapshots, error ->
+                if (error != null) {
+                    Log.e("AppRepository", "개인 일정 감지 실패", error)
+                    // emptyList() -> emptyMap()
+                    onEventsUpdated(emptyMap())
+                    return@addSnapshotListener
+                }
+                if (snapshots != null) {
+                    val events = snapshots.mapNotNull { it.toObject(CalendarEvent::class.java) }
+                    val eventsByDate = events.groupBy {
+                        it.startTime.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+                    }
+                    onEventsUpdated(eventsByDate)
+                }
+            }
+    }
+
+    /**
+     * 개인 캘린더에 이벤트 추가/수정
+     */
+    suspend fun addOrUpdatePersonalEvent(userId: String, event: CalendarEvent) {
+        try {
+            db.collection("users").document(userId).collection("events")
+                .document(event.id)
+                .set(event)
+                .await()
+            Log.d("AppRepository", "개인 일정 추가 성공: ${event.title}")
+        } catch (e: Exception) {
+            Log.e("AppRepository", "개인 일정 추가 실패", e)
+        }
+    }
+
+    /**
+     * 개인 캘린더에서 이벤트 삭제
+     */
+    suspend fun deletePersonalEvent(userId: String, eventId: String) {
+        try {
+            db.collection("users").document(userId).collection("events")
+                .document(eventId)
+                .delete()
+                .await()
+            Log.d("AppRepository", "개인 일정 삭제 성공: $eventId")
+        } catch (e: Exception) {
+            Log.e("AppRepository", "개인 일정 삭제 실패", e)
+        }
+    }
+
+    /**
+     * 개인 일정을 가족 캘린더로 복사(이전)하는 함수
+     */
+    suspend fun migratePersonalEventsToFamilyRoom(userId: String, chatRoomId: String): Boolean {
+        return try {
+            val personalEventsRef = db.collection("users").document(userId).collection("events")
+            val personalEventsSnapshot = personalEventsRef.get().await()
+
+            if (personalEventsSnapshot.isEmpty) {
+                return true // 이전할 게 없어도 성공
+            }
+
+            val familyEventsRef = db.collection("chatRooms").document(chatRoomId).collection("events")
+
+            // Batch Write (일괄 쓰기)
+            val batch = db.batch()
+
+            for (doc in personalEventsSnapshot.documents) {
+                val event = doc.toObject(CalendarEvent::class.java)
+                if (event != null) {
+                    // 1. 가족 캘린더에 복사
+                    val newFamilyEventRef = familyEventsRef.document(event.id)
+                    batch.set(newFamilyEventRef, event)
+
+                    // 2. 개인 캘린더에서 삭제
+                    val oldPersonalEventRef = personalEventsRef.document(doc.id)
+                    batch.delete(oldPersonalEventRef)
+                }
+            }
+
+            batch.commit().await()
+            Log.d("AppRepository", "개인 일정 ${personalEventsSnapshot.size()}개 가족 캘린더로 이전 완료.")
+            true
+        } catch (e: Exception) {
+            Log.e("AppRepository", "개인 일정 이전 실패", e)
+            false
+        }
+    }
+
+
+
 
     /**
      * 채팅의 모든 사진 목록을 가져옴
