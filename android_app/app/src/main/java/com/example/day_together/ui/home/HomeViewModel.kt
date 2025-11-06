@@ -1,5 +1,6 @@
 package com.example.day_together.ui.home
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.day_together.data.model.Anniversary
@@ -7,6 +8,7 @@ import com.example.day_together.data.model.CalendarEvent
 import com.example.day_together.data.model.Question
 import com.example.day_together.data.model.User
 import com.example.day_together.data.repository.AppRepository
+import com.example.day_together.data.repository.AuthResult
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -144,6 +146,19 @@ class HomeViewModel : ViewModel() {
     override fun onCleared() {
         super.onCleared()
         calendarListener?.remove()
+    }
+
+    fun acceptInvitation(invitationId: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val result = repository.acceptInvitation(invitationId)
+            when (result) {
+                is AuthResult.Success -> onResult(true)
+                is AuthResult.Failure -> {
+                    Log.e("HomeViewModel", result.message)
+                    onResult(false)
+                }
+            }
+        }
     }
 }
 

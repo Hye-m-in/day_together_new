@@ -78,6 +78,7 @@ sealed interface MessageEvent {
     data class EditChatRoomName(val newName: String) : MessageEvent
     data object DismissInviteDialog : MessageEvent
     data class InviteMember(val email: String) : MessageEvent
+    data class acceptInvitation(val invitationId: String) : MessageEvent
     data object CreateNewChatRoom : MessageEvent
 }
 
@@ -115,34 +116,6 @@ open class MessageViewModel(
             .addOnFailureListener {
                 Log.e("MessageViewModel", "채팅방 이름 불러오기 실패", it)
             }
-    }
-
-    /**
-     * ChatActivity의 fetchAcceptedChatRoomId와 사용자 이름 로딩 로직 통합
-     */
-    private fun fetchChatRoomInfo() {
-        _uiState.update { it.copy(isLoading = true) }
-        viewModelScope.launch {
-            val currentUser = repository.getCurrentUser()
-            if (currentUser == null) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = "로그인이 필요합니다.") }
-                return@launch
-            }
-
-            // 사용자 이름과 채팅방 ID를 순서대로 가져옴
-            _uiState.update { it.copy(currentUserName = currentUser.name) }
-            Log.d("MessageViewModel", "현재 사용자 UID: ${currentUser.uid}, 이름: ${currentUser.name}")
-            val chatRoomId = repository.findUserChatRoomId(currentUser.uid)
-            Log.d("MessageViewModel", "찾은 채팅방 ID: $chatRoomId")
-
-            if (chatRoomId != null) {
-                _uiState.update { it.copy(chatRoomId = chatRoomId) }
-                loadChatRoomName(chatRoomId)
-                listenForMessages(chatRoomId)
-            } else {
-                _uiState.update { it.copy(isLoading = false) }
-            }
-        }
     }
 
     private fun listenForMessages(chatRoomId: String) {
@@ -222,6 +195,29 @@ open class MessageViewModel(
         }
     }
 
+    private fun fetchChatRoomInfo() {
+        _uiState.update { it.copy(isLoading = true) }
+        viewModelScope.launch {
+            val currentUser = repository.getCurrentUser()
+            if (currentUser == null) {
+                _uiState.update { it.copy(isLoading = false, errorMessage = "로그인이 필요합니다.") }
+                return@launch
+            }
+
+            _uiState.update { it.copy(currentUserName = currentUser.name) }
+
+            val chatRoomId = repository.findUserChatRoomId(currentUser.uid)
+            if (chatRoomId != null) {
+                _uiState.update { it.copy(chatRoomId = chatRoomId) }
+                loadChatRoomName(chatRoomId)
+                listenForMessages(chatRoomId)
+            } else {
+                _uiState.update { it.copy(isLoading = false) }
+            }
+        }
+    }
+
+
     private fun createNewChatRoom() {
         val currentUserId = AuthManager.getCurrentUserId() ?: return
 
@@ -238,23 +234,42 @@ open class MessageViewModel(
     }
 
     private fun inviteMember(email: String) {
-        val uiState = _uiState.value
-        val chatRoomId = uiState.chatRoomId
         val inviterId = AuthManager.getCurrentUserId()
-
-        if (chatRoomId == null || inviterId == null) {
-            _uiState.update { it.copy(errorMessage = "초대 정보를 보낼 수 없습니다.") }
+        if (inviterId.isNullOrBlank()) {
+            _uiState.update { it.copy(errorMessage = "로그인이 필요합니다.") }
             return
         }
-
         _uiState.update { it.copy(showInviteDialog = false, isLoading = true) }
 
         viewModelScope.launch {
-            val result = repository.inviteMember(chatRoomId, inviterId, email)
-            if (result is AuthResult.Failure) {
-                _uiState.update { it.copy(errorMessage = result.message) }
+            val result = repository.createInvitation(inviterId, email)
+            if (result is AuthResult.Success) {
+                _uiState.update { it.copy(showInviteDialog = false, isLoading = false) }
+            } else if (result is AuthResult.Failure) {
+                _uiState.update { it.copy(isLoading = false, errorMessage = result.message) }
             }
-            _uiState.update { it.copy(isLoading = false) }
+        }
+    }
+
+    fun acceptInvitation(invitationId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val result = repository.acceptInvitation(invitationId)
+            if (result is AuthResult.Success) {
+                // 수락 성공: 사용자의 채팅방 ID 다시 조회하거나 invitation 문서에서 chatRoomId를 읽어 업데이트
+                val currentUid = AuthManager.getCurrentUserId()
+                val newChatRoomId = repository.findUserChatRoomId(currentUid ?: "")
+                if (!newChatRoomId.isNullOrBlank()) {
+                    _uiState.update { it.copy(chatRoomId = newChatRoomId, isLoading = false) }
+                    loadChatRoomName(newChatRoomId)
+                    listenForMessages(newChatRoomId)
+                } else {
+                    // 안전장치: 실패했지만 수락 자체는 되었을 가능성 -> UI 상태 정리
+                    _uiState.update { it.copy(isLoading = false) }
+                }
+            } else if (result is AuthResult.Failure) {
+                _uiState.update { it.copy(isLoading = false, errorMessage = result.message) }
+            }
         }
     }
 
@@ -282,7 +297,7 @@ open class MessageViewModel(
             is MessageEvent.EditChatRoomName -> {
                 updateChatRoomName(event.newName)
             }
-
+            is MessageEvent.acceptInvitation -> acceptInvitation(event.invitationId)
             else -> {}
         }
     }

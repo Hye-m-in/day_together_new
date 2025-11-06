@@ -18,6 +18,7 @@ import com.example.day_together.data.dto.NaverTokenRequest
 import com.example.day_together.data.dto.GoogleTokenRequest
 import com.example.day_together.data.remote.ApiClient
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.gson.Gson
 import retrofit2.HttpException
 
@@ -328,25 +329,6 @@ object AppRepository {
         println("TODO: ${yearMonth}에 댓글 추가 - ${comment.text}")
     }
 
-    // 채팅 관련 함수(MessageViewModel)
-    suspend fun getCurrentUserName(): String {
-        return suspendCancellableCoroutine { continuation ->
-            val uid = authManager.getCurrentUserId()
-            if (uid == null) {
-                if (continuation.isActive) continuation.resume("Unknown")
-                return@suspendCancellableCoroutine
-            }
-            db.collection("users").document(uid).get()
-                .addOnSuccessListener { document ->
-                    if (continuation.isActive) {
-                        continuation.resume(document.getString("name") ?: "Unknown")
-                    }
-                }
-                .addOnFailureListener {
-                    if (continuation.isActive) continuation.resume("Unknown")
-                }
-        }
-    }
 
     suspend fun findUserChatRoomId(userId: String): String? {
         // userId가 비어있으면 아무것도 하지 않고 null을 반환
@@ -357,13 +339,19 @@ object AppRepository {
 
         return try {
             // 1. 사용자의 invitations 컬렉션에서 accepted 상태인 문서 찾음
-            val invitations = db.collection("users").document(userId).collection("invitations")
-                .whereEqualTo("status", "accepted").limit(1).get().await()
-            val acceptedRoomId = invitations.documents.firstOrNull()?.id
+            val invitationsSnap = db.collection("users")
+                .document(userId)
+                .collection("invitations")
+                .whereEqualTo("status", "accepted")
+                .limit(1)
+                .get()
+                .await()
 
-            // 찾았다면 해당 채팅방 ID를 즉시 반환
-            if (acceptedRoomId != null) {
-                return acceptedRoomId
+            val acceptedChatRoomId = invitationsSnap.documents.firstOrNull()
+                ?.getString("chatRoomId") // <- 이전에 문서 id를 반환하던 버그 수정
+
+            if (!acceptedChatRoomId.isNullOrBlank()) {
+                return acceptedChatRoomId
             }
 
             // 2. 초대 수락 기록이 없다면, chatRooms 컬렉션에서 사용자가 members 배열에 포함된 경우를 찾음
@@ -416,40 +404,107 @@ object AppRepository {
     /**
      * 새로운 멤버를 채팅방에 초대
      */
-    suspend fun inviteMember(chatRoomId: String, inviterUserId: String, invitedUserEmail: String): AuthResult {
-        return suspendCancellableCoroutine { continuation ->
-            chatRoomManager.inviteMembers(
-                chatRoomId = chatRoomId,
-                inviterUserId = inviterUserId,
-                invitedUserId = listOf(invitedUserEmail)
-            ) { success, error ->
-                if (continuation.isActive) {
-                    if (success) {
-                        continuation.resume(AuthResult.Success)
-                    } else {
-                        continuation.resume(AuthResult.Failure(error ?: "초대 실패"))
-                    }
-                }
-            }
-        }
-    }
-
-    suspend fun getChatMessages(chatRoomId: String): List<ChatMessage> {
+    suspend fun createInvitation(inviterUserId: String, invitedUserEmail: String): AuthResult {
         return try {
-            val snapshot = db.collection("chatRooms")
-                .document(chatRoomId)
-                .collection("messages")
-                .orderBy("timestamp", Query.Direction.ASCENDING)
+            val invitedSnapshot = db.collection("users")
+                .whereEqualTo("email", invitedUserEmail)
+                .limit(1)
                 .get()
                 .await()
-            snapshot.documents.mapNotNull { it.toObject(ChatMessage::class.java) }
+
+            val invitedUserId = invitedSnapshot.documents.firstOrNull()?.id
+                ?: return AuthResult.Failure("해당 이메일의 사용자를 찾을 수 없습니다.")
+
+            // 두 멤버가 포함된 기존 방이 있는지 확인
+            val existingChatRoom = db.collection("chatRooms")
+                .whereArrayContains("members", inviterUserId)
+                .get()
+                .await()
+                .documents
+                .firstOrNull { doc ->
+                    val members = doc.get("members") as? List<*> ?: emptyList<Any>()
+                    members.contains(invitedUserId)
+                }
+
+            val chatRoomId = existingChatRoom?.id ?: createNewChatRoom(inviterUserId)
+
+            // 초대 대상의 invitations 컬렉션에 초대 문서 추가
+            val invitationId = UUID.randomUUID().toString()
+            val invitationData = hashMapOf(
+                "inviterId" to inviterUserId,
+                "chatRoomId" to chatRoomId, // 아직 없을 수 있음 (수락 시 생성)
+                "status" to "pending",
+                "createdAt" to Date()
+            )
+
+            db.collection("users").document(invitedUserId)
+                .collection("invitations")
+                .document(invitationId)
+                .set(invitationData)
+                .await()
+
+            AuthResult.Success
         } catch (e: Exception) {
-            emptyList()
+            Log.e("AppRepository", "inviteMember 실패", e)
+            AuthResult.Failure("초대 전송 중 오류가 발생했습니다.")
         }
     }
 
+    // 초대 수락
+    suspend fun acceptInvitation(invitationId: String): AuthResult {
+        val inviteeId = authManager.getCurrentUserId() ?: return AuthResult.Failure("로그인이 필요합니다.")
+        return try {
+            val invitationRef = db.collection("users")
+                .document(inviteeId)
+                .collection("invitations")
+                .document(invitationId)
 
+            val invitationSnap = invitationRef.get().await()
+            if (!invitationSnap.exists()) {
+                return AuthResult.Failure("초대 정보를 찾을 수 없습니다.")
+            }
 
+            val inviterId = invitationSnap.getString("inviterId") ?: return AuthResult.Failure("초대자 정보가 없습니다.")
+            var chatRoomId = invitationSnap.getString("chatRoomId")
+
+            // chatRoomId가 없으면 새로운 채팅방 생성 (초대 보낼 때 이미 생성해둔 경우가 많지만 안전장치)
+            if (chatRoomId.isNullOrBlank()) {
+                chatRoomId = createNewChatRoom(inviterId)
+                if (chatRoomId == null) {
+                    return AuthResult.Failure("채팅방 생성에 실패했습니다.")
+                }
+            }
+
+            // 멤버 추가 (idempotent)
+            db.collection("chatRooms").document(chatRoomId)
+                .update("members", FieldValue.arrayUnion(inviterId, inviteeId))
+                .await()
+
+            // 초대 상태 업데이트
+            invitationRef.update(
+                mapOf(
+                    "status" to "accepted",
+                    "acceptedAt" to Date(),
+                    "chatRoomId" to chatRoomId
+                )
+            ).await()
+
+            // 초대를 보낸 사용자의 invitedChatRoomId 필드 갱신
+            db.collection("users").document(inviterId)
+                .update("invitedChatRoomId", chatRoomId)
+                .await()
+
+            // 초대를 수락한 사용자의 invitedChatRoomId 필드도 갱신
+            db.collection("users").document(inviteeId)
+                .update("invitedChatRoomId", chatRoomId)
+                .await()
+
+            AuthResult.Success
+        } catch (e: Exception) {
+            Log.e("AppRepository", "acceptInvitation 실패", e)
+            AuthResult.Failure("초대 수락 중 오류가 발생했습니다.")
+        }
+    }
 
     /**
      * 새로운 채팅 메시지 전송

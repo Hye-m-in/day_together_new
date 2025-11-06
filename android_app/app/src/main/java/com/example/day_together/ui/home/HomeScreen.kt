@@ -18,6 +18,7 @@ import com.example.day_together.R
 import com.example.day_together.data.model.CalendarEvent
 import com.example.day_together.data.model.WeeklyCalendarDay
 import com.example.day_together.ui.WheelCustomYearMonthPickerDialog
+import com.example.day_together.ui.dialogs.InvitationDialog
 import com.example.day_together.ui.home.composables.ActualHomeScreenContent
 import com.example.day_together.ui.home.composables.AddEventInputView
 import com.example.day_together.ui.home.composables.DateEventsBottomSheet
@@ -261,10 +262,22 @@ fun HomeScreen(
             )
         }
 
-        invitedChatRoomId.value?.let { chatRoomId ->
+        if (invitedChatRoomId.value != null) {
             InvitationDialog(
-                onAccept = { onAcceptInvitation(chatRoomId) },
-                onDismiss = onDismissInvitation
+                onAccept = {
+                    val invitationId = invitedChatRoomId.value!!
+                    homeViewModel.acceptInvitation(invitationId) { chatRoomId ->
+                        if (chatRoomId != null) {
+                            invitedChatRoomId.value = null
+                            appNavController.navigate("chat_screen/$chatRoomId")
+                        } else {
+                            // 실패 시 메시지 표시 가능
+                        }
+                    }
+                },
+                onDismiss = {
+                    invitedChatRoomId.value = null
+                }
             )
         }
     }
@@ -281,27 +294,5 @@ private fun DeleteConfirmationDialog(
         text = { Text("이 일정을 삭제하시겠습니까?") },
         confirmButton = { TextButton(onClick = { onConfirm(); onDismiss() }) { Text("삭제") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("취소") } }
-    )
-}
-
-@Composable
-fun InvitationDialog(
-    onAccept: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("초대 도착") },
-        text = { Text("가족 채팅방에 초대받았습니다. 입장하시겠습니까?") },
-        confirmButton = {
-            Button(onClick = onAccept) {
-                Text("입장하기")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("나중에")
-            }
-        }
     )
 }
