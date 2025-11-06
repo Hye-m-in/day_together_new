@@ -114,7 +114,7 @@ fun MessageScreen(
                     CircularProgressIndicator()
                 }
             } else if (uiState.chatRoomId == null) {
-                EmptyChatRoomScreen(onCreateClick = { viewModel.onEvent(MessageEvent.CreateNewChatRoom) })
+                EmptyChatRoomScreen(onInviteClick = { viewModel.onEvent(MessageEvent.ShowInviteDialog) })
             } else {
                 ChatScreenContent(
                     messages = uiState.messages,
@@ -234,12 +234,12 @@ fun MessageTopBar(
 
 
 @Composable
-fun EmptyChatRoomScreen(onCreateClick: () -> Unit) {
+fun EmptyChatRoomScreen(onInviteClick: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Text("참여 중인 채팅방이 없습니다.\n가족을 초대해 새로운 채팅방을 만들어 보세요.", textAlign = TextAlign.Center)
             Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onCreateClick) {
+            Button(onClick = onInviteClick) {
                 Text("가족 초대하기")
             }
         }
