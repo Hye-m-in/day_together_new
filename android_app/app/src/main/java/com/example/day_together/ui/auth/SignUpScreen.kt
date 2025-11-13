@@ -62,8 +62,6 @@ fun SignUpScreen(
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
 
-
-
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
 

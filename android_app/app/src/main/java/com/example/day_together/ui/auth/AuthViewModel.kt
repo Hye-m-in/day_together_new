@@ -1,22 +1,21 @@
 package com.example.day_together.ui.auth
 
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.day_together.data.repository.AuthRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.example.day_together.data.repository.AppRepository
 import com.example.day_together.data.repository.AuthResult
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.net.URL
+import java.util.UUID
 
-
-/**
- * 데이터를 한 곳(ViewModel)에서만 통제함으로써 코드가 꼬이는 것을 막음
- * UI 화면이 마음대로 데이터를 바꾸면 앱이 복잡해질수록 어디서 버그가 생기는지 찾기 매우 어려워짐
- */
 
 /**
  * 로그인, 회원가입, 계정 찾기 등 인증 관련 화면들의
@@ -25,8 +24,6 @@ import kotlinx.coroutines.launch
 class AuthViewModel : ViewModel() {
 
     private val repository: AppRepository = AppRepository
-
-
     /**
      * 인증 화면의 모든 UI 상태를 관리하는 StateFlow. View는 이 State를 구독(실시간 상태 감지)하여 UI에 반영
      * StateFlow : 실시간으로 업데이트되는 '상태 게시판'
@@ -38,7 +35,6 @@ class AuthViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(AuthUiState())
     // public : ViewModel 외부에서는 오직 읽기만 가능한 공개용 게시판
     val uiState = _uiState.asStateFlow()
-
 
     /**
      * 이벤트 핸들러 함수들
@@ -55,7 +51,6 @@ class AuthViewModel : ViewModel() {
 
     fun onLoginEmailChange(email: String) { _uiState.update { it.copy(loginEmail = email, loginError = null) } }
     fun onLoginPasswordChange(password: String) { _uiState.update { it.copy(loginPassword = password, loginError = null) } }
-
     fun onSignUpNameChange(name: String) { _uiState.update { it.copy(signUpName = name) } }
     fun onSignUpBirthDateChange(date: String) {
         // 생년월일은 8자리까지 입력 가능
@@ -92,7 +87,51 @@ class AuthViewModel : ViewModel() {
         _uiState.update { it.copy(signUpConfirmPassword = password, signUpConfirmPasswordError = error) }
     }
 
+    fun uploadProfileImagesAndSignUp(){
+        val uri = _uiState.value.profileImageUri
+        if (uri == null){
+            // 프로필 이미지 없이 회원가입
+            signUpWithoutImage()
+            return
+        }
+
+        val storageRef = FirebaseStorage.getInstance().reference
+        val imageRef = storageRef.child("profile_image/${UUID.randomUUID()}.jpg")
+
+        imageRef.putFile(uri).addOnSuccessListener {
+            imageRef.downloadUrl.addOnSuccessListener { downloadUri ->
+                _uiState.update { it.copy(profileImageUrl = downloadUri.toString()) }
+                signUpWithoutImage() // 이미지 업로드 후 회원가입 실행
+            }
+        }.addOnFailureListener { e ->
+            Log.e("AuthViewModel", "프로필 이미지 업로드 실패", e)
+            // 업로드 실패 시 이미지 없이 회원가입
+            signUpWithoutImage()
+        }
+    }
+
+    private fun signUpWithoutImage() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, signUpResult = null) }
+
+            val result = repository.signUp(
+                name = _uiState.value.signUpName,
+                email = _uiState.value.signUpEmail,
+                password = _uiState.value.signUpPassword,
+                profileImage = _uiState.value.profileImageUrl ?: "" // URL 전달 (null 대신 빈 문자열)
+            )
+
+            if (result is AuthResult.Success) {
+                repository.login(_uiState.value.signUpEmail, _uiState.value.signUpPassword)
+                _uiState.update { it.copy(isLoading = false, signUpResult = result, isSignUpAndLoginSuccess = true) }
+            } else {
+                _uiState.update { it.copy(isLoading = false, signUpResult = result) }
+            }
+        }
+    }
+
     fun onProfileImageChanged(uri: Uri?) {
+        Log.d("AuthViewModel", "선택된 이미지 URI: $uri")
         _uiState.update { it.copy(profileImageUri = uri) }
     }
 
@@ -196,17 +235,13 @@ class AuthViewModel : ViewModel() {
     fun signUp() {
         _uiState.update { it.copy(isLoading = true, signUpResult = null) }
         viewModelScope.launch {
-            val result = repository.signUp(
-                name = _uiState.value.signUpName,
-                email = _uiState.value.signUpEmail,
-                password = _uiState.value.signUpPassword
-            )
-            // 회원가입 성공 시, 자동 로그인 수행
-            if (result is AuthResult.Success) {
-                repository.login(_uiState.value.signUpEmail, _uiState.value.signUpPassword)
-                _uiState.update { it.copy(isLoading = false, signUpResult = result, isSignUpAndLoginSuccess = true) }
+            val uri = _uiState.value.profileImageUri
+            if (uri != null) {
+                // 프로필 이미지가 있으면 업로드 후 회원가입 실행
+                uploadProfileImagesAndSignUp()
             } else {
-                _uiState.update { it.copy(isLoading = false, signUpResult = result) }
+                // 이미지 없이 회원가입
+                signUpWithoutImage()
             }
         }
     }
@@ -269,12 +304,13 @@ data class AuthUiState(
     val signUpPasswordError: String? = null,
     val signUpConfirmPasswordError: String? = null,
     val signUpBirthDateError: String? = null,
-    val profileImageUri: Uri? = null,
     val familyMemberSelections: Map<String, Boolean> = emptyMap(),
     val otherFamilyMemberChecked: Boolean = false,
     val otherFamilyMemberText: String = "",
     val signUpResult: AuthResult? = null,
     val isSignUpAndLoginSuccess: Boolean = false,
+    val profileImageUri: Uri? = null,
+    val profileImageUrl: String? = null,
 
     // 계정 찾기 화면 상태
     val findIdName: String = "",

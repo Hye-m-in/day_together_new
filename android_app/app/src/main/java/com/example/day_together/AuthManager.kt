@@ -18,25 +18,27 @@ object AuthManager {
         email: String,
         password: String,
         position: String,
+        profileImage: String,
         onResult: (Boolean, String?) -> Unit
     ) {
         auth.createUserWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     val user = auth.currentUser
-                    val memberId = user?.uid ?: ""
+                    val userId = user?.uid ?: ""
 
-                    val memberData = hashMapOf(
-                        "member_id" to memberId,
+                    val userData = hashMapOf(
+                        "user_id" to userId,
                         "name" to name,
                         "email" to email,
                         "position" to position,
+                        "profile_image" to profileImage,
                         "invitedChatRoomId" to null
                     )
 
                     db.collection("users")
-                        .document(memberId)
-                        .set(memberData)
+                        .document(userId)
+                        .set(userData)
                         .addOnSuccessListener {
                             onResult(true, null)
                         }
