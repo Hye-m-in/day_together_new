@@ -18,7 +18,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.day_together.data.repository.AppRepository
-import com.example.day_together.data.repository.QuestionRepository
 import com.example.day_together.navigation.AppNavigation
 import com.example.day_together.ui.gallery.GalleryScreen
 import com.example.day_together.ui.home.HomeScreen
@@ -92,17 +91,29 @@ fun MainScreen(appNavController: NavHostController) {
         BottomNavItem.Home, BottomNavItem.Message, BottomNavItem.Gallery, BottomNavItem.Settings
     )
 
-    // HomeViewModel을 NavHost보다 상위 스코프에서 생성 -> HomeScreen이 사라져도 ViewModel이 유지되고, onAcceptInvitation에서 동일한 ViewModel 참조 가능
+    // HomeViewModel을 NavHost보다 상위 스코프에서 생성 -> HomeScreen이 사라져도 ViewModel이 유지됨
     val homeViewModel: HomeViewModel = viewModel()
+
+    // '홈' 탭으로 돌아올 때마다 캘린더 새로고침 ---
+    // 하단 탭 네비게이션 상태를 관찰
+    val navBackStackEntry by innerNavController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    // 현재 경로(currentRoute)가 바뀔 때마다 실행
+    LaunchedEffect(currentRoute) {
+        // 현재 경로가 '홈' 탭일 때만 데이터 새로고침
+        if (currentRoute == BottomNavItem.Home.route) {
+            homeViewModel.loadInitialData()
+        }
+    }
+
 
 
     Scaffold(
         // 하단 네비게이션 바 UI 정의
         bottomBar = {
             NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                // 현재 네비게이션 스택의 최상단 항목을 실시간으로 감지
-                val navBackStackEntry by innerNavController.currentBackStackEntryAsState()
-                // 현재 보여지고 있는 화면의 목적지 정보를 가져옴
+                // currentDestination을 LaunchedEffect 밖에서 한 번만 선언
                 val currentDestination = navBackStackEntry?.destination
 
                 // bottomNavItems 목록에 있는 각 아이템을 순회하면서 NavigationBarItem을 만듦
@@ -147,15 +158,17 @@ fun MainScreen(appNavController: NavHostController) {
             // 홈경로일 때 HomeScreen을 보여줌
             composable(BottomNavItem.Home.route) {
                 HomeScreen(
-                    appNavController = appNavController,
+                    // appNavController 파라미터 삭제 (HomeScreen에서 삭제했으므로 여기서도 전달하지 않음)
                     homeViewModel = homeViewModel, // 상위 스코프의 ViewModel 전달
                     invitedChatRoomId = invitedChatRoomId,
-                    onAcceptInvitation = { chatRoomId ->
-                        ChatRoomManager.acceptInvitation(chatRoomId) { success, _ ->
-                            if (success) {
-                                // 초대 수락 성공 시, 개인 일정을 가족방으로 이전하도록 VM에 요청
-                                homeViewModel.migratePersonalEventsToFamilyRoom(chatRoomId)
+                    onAcceptInvitation = { invitationId -> // invitationId를 받음
+                        // HomeViewModel의 acceptInvitation 호출
+                        homeViewModel.acceptInvitation(invitationId) { acceptedChatRoomId ->
+                            if (acceptedChatRoomId != null) {
+                                // 개인 일정 이전 로직 삭제
+                                // homeViewModel.migratePersonalEventsToFamilyRoom(acceptedChatRoomId)
                                 invitedChatRoomId.value = null // 성공 시 초대 상태 초기화
+                                homeViewModel.loadInitialData() // 홈 화면 즉시 새로고침
                             }
                         }
                     },
@@ -169,8 +182,8 @@ fun MainScreen(appNavController: NavHostController) {
             composable(BottomNavItem.Message.route) {
                 val messageViewModel: MessageViewModel = viewModel(
                     factory = MessageViewModel.MessageViewModelFactory(
-                        AppRepository,
-                        QuestionRepository()
+                        AppRepository
+                        // QuestionRepository() 삭제
                     )
                 )
                 MessageScreen(navController = appNavController, viewModel = messageViewModel)

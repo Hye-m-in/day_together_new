@@ -1,14 +1,19 @@
 package com.example.day_together.ui.home
 
+
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+
+import com.example.day_together.CalendarManager
 import com.example.day_together.data.model.Anniversary
 import com.example.day_together.data.model.CalendarEvent
 import com.example.day_together.data.model.Question
 import com.example.day_together.data.model.User
 import com.example.day_together.data.repository.AppRepository
 import com.example.day_together.data.repository.AuthResult
+
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,6 +22,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
+
+import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Date
 import java.util.UUID
@@ -31,135 +38,303 @@ import java.util.UUID
 class HomeViewModel : ViewModel() {
 
     private val repository = AppRepository
+    // CalendarManager 직접 참조
+    private val calendarManager = CalendarManager
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    // 실시간 리스너를 관리하기 위한 변수
-    private var calendarListener: ListenerRegistration? = null
+    // 변수 이름 변경 (가족/개인 공용)
+    private var calendarEventsListener: ListenerRegistration? = null
 
     init {
         loadInitialData()
     }
 
-    private fun loadInitialData() {
+    // 'public'으로 유지 (초대 수락 시 MainActivity에서 호출해야 함)
+    fun loadInitialData() {
         _uiState.update { it.copy(isLoading = true) }
+
+        // [리스너가 남아있으면 제거 (개인 -> 가족 전환 시 중복 방지)
+        calendarEventsListener?.remove()
+
         viewModelScope.launch {
-            // 사용자 정보, 질문, 명언 등은 기존과 동일하게 불러옴
+            // 1. 기본 정보 로드 (사용자, 질문, 명언)
             val user = repository.getCurrentUser()
-            val question = repository.getTodaysQuestion()
-            val quote = repository.getFamilyQuote()
-            _uiState.update { it.copy(user = user, aiQuestion = question, familyQuote = quote) }
+            val questionString = repository.getTodaysQuestion() // String? 반환
+            // val quote = repository.getFamilyQuote()
 
-            // 채팅방 ID를 찾음
-            val chatRoomId = user?.uid?.let { repository.findUserChatRoomId(it) }
+            // String?을 Question? 객체로 변환
+            val question = questionString?.let { Question(id = UUID.randomUUID().toString(), text = it) }
 
-            // 채팅방이 존재하면, 해당 채팅방의 캘린더 이벤트를 실시간으로 구독
-            if (chatRoomId != null) {
-                _uiState.update { it.copy(chatRoomId = chatRoomId) } // UI State에 chatRoomId 저장
+            // quote 삭제, question 객체로 업데이트
+            _uiState.update { it.copy(user = user, aiQuestion = question, familyQuote = "") } // familyQuote는 빈 값으로
 
-                // AppRepository에 추가한 실시간 리스너 함수 호출
-                calendarListener = repository.listenForCalendarEvents(chatRoomId) { eventsByDate ->
-                    // 캘린더 데이터가 변경될 때마다 D-Day 다시 계산
-                    val dDayInfo = calculateDDayInfo(eventsByDate)
-                    // 최신 데이터로 UI 상태 업데이트
+            if (user == null) {
+                _uiState.update { it.copy(isLoading = false) }
+                return@launch
+            }
+
+            // 2. 채팅방 ID 탐색
+            val chatRoomId = repository.findUserChatRoomId(user.uid)
+            _uiState.update { it.copy(chatRoomId = chatRoomId) } // chatRoomId가 null이든 아니든 state에 저장
+
+            // 3. 분기 처리
+            if (chatRoomId == null) {
+                // a. 채팅방 없음: 홈 화면 차단
+                Log.d("HomeViewModel", "채팅방 없음. 홈 화면 사용이 차단됩니다.")
+                // 개인 일정/생일 로드 로직 제거
+                _uiState.update { it.copy(isLoading = false) } // 로딩만 멈춤
+
+            } else {
+                // 3b. 채팅방 있음: 가족 캘린더 모드
+                Log.d("HomeViewModel", "채팅방($chatRoomId) 발견. [가족 캘린더] 모드로 시작.")
+                // 3b-1. '가족 구성원 전체' 생일 불러오기
+                val familyMembers = repository.getFamilyMembers(chatRoomId)
+                val familyBirthdayEvents = createBirthdayEvents(familyMembers)
+                _uiState.update { it.copy(birthdayEventsByDate = familyBirthdayEvents) }
+
+                // 3b-2. '가족 일정'을 실시간 구독
+                // repository -> calendarManager 직접 호출
+                calendarEventsListener = calendarManager.listenForEvents(chatRoomId) { familyEvents -> // familyEvents: List<CalendarEvent>
+                    // Type Mismatch 해결: List -> Map으로 변환
+                    val familyEventsMap = familyEvents.groupBy {
+                        it.startTime.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+                    }
+                    // 가족 일정 + 가족 생일 병합
+                    val mergedEvents = mergeEventMaps(familyEventsMap, familyBirthdayEvents)
+                    val dDayInfo = calculateDDayInfo(mergedEvents)
+
                     _uiState.update {
                         it.copy(
-                            eventsByDate = eventsByDate,
+                            eventsByDate = mergedEvents,
                             dDayText = dDayInfo.first,
                             dDayTitle = dDayInfo.second,
-                            isLoading = false // 데이터 로드가 완료되었으므로 로딩 상태 해제
+                            isLoading = false
                         )
                     }
                 }
-            } else {
-                // 채팅방이 없으면 로딩 상태만 해제
-                _uiState.update { it.copy(isLoading = false) }
             }
         }
     }
 
     fun refreshQuestion() {
         viewModelScope.launch {
-            val newQuestion = repository.getTodaysQuestion()
+            val newQuestionString = repository.getTodaysQuestion()
+            // String?을 Question? 객체로 변환
+            val newQuestion = newQuestionString?.let { Question(id = UUID.randomUUID().toString(), text = it) }
             _uiState.value = _uiState.value.copy(aiQuestion = newQuestion)
         }
     }
 
     /**
-     * UI에서 받은 이벤트를 Firestore에 저장/수정하도록 Repository에 요청
+     * UI에서 받은 이벤트를 가족 캘린더에 저장
      */
     fun addOrUpdateEvent(event: CalendarEvent) {
-        // UI State에 저장된 chatRoomId를 사용
-        val chatRoomId = _uiState.value.chatRoomId ?: return
+        val currentChatRoomId = _uiState.value.chatRoomId
+        val currentUserId = _uiState.value.user?.uid
+
+        // If-Null foldable 경고 해결
+        if (currentUserId == null || currentChatRoomId == null) return
 
         viewModelScope.launch {
-            repository.addOrUpdateCalendarEvent(chatRoomId, event)
-            // 데이터 저장은 위 함수에서 처리되고, UI 업데이트는 실시간 리스너가 자동으로 처리함
+            // 개인 캘린더 저장 로직 (else) 삭제
+            // repository -> calendarManager 직접 호출
+            calendarManager.addEvent(currentChatRoomId, event)
         }
     }
 
     /**
-     * UI에서 요청한 이벤트를 Firestore에서 삭제하도록 Repository에 요청
+     * 이벤트를 '단독 D-Day'로 설정 (HomeScreen.kt에서 필요)
      */
-    fun deleteEvent(event: CalendarEvent) {
-        val chatRoomId = _uiState.value.chatRoomId ?: return
+    fun setExclusiveDDay(newEvent: CalendarEvent) {
+        val currentChatRoomId = _uiState.value.chatRoomId
+        val currentUserId = _uiState.value.user?.uid
+        // 채팅방 없으면(null) 즉시 리턴
+        if (currentUserId == null || currentChatRoomId == null) return
 
         viewModelScope.launch {
-            repository.deleteCalendarEvent(chatRoomId, event.id)
-            // 데이터 삭제는 위 함수에서 처리되고, UI 업데이트는 실시간 리스너가 자동으로 처리함
+            // 1. 현재 D-Day로 설정된 다른 모든 이벤트(newEvent 제외)를 가져옴
+            val oldDDayEvents = _uiState.value.eventsByDate.values.flatten()
+                .filter { it.id != newEvent.id && it.isPriority }
+
+            // 2. 다른 모든 이벤트의 스위치를 끔 (isPriority=false, prioritySetAt=null)
+            for (oldEvent in oldDDayEvents) {
+                val updatedOldEvent = oldEvent.copy(
+                    isPriority = false,
+                    prioritySetAt = null
+                )
+                // 개인 캘린더 저장 로직 (else) 삭제
+                // repository -> calendarManager 직접 호출
+                calendarManager.addEvent(currentChatRoomId, updatedOldEvent)
+            }
+
+            // 3. 마지막으로 새로 D-Day로 설정한 이벤트 저장
+            // 개인 캘린더 저장 로직 (else) 삭제
+            // repository -> calendarManager 직접 호출
+            calendarManager.addEvent(currentChatRoomId, newEvent)
         }
     }
 
-    
+
+    // UI에서 요청한 이벤트를 가족 캘린더에서 삭제
+
+    fun deleteEvent(event: CalendarEvent) {
+        val currentChatRoomId = _uiState.value.chatRoomId
+        val currentUserId = _uiState.value.user?.uid
+
+        // If-Null foldable 경고 해결
+        if (currentUserId == null || currentChatRoomId == null) return
+
+        viewModelScope.launch {
+            // 개인 캘린더 삭제 로직 (else) 삭제
+            // repository -> calendarManager 직접 호출
+            calendarManager.deleteEvent(currentChatRoomId, event.id)
+        }
+    }
+
 
     private fun calculateDDayInfo(events: Map<LocalDate, List<CalendarEvent>>): Pair<String, String> {
         val today = LocalDate.now()
+        val tomorrow = today.plusDays(1)
+
         val allFutureEvents = events.values.flatten().filter {
             val eventDate = it.startTime.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
             eventDate.isAfter(today) || eventDate.isEqual(today)
         }
 
-        // isPriority가 true인 이벤트를 먼저 찾음
-        val priorityEvent = allFutureEvents
-            .filter { it.isPriority }
-            .minByOrNull { it.startTime.seconds }
+        // 1. D-1 생일이 있는지 최우선으로 확인
+        val d1Birthday = allFutureEvents.find { event ->
+            val eventDate = event.startTime.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+            event.type == "BIRTHDAY" && eventDate.isEqual(tomorrow)
+        }
 
-        // 우선순위 이벤트가 없으면, 전체 미래 일정 중 가장 가까운 것 찾음
-        val closestEvent = priorityEvent ?: allFutureEvents.minByOrNull { it.startTime.seconds }
+        if (d1Birthday != null) {
+            // D-1 생일이 있으면 다른 D-Day 설정 무시하고 즉시 반환
+            return Pair("D-1", d1Birthday.title)
+        }
 
-        return if (closestEvent != null) {
-            val eventDate = closestEvent.startTime.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+        // 2. D-1 생일이 없을 경우, 사용자가 설정한 D-Day 확인
+        val priorityEvents = allFutureEvents
+            .filter { it.isPriority && it.prioritySetAt != null }
+
+        // 3. 가장 '최근에 켠' D-Day를 찾음 (날짜가 가까운 순이 아님)
+        val latestPriorityEvent = priorityEvents
+            .maxByOrNull { it.prioritySetAt!!.seconds }
+
+        // 4. 최신 D-Day가 있으면 그것을 사용, 없으면 가장 가까운 일정 사용
+        val closestEvent = latestPriorityEvent ?: allFutureEvents.minByOrNull { it.startTime.seconds }
+
+        // If-Null foldable 경고 해결
+        return closestEvent?.let {
+            val eventDate = it.startTime.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
             val dDay = ChronoUnit.DAYS.between(today, eventDate)
 
             val dDayText = if (dDay == 0L) "D-Day" else "D-${dDay}"
-            val dDayTitle = closestEvent.title
+            val dDayTitle = it.title
             Pair(dDayText, dDayTitle)
-        } else {
-            Pair("D-Day", "다가오는 일정이 없어요")
+        } ?: Pair("D-Day", "다가오는 일정이 없어요")
+    }
+
+    /**
+     * User 목록을 기반으로 올해의 생일 CalendarEvent 맵을 생성
+     */
+    private fun createBirthdayEvents(members: List<User>): Map<LocalDate, List<CalendarEvent>> {
+        val events = mutableListOf<CalendarEvent>()
+        val today = LocalDate.now()
+        val birthDateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
+
+        for (member in members) {
+            val birthDateStr = member.birthDate
+            try {
+                if (birthDateStr != null && birthDateStr.length == 8) {
+
+
+                    val birthDate = LocalDate.parse(birthDateStr, birthDateFormatter)
+
+
+                    val title: String = "${member.name} 님의 생일"
+                    var thisYearBirthday: LocalDate = birthDate.withYear(today.year)
+
+
+                    // 양력도 이미 지났으면 내년 생일로 계산
+                    if (thisYearBirthday.isBefore(today.minusDays(1))) { // 오늘 이전이면
+                        thisYearBirthday = thisYearBirthday.plusYears(1)
+                    }
+
+                    // title = "${member.name} 님의 생일" 삭제
+
+                    // 7. CalendarEvent 객체 생성
+                    val birthdayEvent = CalendarEvent(
+                        id = "birthday_${member.uid}",
+                        title = title,
+                        description = "${birthDate.monthValue}월 ${birthDate.dayOfMonth}일", // [수정] description
+                        startTime = Timestamp(Date.from(thisYearBirthday.atStartOfDay(ZoneId.systemDefault()).toInstant())),
+                        endTime = null,
+                        creatorId = member.uid,
+                        creatorName = member.name,
+                        type = "BIRTHDAY",
+                        isPriority = false
+                    )
+                    events.add(birthdayEvent)
+                }
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "${member.name}님의 생일($birthDateStr) 변환 중 오류", e)
+            }
+        }
+
+        // 8. 생성된 모든 생일 이벤트를 날짜(LocalDate)별로 그룹화
+        return events.groupBy {
+            it.startTime.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
         }
     }
+
+    /**
+     * 두 개의 이벤트 맵(일반 일정, 생일 일정)을 하나로 병합
+     */
+    private fun mergeEventMaps(
+        regularEvents: Map<LocalDate, List<CalendarEvent>>,
+        birthdayEvents: Map<LocalDate, List<CalendarEvent>>
+    ): Map<LocalDate, List<CalendarEvent>> {
+        // 두 맵의 모든 고유한 날짜 키(LocalDate)를 합침
+        val allKeys = regularEvents.keys + birthdayEvents.keys
+
+        // 병합된 새 맵을 생성
+        return allKeys.associateWith { date ->
+            // 각 날짜(key)에 대해, 두 맵의 리스트(value)를 합침
+            (regularEvents[date] ?: emptyList()) + (birthdayEvents[date] ?: emptyList())
+        }
+    }
+
 
     /**
      * ViewModel이 소멸될 때 Firestore 리스너를 반드시 제거하여 메모리 누수 방지
      */
     override fun onCleared() {
         super.onCleared()
-        calendarListener?.remove()
+        calendarEventsListener?.remove()
     }
 
-    fun acceptInvitation(invitationId: String, onResult: (Boolean) -> Unit) {
+    /**
+     * AppRepository의 acceptInvitation을 호출하고,
+     * 성공 시 반환된 chatRoomId를 콜백으로 전달합
+     */
+    fun acceptInvitation(invitationId: String, onResult: (chatRoomId: String?) -> Unit) {
         viewModelScope.launch {
-            val result = repository.acceptInvitation(invitationId)
-            when (result) {
-                is AuthResult.Success -> onResult(true)
+            // "Variable declaration could be moved into 'when'" 경고 해결
+            when (val result = repository.acceptInvitation(invitationId)) {
+                is AuthResult.Success -> {
+                    onResult(result.chatRoomId)
+                }
                 is AuthResult.Failure -> {
                     Log.e("HomeViewModel", result.message)
-                    onResult(false)
+                    onResult(null)
                 }
             }
         }
     }
+
+    // migratePersonalEventsToFamilyRoom 함수 삭제
 }
 
 // HomeUiState에 chatRoomId를 추가하여 ViewModel 내부에서 쉽게 접근할 수 있도록 함
@@ -173,5 +348,8 @@ data class HomeUiState(
     val upcomingAnniversary: Anniversary? = null,
     val dDayText: String = "",
     val dDayTitle: String = "",
-    val eventsByDate: Map<LocalDate, List<CalendarEvent>> = emptyMap()
+    val eventsByDate: Map<LocalDate, List<CalendarEvent>> = emptyMap(),
+
+    // 생일 이벤트를 별도로 저장할 맵
+    val birthdayEventsByDate: Map<LocalDate, List<CalendarEvent>> = emptyMap()
 )

@@ -9,8 +9,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -34,11 +32,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
-import com.example.day_together.AuthManager.auth
+import com.example.day_together.AuthManager
 import com.example.day_together.navigation.AppDestinations
 import com.example.day_together.R
 import com.example.day_together.data.repository.AppRepository
-import com.example.day_together.data.repository.QuestionRepository
 import com.example.day_together.ui.dialogs.InviteMemberDialog
 import com.example.day_together.ui.theme.*
 
@@ -47,12 +44,16 @@ import com.example.day_together.ui.theme.*
 fun MessageScreen(
     navController: NavHostController,
     modifier: Modifier = Modifier,
+    // QuestionRepository 삭제
     viewModel: MessageViewModel = viewModel(factory = MessageViewModel.MessageViewModelFactory(
-        AppRepository, QuestionRepository()))
+        AppRepository
+    ))
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
-    val currentUserId = auth.currentUser?.uid
+
+    // AuthManager.auth 접근 불가 -> getCurrentUserId() 사용
+    val currentUserId = AuthManager.getCurrentUserId()
 
     // 런타임 권한 요청
     val permissionLauncher = rememberLauncherForActivityResult(

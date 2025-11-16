@@ -22,9 +22,9 @@ data class User(
     @get:PropertyName("birthDate") @set:PropertyName("birthDate")
     var birthDate: String? = null,
 
-    // 생년월일의 음력 여부
-    @get:PropertyName("isLunar") @set:PropertyName("isLunar")
-    var isLunar: Boolean? = null,
+    // 생년월일의 음력 여부 삭제
+    // @get:PropertyName("isLunar") @set:PropertyName("isLunar")
+    // var isLunar: Boolean? = null,
 
     // 가족 내 역할 또는 호칭 (예: "아빠", "딸")
     @get:PropertyName("position") @set:PropertyName("position")

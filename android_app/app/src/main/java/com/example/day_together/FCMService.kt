@@ -13,8 +13,14 @@ object FCMService {
         // 1. 초대한 사람(from)의 이름을 먼저 조회
         db.collection("users").document(fromUserId).get()
             .addOnSuccessListener { fromUserDoc ->
-                val fromUserName = fromUserDoc.getString("name") ?: "가족" // 이름이 없으면 '가족'으로 표시
+                // '?: "가족"' 기본값 제거. 대신 이름이 있는지 확인
+                val fromUserName = fromUserDoc.getString("name")
 
+                // 이름이 없거나 비어있으면 알림을 보내지 않고 함수를 종료
+                if (fromUserName.isNullOrBlank()) {
+                    Log.e("FCM", "초대한 사람(from: $fromUserId)의 이름이 null이거나 비어있어 알림을 보내지 않습니다.")
+                    return@addOnSuccessListener
+                }
                 // 2. 초대받는 사람(to)의 토큰 조회
                 db.collection("users").document(toUserId).get()
                     .addOnSuccessListener { toUserDoc ->

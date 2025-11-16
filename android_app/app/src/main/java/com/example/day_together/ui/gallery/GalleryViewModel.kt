@@ -1,6 +1,5 @@
 package com.example.day_together.ui.gallery
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.day_together.data.repository.AppRepository
@@ -11,8 +10,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.ZoneId
-import java.util.UUID
+
 
 
 /**
@@ -51,7 +49,12 @@ class GalleryViewModel(
     init {
         viewModelScope.launch {
             val user = repository.getCurrentUser()
+            // invitedChatRoomId 우선, 없으면 getMyChatRoomId() 확인
             val chatRoomId = user?.invitedChatRoomId ?: repository.getMyChatRoomId()
+
+            // chatRoomId를 상태에 저장
+            _uiState.update { it.copy(chatRoomId = chatRoomId) }
+
             chatRoomId?.let { loadImages(it) }
         }
     }
@@ -93,8 +96,11 @@ class GalleryViewModel(
 
     /** 특정 월의 댓글 목록을 불러옴. */
     private fun loadCommentsFor(yearMonth: YearMonth) {
+        val chatRoomId = _uiState.value.chatRoomId ?: return
+
         viewModelScope.launch {
-            val comments = repository.getMonthlyComments(yearMonth)
+            // chatRoomId를 함께 전달
+            val comments = repository.getMonthlyComments(chatRoomId, yearMonth)
             _uiState.update { it.copy(comments = comments) }
         }
     }
@@ -123,32 +129,33 @@ class GalleryViewModel(
         }
     }
 
-    /** 댓글 아이콘을 클릭했을 때 호출. */
+    // 댓글 아이콘을 클릭했을 때 호출
     fun onCommentIconClicked(yearMonth: YearMonth) {
         _uiState.update { it.copy(commentSheetYearMonth = yearMonth) }
         loadCommentsFor(yearMonth)
     }
 
-    /** 댓글 BottomSheet가 닫혔을 때 호출 */
+    // 댓글 BottomSheet가 닫혔을 때 호출
     fun onCommentSheetDismissed() {
         _uiState.update { it.copy(commentSheetYearMonth = null, comments = emptyList()) }
     }
 
-    /** 댓글 입력창의 텍스트가 변경될 때마다 호출 */
+    // 댓글 입력창의 텍스트가 변경될 때마다 호출
     fun onNewCommentChange(text: String) {
         _uiState.update { it.copy(newCommentText = text) }
     }
 
-    /** '전송' 버튼을 눌러 댓글을 등록할 때 호출 */
+    // '전송' 버튼을 눌러 댓글을 등록할 때 호출
     fun onSendComment() {
         if (_uiState.value.newCommentText.isBlank()) return
 
         val newComment = MonthlyComment(
-            author = "나", // 실제 앱에서는 로그인된 유저 정보를 사용
+            author = "나", // 실제 앱에서는 로그인된 유저 정보를 사용해야 함
             text = _uiState.value.newCommentText,
             timestamp = "방금 전"
         )
         val targetYearMonth = _uiState.value.commentSheetYearMonth ?: return
+        val chatRoomId = _uiState.value.chatRoomId ?: return
 
         // '낙관적 업데이트': 서버 응답을 기다리지 않고 UI에 먼저 변경사항 반영
         _uiState.update {
@@ -160,8 +167,9 @@ class GalleryViewModel(
 
         // 실제 서버(Repository)에 댓글 추가 요청
         viewModelScope.launch {
-            repository.addMonthlyComment(targetYearMonth, newComment)
-            // TODO: 요청 성공/실패에 따른 추가 로직 (예: 에러 메시지 표시)
+            // chatRoomId를 함께 전달
+            repository.addMonthlyComment(chatRoomId, targetYearMonth, newComment)
+            // TODO: 요청 성공/실패에 따른 추가 로직 (예: 에러 메시지 표시, 실패 시 롤백 등)
         }
     }
 }

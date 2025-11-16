@@ -21,7 +21,6 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -64,7 +63,7 @@ fun FindAccountScreen(
 
     // UI 상태에 따른 버튼 활성화 조건 계산
     val isFindPwButtonEnabled = uiState.findPwName.isNotBlank() && uiState.findPwEmail.isNotBlank() && !uiState.isLoading
-    val isFindIdButtonEnabled = uiState.findIdName.isNotBlank() && uiState.findIdEmail.isNotBlank() && !uiState.isLoading
+
 
     Day_togetherTheme {
         Scaffold(
@@ -125,49 +124,9 @@ fun FindAccountScreen(
                     )
                 ) { Text("비밀번호 재설정", style = MaterialTheme.typography.labelMedium) }
 
-                Divider(modifier = Modifier.padding(vertical = 32.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                // Divider 및 아이디 찾기 섹션 전체 삭제
 
-                // 아이디 찾기 섹션
-                Text(
-                    text = "아이디 찾기",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = TextPrimary),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                )
-                FindAccountTextField(
-                    label = "이름", value = uiState.findIdName, onValueChange = authViewModel::onFindIdNameChange,
-                    imeAction = ImeAction.Next, focusManager = focusManager
-                )
-                FindAccountTextField(
-                    label = "이메일", value = uiState.findIdEmail, onValueChange = authViewModel::onFindIdEmailChange,
-                    keyboardType = KeyboardType.Email, imeAction = ImeAction.Done, focusManager = focusManager,
-                    onDone = {
-                        focusManager.clearFocus()
-                        if (isFindIdButtonEnabled) { authViewModel.findId() }
-                    }
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "(입력하신 메일 주소와 일치하는 아이디를 찾아 해당 메일 주소로 전송합니다)",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, color = TextPrimary.copy(alpha = 0.7f)),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = {
-                        focusManager.clearFocus()
-                        authViewModel.findId()
-                    },
-                    enabled = isFindIdButtonEnabled,
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = ButtonActiveBackground,
-                        contentColor = ButtonActiveText,
-                        disabledContainerColor = ButtonDisabledBackground,
-                        disabledContentColor = TextPrimary.copy(alpha = 0.7f)
-                    )
-                ) { Text("아이디 찾기", style = MaterialTheme.typography.labelMedium) }
+
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }

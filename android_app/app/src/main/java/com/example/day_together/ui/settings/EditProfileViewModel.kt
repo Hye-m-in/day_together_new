@@ -27,7 +27,7 @@ data class EditProfileUiState(
     // UI 입력 필드 상태
     val nameInput: String = "",
     val birthDateInput: String = "",
-    val isLunar: Boolean = false,
+
 
 
     // '가족 역할' UI를 위한 상태
@@ -98,8 +98,8 @@ class EditProfileViewModel(
                         user = currentUser,
                         nameInput = currentUser.name,
                         birthDateInput = currentUser.birthDate ?: "",
-                        isLunar = currentUser.isLunar ?: false,
-                        // [수정] 변환된 가족 역할 UI 상태 업데이트
+
+                        // 변환된 가족 역할 UI 상태 업데이트
                         familyMemberSelections = selections,
                         otherFamilyMemberChecked = isOther,
                         otherFamilyMemberText = otherText
@@ -117,16 +117,6 @@ class EditProfileViewModel(
         _uiState.update { it.copy(nameInput = newName, nameError = null) }
     }
 
-    fun onBirthDateChange(newDate: String) {
-        if (newDate.length <= 8) {
-            val error = if (newDate.isNotEmpty() && newDate.length < 8) "8자리로 입력해주세요." else null
-            _uiState.update { it.copy(birthDateInput = newDate, birthDateError = error) }
-        }
-    }
-
-    fun onCalendarTypeChange(isLunar: Boolean) {
-        _uiState.update { it.copy(isLunar = isLunar) }
-    }
 
     // '가족 역할' UI 이벤트 핸들러 (AuthViewModel과 동일)
     fun onFamilyMemberSelectionChange(member: String, isSelected: Boolean) {
@@ -176,10 +166,8 @@ class EditProfileViewModel(
             _uiState.update { it.copy(nameError = "이름을 입력해주세요.") }
             return
         }
-        if (currentState.birthDateInput.length != 8) {
-            _uiState.update { it.copy(birthDateError = "생년월일을 8자리로 입력해주세요.")}
-            return
-        }
+        // 생년월일은 수정되지 않으므로, 유효성 검사 제거
+        // if (currentState.birthDateInput.length != 8) { ... }
 
         // 'FamilyMemberSelection' UI 상태를 'position' 문자열로 변환
         val selectedPosition = currentState.familyMemberSelections.filterValues { it }.keys.firstOrNull()
@@ -199,24 +187,33 @@ class EditProfileViewModel(
 
             // 비밀번호 변경 로직
             if (currentState.newPasswordInput.isNotEmpty()) {
-                val loginResult = repository.login(originalUser.email, currentState.oldPasswordInput)
-                if (loginResult is AuthResult.Failure) {
-                    _uiState.update { it.copy(isLoading = false, userMessage = "기존 비밀번호가 일치하지 않습니다.") }
+                // 1. 기존 비밀번호 입력 확인
+                if (currentState.oldPasswordInput.isBlank()) {
+                    _uiState.update { it.copy(isLoading = false, userMessage = "기존 비밀번호를 입력해주세요.") }
                     return@launch
                 }
+
+                // 2. 새 비밀번호 확인 일치 여부 (UI 상태에서 이미 에러가 있는지 확인)
                 if (currentState.passwordError != null) {
-                    _uiState.update { it.copy(isLoading = false, userMessage = "비밀번호를 확인해주세요.") }
+                    _uiState.update { it.copy(isLoading = false, userMessage = "새 비밀번호를 확인해주세요.") }
                     return@launch
                 }
-                repository.changePassword(originalUser.email, currentState.newPasswordInput)
+
+                // login -> changePassword(old, new) 로직 변경
+                // 이 함수 내부에서 기존 비밀번호로 재인증 후 새 비밀번호로 변경함
+                val result = repository.changePassword(currentState.oldPasswordInput, currentState.newPasswordInput)
+
+                if (result is AuthResult.Failure) {
+                    _uiState.update { it.copy(isLoading = false, userMessage = result.message) }
+                    return@launch
+                }
             }
 
             // 사용자 정보 업데이트 로직
             val updatedUser = originalUser.copy(
                 name = currentState.nameInput,
-                position = position, // 변환된 position 문자열 저장
-                birthDate = currentState.birthDateInput,
-                isLunar = currentState.isLunar
+                position = position // 변환된 position 문자열 저장
+
             )
             repository.updateUser(updatedUser)
 

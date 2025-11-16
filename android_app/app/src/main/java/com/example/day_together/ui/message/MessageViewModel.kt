@@ -6,18 +6,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.day_together.AuthManager
-import com.example.day_together.FirebaseService
 import com.example.day_together.data.model.User
 import com.example.day_together.data.repository.AppRepository
 import com.example.day_together.data.repository.AuthResult
-import com.example.day_together.data.repository.QuestionRepository
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 import java.util.*
 
 /**
@@ -45,14 +42,15 @@ data class MessageUiState(
     // MessageScreen 상태
     val messages: List<ChatMessage> = emptyList(),
     val messageText: String = "",
-    val searchText: String = "",
-    val showSearchBar: Boolean = false,
-    val showDatePicker: Boolean = false,
-    val showAttachmentOptions: Boolean = false,
-    val selectedYear: Int = Calendar.getInstance().get(Calendar.YEAR),
-    val selectedMonth: Int = Calendar.getInstance().get(Calendar.MONTH),
-    val selectedDisplayDate: Int? = null,
-    val datesWithConversations: Set<LocalDate> = emptySet(),
+    // Search, DatePicker, Attachment 관련 상태 삭제
+    // val searchText: String = "",
+    // val showSearchBar: Boolean = false,
+    // val showDatePicker: Boolean = false,
+    // val showAttachmentOptions: Boolean = false,
+    // val selectedYear: Int = Calendar.getInstance().get(Calendar.YEAR),
+    // val selectedMonth: Int = Calendar.getInstance().get(Calendar.MONTH),
+    // val selectedDisplayDate: Int? = null,
+    // val datesWithConversations: Set<LocalDate> = emptySet(),
 
     // ChatInfoScreen 상태
     val creationDate: String = "",
@@ -65,29 +63,32 @@ data class MessageUiState(
  */
 sealed interface MessageEvent {
     data class OnMessageTextChanged(val text: String) : MessageEvent
-    data class OnSearchTextChanged(val text: String) : MessageEvent
     data class SendMessage(val text: String) : MessageEvent
     data class SendImage(val imageUri: Uri) : MessageEvent
-    data object ToggleSearchBar : MessageEvent
-    data object ToggleDatePicker : MessageEvent
-    data object DismissDatePicker : MessageEvent
-    data object ToggleAttachmentPanel : MessageEvent
-    data class SelectDate(val year: Int, val month: Int, val day: Int) : MessageEvent
-    data class ChangeMonth(val year: Int, val month: Int) : MessageEvent
     data object ShowInviteDialog : MessageEvent
     data class EditChatRoomName(val newName: String) : MessageEvent
     data object DismissInviteDialog : MessageEvent
     data class InviteMember(val email: String) : MessageEvent
-    data class acceptInvitation(val invitationId: String) : MessageEvent
+    // 클래스 이름은 대문자로 시작
+    data class AcceptInvitation(val invitationId: String) : MessageEvent
     data object CreateNewChatRoom : MessageEvent
+
+    // 사용하지 않는 이벤트 삭제
+    // data class OnSearchTextChanged(val text: String) : MessageEvent
+    // data object ToggleSearchBar : MessageEvent
+    // data object ToggleDatePicker : MessageEvent
+    // data object DismissDatePicker : MessageEvent
+    // data object ToggleAttachmentPanel : MessageEvent
+    // data class SelectDate(val year: Int, val month: Int, val day: Int) : MessageEvent
+    // data class ChangeMonth(val year: Int, val month: Int) : MessageEvent
 }
 
 /**
  * MessageScreen과 ChatInfoScreen의 상태 및 로직 담당 ViewModel
  */
+// 생성자에서 questionRepository 삭제
 open class MessageViewModel(
-    private val repository: AppRepository,
-    private val questionRepository: QuestionRepository
+    private val repository: AppRepository
 ) : ViewModel() {
 
     protected val _uiState = MutableStateFlow(MessageUiState())
@@ -105,27 +106,24 @@ open class MessageViewModel(
         super.onCleared()
     }
 
-    fun loadChatRoomName(chatRoomId: String) {
-        FirebaseService.db.collection("chatRooms").document(chatRoomId).get()
-            .addOnSuccessListener { document ->
-                if (document.exists()) {
-                    val name = document.getString("name") ?: "가족 채팅방"
-                    _uiState.update { it.copy(chatRoomName = name) }
-                }
-            }
-            .addOnFailureListener {
-                Log.e("MessageViewModel", "채팅방 이름 불러오기 실패", it)
-            }
+    // AppRepository를 사용하도록 코루틴 함수로 변경
+    private suspend fun loadChatRoomName(chatRoomId: String) {
+        try {
+            val name = repository.getChatRoomName(chatRoomId) ?: "가족 채팅방"
+            _uiState.update { it.copy(chatRoomName = name) }
+        } catch (e: Exception) {
+            Log.e("MessageViewModel", "채팅방 이름 불러오기 실패", e)
+        }
     }
 
     private fun listenForMessages(chatRoomId: String) {
         messagesListener?.remove()
         messagesListener = repository.listenForMessages(chatRoomId) { newMessages ->
-            // 메시지 변환 시 imageUrl 기본값 보장
+            // content와 imageUrl은 non-nullable이므로 Elvis operator 삭제
             val updatedMessages = newMessages.map { msg ->
                 msg.copy(
-                    content = msg.content ?: "",
-                    imageUrl = msg.imageUrl ?: ""
+                    content = msg.content,
+                    imageUrl = msg.imageUrl
                 )
             }
 
@@ -148,8 +146,8 @@ open class MessageViewModel(
                 chatRoomId = chatRoomId,
                 sender = currentState.currentUserName,
                 text = messageText,
-                imageUrl = null,
-                type = "text"
+                imageUrl = null
+                // type 파라미터 삭제 (repository.sendMessage 함수 시그니처 변경됨)
             )
             _uiState.update { it.copy(messageText = "") }
         }
@@ -170,8 +168,8 @@ open class MessageViewModel(
                         chatRoomId = chatRoomId,
                         sender = currentState.currentUserName,
                         text = "",
-                        imageUrl = imageUrl,
-                        type = "image"
+                        imageUrl = imageUrl
+                        // type 파라미터 삭제
                     )
                     Log.d("MessageViewModel", "이미지 메시지 전송 완료")
                 } else {
@@ -182,9 +180,10 @@ open class MessageViewModel(
         }
     }
 
+    // AppRepository의 getTodaysQuestion 함수를 사용하도록 변경
     private fun fetchTodayQuestion() {
-        val uid = AuthManager.getCurrentUserId() ?: return
-        questionRepository.loadTodayQuestion(uid) { question ->
+        viewModelScope.launch {
+            val question = repository.getTodaysQuestion() // 코루틴으로 호출
             question?.let { q ->
                 val currentMessages = _uiState.value.messages.toMutableList()
                 currentMessages.add(
@@ -209,7 +208,7 @@ open class MessageViewModel(
             val chatRoomId = repository.findUserChatRoomId(currentUser.uid)
             if (chatRoomId != null) {
                 _uiState.update { it.copy(chatRoomId = chatRoomId) }
-                loadChatRoomName(chatRoomId)
+                loadChatRoomName(chatRoomId) // [수정] suspend 함수이므로 launch 스코프 내에서 호출
                 listenForMessages(chatRoomId)
             } else {
                 _uiState.update { it.copy(isLoading = false) }
@@ -251,7 +250,8 @@ open class MessageViewModel(
         }
     }
 
-    fun acceptInvitation(invitationId: String) {
+    // private으로 변경
+    private fun acceptInvitation(invitationId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val result = repository.acceptInvitation(invitationId)
@@ -261,7 +261,7 @@ open class MessageViewModel(
                 val newChatRoomId = repository.findUserChatRoomId(currentUid ?: "")
                 if (!newChatRoomId.isNullOrBlank()) {
                     _uiState.update { it.copy(chatRoomId = newChatRoomId, isLoading = false) }
-                    loadChatRoomName(newChatRoomId)
+                    loadChatRoomName(newChatRoomId) // [수정] suspend 함수이므로 launch 스코프 내에서 호출
                     listenForMessages(newChatRoomId)
                 } else {
                     // 안전장치: 실패했지만 수락 자체는 되었을 가능성 -> UI 상태 정리
@@ -297,19 +297,20 @@ open class MessageViewModel(
             is MessageEvent.EditChatRoomName -> {
                 updateChatRoomName(event.newName)
             }
-            is MessageEvent.acceptInvitation -> acceptInvitation(event.invitationId)
-            else -> {}
+            // 클래스 이름 변경에 따라 수정
+            is MessageEvent.AcceptInvitation -> acceptInvitation(event.invitationId)
         }
     }
 
+    // 생성자에서 questionRepository 삭제
     class MessageViewModelFactory(
-        private val repository: AppRepository,
-        private val questionRepository: QuestionRepository
+        private val repository: AppRepository
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(MessageViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return MessageViewModel(repository, questionRepository) as T
+                // 생성자에서 questionRepository 삭제
+                return MessageViewModel(repository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

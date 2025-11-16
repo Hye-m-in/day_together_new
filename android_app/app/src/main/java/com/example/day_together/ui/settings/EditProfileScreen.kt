@@ -77,8 +77,10 @@ fun EditProfileScreen(
 
     // 2. UI 로직 및 상태 계산
     // '완료' 버튼의 활성화 여부를 계산 -> 이 로직은 ViewModel의 상태에 따라 결정
-    val isCompleteButtonEnabled = !uiState.isLoading // 버튼 활성화 로직은 ViewModel에서 관리 (복잡성 제거)
-    // (ViewModel의 onSaveClicked에서 유효성 검사를 하므로, 여기서는 로딩중만 체크)
+    val isCompleteButtonEnabled = !uiState.isLoading &&
+            uiState.nameError == null &&
+            uiState.birthDateError == null && // 생일은 수정 안하지만, 기존 로직 유지
+            uiState.passwordError == null
 
 
     // 3. UI 레이아웃 구성
@@ -130,18 +132,18 @@ fun EditProfileScreen(
                         error = uiState.nameError
                     )
 
-                    // 생년월일 섹션
+                    // 생년월일 섹션 (읽기 전용으로)
                     Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("생년월일", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium, fontSize = 13.sp), color = TextPrimary, modifier = Modifier.padding(end = 12.dp))
-                            SolarLunarCheckbox(text = "양력", checked = !uiState.isLunar, onCheckedChange = { viewModel.onCalendarTypeChange(false) })
-                            Spacer(modifier = Modifier.width(16.dp))
-                            SolarLunarCheckbox(text = "음력", checked = uiState.isLunar, onCheckedChange = { viewModel.onCalendarTypeChange(true) })
-                        }
+                        // Row를 Text 라벨로 변경
+                        Text("생년월일", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium, fontSize = 13.sp), color = TextPrimary, modifier = Modifier.padding(end = 12.dp))
+
+
                         Spacer(modifier = Modifier.height(6.dp))
                         OutlinedTextField(
                             value = uiState.birthDateInput,
-                            onValueChange = viewModel::onBirthDateChange,
+                            onValueChange = { /* 수정 불가 */ },
+                            readOnly = true,
+                            enabled = false,
                             placeholder = { Text("ex)20040506", color = TextPrimary.copy(alpha = 0.6f), fontSize = 14.sp) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
@@ -149,11 +151,14 @@ fun EditProfileScreen(
                             supportingText = {
                                 uiState.birthDateError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                             },
-                            textStyle = MaterialTheme.typography.bodyMedium.copy(color = TextPrimary, fontSize = 15.sp),
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(color = TextPrimary.copy(alpha = 0.7f), fontSize = 15.sp), // [수정] 비활성화 텍스트 색상
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                             keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                             shape = RoundedCornerShape(8.dp),
-                            colors = OutlinedTextFieldDefaults.colors()
+                            colors = OutlinedTextFieldDefaults.colors(
+                                disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), // [수정]
+                                disabledTextColor = TextPrimary.copy(alpha = 0.7f) // [수정]
+                            )
                         )
                     }
 
@@ -252,7 +257,8 @@ private fun EditProfileTextField(
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), // [수정]
+                disabledTextColor = TextPrimary.copy(alpha = 0.7f), // [수정]
                 cursorColor = MaterialTheme.colorScheme.primary,
             ),
             enabled = !readOnly
@@ -260,11 +266,3 @@ private fun EditProfileTextField(
     }
 }
 
-@Composable
-private fun SolarLunarCheckbox(text: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onCheckedChange(true) }) {
-        Checkbox(checked = checked, onCheckedChange = null, modifier = Modifier.size(20.dp), colors = CheckboxDefaults.colors())
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(text, style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp), color = TextPrimary)
-    }
-}

@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION") // Google Sign-In 레거시 API 사용에 따른 경고 무시
+
 package com.example.day_together.ui.auth
 
 import android.app.Activity
@@ -34,7 +36,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -55,15 +56,6 @@ import com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes
 // 네이버 SDK import
 import com.navercorp.nid.NaverIdLoginSDK
 import com.navercorp.nid.oauth.OAuthLoginCallback
-
-// 서버 호출용(Volley) - 더 이상 필요하지 않으므로 주석 처리함
-// import com.android.volley.Request
-// import com.android.volley.toolbox.JsonObjectRequest
-// import com.android.volley.toolbox.Volley
-// import org.json.JSONObject
-
-// Firebase 커스텀 토큰 로그인 - 더 이상 필요하지 않으므로 주석 처리
-// import com.google.firebase.auth.FirebaseAuth
 
 /**
  * 네이버 SDK 오류 메시지를 사람이 읽기 쉽게 포맷팅
@@ -118,7 +110,6 @@ fun LoginScreen(
     // 비밀번호 표시 여부 상태
     var passwordVisible by remember { mutableStateOf(false) }
 
-
     // 구글 로그인 준비 코드
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -132,8 +123,6 @@ fun LoginScreen(
                 Toast.makeText(context, "ID 토큰을 가져오지 못했습니다. 잠시 후 다시 시도해주세요.", Toast.LENGTH_LONG).show()
                 return@rememberLauncherForActivityResult
             }
-            // 서버 경유 로그인으로 통일
-            // authViewModel.signInWithGoogle(idToken)  (Firebase 직접 로그인)
             // 서버로 idToken을 보내 커스텀 토큰을 받아 Firebase에 로그인
             authViewModel.signInWithGoogleViaServer(idToken)
         } catch (e: ApiException) {
@@ -204,7 +193,7 @@ fun LoginScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // 이메일
+                // 이메일 입력 필드
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -253,7 +242,7 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // 비밀번호
+                // [복구] 비밀번호 입력 필드
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = "Password",
