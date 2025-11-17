@@ -222,11 +222,11 @@ async def naver_login(body: NaverTokenRequest):
     #2. Firebase 사용자 확인
     try:
         user_record = fb_auth.get_user_by_email(email)
-        #이미 존재 하면 -> 로그인 처리
+        #이미 존재하면 -> 로그인 처리
         print(f"[DEBUG] Found existing user for {email}, uid={user_record.uid}")
         
     except fb_auth.UserNotFoundError:
-        # 👉 신규 회원가입 처리
+        #  신규 회원가입 처리
         try:
             fb_auth.get_user(uid)
             print(f"[DEBUG] Auth user {uid} already exists")

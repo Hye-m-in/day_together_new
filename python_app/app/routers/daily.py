@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 import pytz
 
 from app.gpt.question_generator import generate_daily_question as gen_q
+
+
 router = APIRouter()
 db = firestore.Client()
 
