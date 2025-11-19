@@ -176,8 +176,10 @@ def google_login(body: GoogleTokenRequest = Body(..., description="Google ID 토
             "email":    email,
             "name":     name,
             "profile_image": picture,
-            "invitedChatRoomId": None # Firestore에서 null로 저장됨
+            "invitedChatRoomId": None, # Firestore에서 null로 저장됨
+            "position" : None
         }, merge=True)
+        
 
         # 4. 커스텀토큰 생성 및 반환
         custom_token_bytes = fb_auth.create_custom_token(uid)
@@ -244,7 +246,8 @@ async def naver_login(body: NaverTokenRequest):
             "name":          profile.get("name"),
             "nickname":      profile.get("nickname"),
             "profile_image": profile.get("profile_image"),
-            "invitedChatRoomId" : None
+            "invitedChatRoomId" : None,
+            "position" : None
         }, merge=True)
         print(f"[DEBUG] Firestore 저장 완료: users/{uid}")
 

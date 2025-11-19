@@ -1,20 +1,21 @@
 package com.example.day_together.ui.auth
 
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.day_together.data.repository.AuthRepository
+import com.google.firebase.auth.FirebaseAuth
 import com.example.day_together.data.repository.AppRepository
 import com.example.day_together.data.repository.AuthResult
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.net.URL
+import java.util.UUID
 
-
-/**
- * 데이터를 한 곳(ViewModel)에서만 통제함으로써 코드가 꼬이는 것을 막음
- * UI 화면이 마음대로 데이터를 바꾸면 앱이 복잡해질수록 어디서 버그가 생기는지 찾기 매우 어려워짐
- */
 
 /**
  * 로그인, 회원가입, 계정 찾기 등 인증 관련 화면들의
@@ -23,8 +24,6 @@ import kotlinx.coroutines.launch
 class AuthViewModel : ViewModel() {
 
     private val repository: AppRepository = AppRepository
-
-
     /**
      * 인증 화면의 모든 UI 상태를 관리하는 StateFlow. View는 이 State를 구독(실시간 상태 감지)하여 UI에 반영
      * StateFlow : 실시간으로 업데이트되는 '상태 게시판'
@@ -36,7 +35,6 @@ class AuthViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(AuthUiState())
     // public : ViewModel 외부에서는 오직 읽기만 가능한 공개용 게시판
     val uiState = _uiState.asStateFlow()
-
 
     /**
      * 이벤트 핸들러 함수들
@@ -51,10 +49,8 @@ class AuthViewModel : ViewModel() {
      * 이벤트 발생 -> 핸들러 호출 -> ViewModel의 상태 업데이트 -> 화면 자동 변경
      */
 
-    // 이메일/비밀번호 변경 핸들러
     fun onLoginEmailChange(email: String) { _uiState.update { it.copy(loginEmail = email, loginError = null) } }
     fun onLoginPasswordChange(password: String) { _uiState.update { it.copy(loginPassword = password, loginError = null) } }
-
     fun onSignUpNameChange(name: String) { _uiState.update { it.copy(signUpName = name) } }
     fun onSignUpBirthDateChange(date: String) {
         // 생년월일은 8자리까지 입력 가능
@@ -63,11 +59,12 @@ class AuthViewModel : ViewModel() {
             _uiState.update { it.copy(signUpBirthDate = date, signUpBirthDateError = error) }
         }
     }
+    fun onSignUpIsLunarChange(isLunar: Boolean) { _uiState.update { it.copy(signUpIsLunar = isLunar) } }
 
     fun onSignUpEmailChange(email: String) {
         // 이메일 형식 실시간 검증
         val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$")
-        val error = if (email.isNotEmpty() && !email.matches(emailRegex)) "이메일 형식이 올바르지 않습니다." else null
+        val error = if (email.isNotEmpty() && !email.matches(emailRegex)) "이메일 형식이 올바르지 않아요." else null
         _uiState.update { it.copy(signUpEmail = email, signUpEmailError = error) }
     }
 
@@ -86,54 +83,113 @@ class AuthViewModel : ViewModel() {
     }
 
     fun onSignUpConfirmPasswordChange(password: String) {
-        val error = if (password.isNotEmpty() && password != _uiState.value.signUpPassword) "비밀번호가 일치하지 않습니다." else null
+        val error = if (password.isNotEmpty() && password != _uiState.value.signUpPassword) "비밀번호가 일치하지 않아요." else null
         _uiState.update { it.copy(signUpConfirmPassword = password, signUpConfirmPasswordError = error) }
     }
 
+    fun uploadProfileImagesAndSignUp(){
+        val uri = _uiState.value.profileImageUri
+        if (uri == null){
+            // 프로필 이미지 없이 회원가입
+            signUpWithoutImage()
+            return
+        }
+
+        val storageRef = FirebaseStorage.getInstance().reference
+        val imageRef = storageRef.child("profile_image/${UUID.randomUUID()}.jpg")
+
+        imageRef.putFile(uri).addOnSuccessListener {
+            imageRef.downloadUrl.addOnSuccessListener { downloadUri ->
+                _uiState.update { it.copy(profileImageUrl = downloadUri.toString()) }
+                signUpWithoutImage() // 이미지 업로드 후 회원가입 실행
+            }
+        }.addOnFailureListener { e ->
+            Log.e("AuthViewModel", "프로필 이미지 업로드 실패", e)
+            // 업로드 실패 시 이미지 없이 회원가입
+            signUpWithoutImage()
+        }
+    }
+
+    private fun signUpWithoutImage() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, signUpResult = null) }
+
+            val result = repository.signUp(
+                name = _uiState.value.signUpName,
+                email = _uiState.value.signUpEmail,
+                password = _uiState.value.signUpPassword,
+                profileImage = _uiState.value.profileImageUrl ?: "" // URL 전달 (null 대신 빈 문자열)
+            )
+
+            if (result is AuthResult.Success) {
+                repository.login(_uiState.value.signUpEmail, _uiState.value.signUpPassword)
+                _uiState.update { it.copy(isLoading = false, signUpResult = result, isSignUpAndLoginSuccess = true) }
+            } else {
+                _uiState.update { it.copy(isLoading = false, signUpResult = result) }
+            }
+        }
+    }
+
     fun onProfileImageChanged(uri: Uri?) {
+        Log.d("AuthViewModel", "선택된 이미지 URI: $uri")
         _uiState.update { it.copy(profileImageUri = uri) }
     }
 
-    // 가족 역할 선택 로직 (라디오 버튼처럼 동작)
     fun onFamilyMemberSelectionChange(member: String, isSelected: Boolean) {
-        val updatedSelections = _uiState.value.familyMemberSelections.toMutableMap().apply {
-            // 모든 선택을 해제
-            keys.forEach { put(it, false) }
-            // 현재 것만 선택
-            if (isSelected) {
-                put(member, true)
-            }
-        }
-        // 기타가 아닌 것을 선택하면 '기타' 체크 해제
-        _uiState.update { it.copy(familyMemberSelections = updatedSelections, otherFamilyMemberChecked = false, otherFamilyMemberText = "") }
+        val updatedSelections = _uiState.value.familyMemberSelections.toMutableMap().apply { this[member] = isSelected }
+        _uiState.update { it.copy(familyMemberSelections = updatedSelections) }
     }
-
     fun onOtherFamilyMemberCheckedChange(isChecked: Boolean) {
-        // 기타를 체크하면 다른 모든 선택지 해제
-        val updatedSelections = _uiState.value.familyMemberSelections.toMutableMap().apply {
-            keys.forEach { put(it, false) }
-        }
-        // 기타 체크 해제 시, 입력 텍스트도 초기화
+        // '기타' 체크 해제 시, 입력 텍스트도 초기화
         val newText = if (!isChecked) "" else _uiState.value.otherFamilyMemberText
-        _uiState.update { it.copy(otherFamilyMemberChecked = isChecked, otherFamilyMemberText = newText, familyMemberSelections = updatedSelections) }
+        _uiState.update { it.copy(otherFamilyMemberChecked = isChecked, otherFamilyMemberText = newText) }
     }
-
     fun onOtherFamilyMemberTextChange(text: String) { if (text.length <= 10) _uiState.update { it.copy(otherFamilyMemberText = text) } }
     fun onFindPwNameChange(name: String) { _uiState.update { it.copy(findPwName = name) } }
     fun onFindPwEmailChange(email: String) { _uiState.update { it.copy(findPwEmail = email) } }
+    fun onFindIdNameChange(name: String) { _uiState.update { it.copy(findIdName = name) } }
+    fun onFindIdEmailChange(email: String) { _uiState.update { it.copy(findIdEmail = email) } }
 
     /**
      * 실제 비즈니스 로직(로그인, 회원가입 등) 실행하는 함수
      * -> 사용자 액션 처리(로그인이나 회원가입 버튼 눌렀을 때)
+     *
+     * 역할1. 비동기 처리 : 서버 통신 등 시간 걸리는 작업 'viewModelScope.launch'안에서 처리함으로써 앱이 계속 동작하도록 함
+     * 역할2. 로딩 상태 관리 : 작업 시작 전 isLoading -> true, 작업 완료 후 false 처리로 ui에 로딩 스피너 표시
+     * 역할3. 결과 처리 : repository로부터 받은 작업 결과(AuthResult) 성공/실패 여부에 따라 _uiState 다르게 업데이트
+     *
+     * 로딩 스피너(Loading Spinner) : 앱에 데이터 불러오거나 작업 처리 중일 때 사용자에게 알려주는 로딩 아이콘
      */
 
     // 로그인 로직 실행
     fun login() {
+        // 로그인 로딩 상태 시작
         _uiState.update { it.copy(isLoading = true, isLoginSuccess = false, loginError = null) }
+        // 실제 작업 수행
         viewModelScope.launch {
+            // Repository에게 이메일과 비밀번호 주고 로그인 요청 -> 결과 기다림
             val result = repository.login(email = _uiState.value.loginEmail, password = _uiState.value.loginPassword)
+            // 결과에 따라 상태 업데이트
             _uiState.update {
                 when(result) {
+                    // 로딩 끝 : 로그인 성공 시 true, 실패 시 에러 메시지 기록
+                    is AuthResult.Success -> it.copy(isLoading = false, isLoginSuccess = true)
+                    is AuthResult.Failure -> it.copy(isLoading = false, loginError = result.message)
+                }
+            }
+        }
+    }
+
+    /**
+     * 구글 ID 토큰으로 Firebase에 직접 로그인하는 로직
+     * 지금은 사용하지 않지만, 레거시/비교용으로 남겨둠
+     */
+    fun signInWithGoogle(idToken: String) {
+        _uiState.update { it.copy(isLoading = true, isLoginSuccess = false, loginError = null) }
+        viewModelScope.launch {
+            val result = repository.signInWithGoogle(idToken)
+            _uiState.update {
+                when (result) {
                     is AuthResult.Success -> it.copy(isLoading = false, isLoginSuccess = true)
                     is AuthResult.Failure -> it.copy(isLoading = false, loginError = result.message)
                 }
@@ -143,7 +199,7 @@ class AuthViewModel : ViewModel() {
 
     /**
      * 구글 ID 토큰을 서버로 보내 커스텀 토큰을 받은 뒤 Firebase에 로그인
-     * UI(LoginScreen)에서는 이 함수를 호출
+     * UI(LoginScreen)에서는 이 함수를 호출하도록 변경
      */
     fun signInWithGoogleViaServer(idToken: String) {
         _uiState.update { it.copy(isLoading = true, isLoginSuccess = false, loginError = null) }
@@ -159,8 +215,9 @@ class AuthViewModel : ViewModel() {
     }
 
     // 네이버 로그인을 처리하는 새로운 함수
-    // UI로부터 네이버 액세스 토큰을 받아 로그인 과정을 시작시키는 함수
-
+    /**
+     * UI로부터 네이버 액세스 토큰을 받아 로그인 과정을 시작시키는 함수
+     */
     fun onNaverLoginSuccess(accessToken: String) {
         _uiState.update { it.copy(isLoading = true, isLoginSuccess = false, loginError = null) }
         viewModelScope.launch {
@@ -177,30 +234,14 @@ class AuthViewModel : ViewModel() {
     // 회원가입 로직 실행
     fun signUp() {
         _uiState.update { it.copy(isLoading = true, signUpResult = null) }
-
-        // UI 상태에서 'position' 문자열을 생성
-        val currentState = _uiState.value
-        val selectedPosition = currentState.familyMemberSelections.filterValues { it }.keys.firstOrNull()
-        val position = if (currentState.otherFamilyMemberChecked) {
-            currentState.otherFamilyMemberText
-        } else {
-            selectedPosition ?: "" // 선택된 것이 없으면 빈 문자열 (버튼 활성화 로직이 있으므로 빈 값일 수 없음)
-        }
-
         viewModelScope.launch {
-            val result = repository.registerUser(
-                name = currentState.signUpName,
-                email = currentState.signUpEmail,
-                password = currentState.signUpPassword,
-                birthDate = currentState.signUpBirthDate, // 생년월일
-                position = position                       // 가족 역할
-            )
-
-            if (result is AuthResult.Success) {
-                // isSignUpAndLoginSuccess -> isSignUpSuccess
-                _uiState.update { it.copy(isLoading = false, signUpResult = result, isSignUpSuccess = true) }
+            val uri = _uiState.value.profileImageUri
+            if (uri != null) {
+                // 프로필 이미지가 있으면 업로드 후 회원가입 실행
+                uploadProfileImagesAndSignUp()
             } else {
-                _uiState.update { it.copy(isLoading = false, signUpResult = result) }
+                // 이미지 없이 회원가입
+                signUpWithoutImage()
             }
         }
     }
@@ -214,22 +255,39 @@ class AuthViewModel : ViewModel() {
         }
     }
 
+    // 아이디 찾기 로직
+    fun findId() {
+        _uiState.update { it.copy(isLoading = true, findAccountResult = null) }
+        viewModelScope.launch {
+            val result = repository.findId(
+                name = _uiState.value.findIdName,
+                email = _uiState.value.findIdEmail
+            )
+            _uiState.update { it.copy(isLoading = false, findAccountResult = result) }
+        }
+    }
+
     /**
-     * 상태 초기화 함수
+     * 상태 초기화 함수 : 특정 액션이 끝난 후, 관련 상태를 초기화하여 UI를 정리
+     * -> 일회성 상태 제거 -> 에러메세지, 작업 성공 여부 등 더 이상 필요 없는 상태값 초기화
+     * -> ui 호출 : 화면 이동, 메세지 표시 등의 동작 직후에 함수 호출 후 정리
      */
     fun clearLoginError() { _uiState.update { it.copy(loginError = null, isLoginSuccess = false) } }
-    fun clearSignUpResult() { _uiState.update { it.copy(signUpResult = null, isSignUpSuccess = false) } }
+    fun clearSignUpResult() { _uiState.update { it.copy(signUpResult = null, isSignUpAndLoginSuccess = false) } }
     fun clearFindAccountResult() { _uiState.update { it.copy(findAccountResult = null) } }
 }
 
 /**
- * AuthUiState 클래스
+ * AuthUiState 클래스 : 비동기 작업 포함한 앱의 상태 관리하는 도구
+ *
+ * AuthUiState : UI 화면 설계도, 인증 화면에 필요한 모든 정보의 설계도
+ * -> 화면에 필요한 모든 데이터(이메일 입력 값, 비밀번호 입력 값, 로딩 중 여부, 에러메시지 등)를 'data class'에 모아둠
  */
 data class AuthUiState(
     // 공통 상태
     val isLoading: Boolean = false,
 
-    // 로그인 화면 상태 (이메일/비밀번호 입력 필드)
+    // 로그인 화면 상태
     val loginEmail: String = "",
     val loginPassword: String = "",
     val isLoginSuccess: Boolean = false,
@@ -238,6 +296,7 @@ data class AuthUiState(
     // 회원가입 화면 상태
     val signUpName: String = "",
     val signUpBirthDate: String = "",
+    val signUpIsLunar: Boolean = false,
     val signUpEmail: String = "",
     val signUpPassword: String = "",
     val signUpConfirmPassword: String = "",
@@ -245,14 +304,17 @@ data class AuthUiState(
     val signUpPasswordError: String? = null,
     val signUpConfirmPasswordError: String? = null,
     val signUpBirthDateError: String? = null,
-    val profileImageUri: Uri? = null,
     val familyMemberSelections: Map<String, Boolean> = emptyMap(),
     val otherFamilyMemberChecked: Boolean = false,
     val otherFamilyMemberText: String = "",
     val signUpResult: AuthResult? = null,
-    val isSignUpSuccess: Boolean = false,
+    val isSignUpAndLoginSuccess: Boolean = false,
+    val profileImageUri: Uri? = null,
+    val profileImageUrl: String? = null,
 
-    // 계정 찾기 화면 상태 (비밀번호 찾기)
+    // 계정 찾기 화면 상태
+    val findIdName: String = "",
+    val findIdEmail: String = "",
     val findPwName: String = "",
     val findPwEmail: String = "",
     val findAccountResult: AuthResult? = null
