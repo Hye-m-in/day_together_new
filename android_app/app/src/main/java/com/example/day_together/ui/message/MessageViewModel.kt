@@ -28,7 +28,8 @@ data class ChatMessage(
     val content: String = "",
     val sender: String = "",
     val timestamp: Date = Date(),
-    val imageUrl: String = ""
+    val imageUrl: String = "",
+    val type: String = ""
 )
 
 /**

@@ -151,10 +151,10 @@ object AppRepository {
     /**
      * 사용자 정보로 회원가입 요청
      */
-    suspend fun signUp(name: String, email: String, password: String): AuthResult {
+    suspend fun signUp(name: String, email: String, password: String, profileImage: String): AuthResult {
         val defaultPosition = "가족" // 회원가입 시 기본 역할
         return suspendCancellableCoroutine { continuation ->
-            authManager.registerUser(name, email, password, defaultPosition) { success, errorMessage ->
+            authManager.registerUser(name, email, password, defaultPosition, profileImage) { success, errorMessage ->
                 if (continuation.isActive) {
                     if (success) continuation.resume(AuthResult.Success)
                     else continuation.resume(AuthResult.Failure(errorMessage ?: "회원가입 실패"))
@@ -238,11 +238,6 @@ object AppRepository {
         println("TODO: 아이디 찾기 요청: $name, $email")
         delay(1000)
         return AuthResult.Success
-    }
-
-    suspend fun getUser(userId: String): User? {
-        println("TODO: 특정 사용자 정보 가져오기: $userId")
-        return User(uid = userId, name = "가족 구성원", email = "family@example.com")
     }
 
     // --- HomeViewModel 관련 함수들 ---
@@ -504,6 +499,26 @@ object AppRepository {
             Log.e("AppRepository", "acceptInvitation 실패", e)
             AuthResult.Failure("초대 수락 중 오류가 발생했습니다.")
         }
+    }
+
+    // 실시간 초대 감지 리스너 함수
+    fun listenForInvitations(
+        userId: String,
+        onInvitationReceived: (String?) -> Unit
+    ): ListenerRegistration {
+        return ChatRoomManager.db.collection("users").document(userId).collection("invitations")
+            .whereEqualTo("status", "pending")
+            .limit(1)
+            .addSnapshotListener { snapshots, error ->
+                if (error != null) {
+                    Log.w("ChatRoomManager", "Invitation listen failed.", error)
+                    onInvitationReceived(null)
+                    return@addSnapshotListener
+                }
+
+                val pendingInvitationId = snapshots?.documents?.firstOrNull()?.id
+                onInvitationReceived(pendingInvitationId)
+            }
     }
 
     /**
