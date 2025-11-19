@@ -42,15 +42,6 @@ data class MessageUiState(
     // MessageScreen 상태
     val messages: List<ChatMessage> = emptyList(),
     val messageText: String = "",
-    // Search, DatePicker, Attachment 관련 상태 삭제
-    // val searchText: String = "",
-    // val showSearchBar: Boolean = false,
-    // val showDatePicker: Boolean = false,
-    // val showAttachmentOptions: Boolean = false,
-    // val selectedYear: Int = Calendar.getInstance().get(Calendar.YEAR),
-    // val selectedMonth: Int = Calendar.getInstance().get(Calendar.MONTH),
-    // val selectedDisplayDate: Int? = null,
-    // val datesWithConversations: Set<LocalDate> = emptySet(),
 
     // ChatInfoScreen 상태
     val creationDate: String = "",
@@ -69,24 +60,13 @@ sealed interface MessageEvent {
     data class EditChatRoomName(val newName: String) : MessageEvent
     data object DismissInviteDialog : MessageEvent
     data class InviteMember(val email: String) : MessageEvent
-    // 클래스 이름은 대문자로 시작
     data class AcceptInvitation(val invitationId: String) : MessageEvent
     data object CreateNewChatRoom : MessageEvent
-
-    // 사용하지 않는 이벤트 삭제
-    // data class OnSearchTextChanged(val text: String) : MessageEvent
-    // data object ToggleSearchBar : MessageEvent
-    // data object ToggleDatePicker : MessageEvent
-    // data object DismissDatePicker : MessageEvent
-    // data object ToggleAttachmentPanel : MessageEvent
-    // data class SelectDate(val year: Int, val month: Int, val day: Int) : MessageEvent
-    // data class ChangeMonth(val year: Int, val month: Int) : MessageEvent
 }
 
 /**
  * MessageScreen과 ChatInfoScreen의 상태 및 로직 담당 ViewModel
  */
-// 생성자에서 questionRepository 삭제
 open class MessageViewModel(
     private val repository: AppRepository
 ) : ViewModel() {
@@ -106,7 +86,6 @@ open class MessageViewModel(
         super.onCleared()
     }
 
-    // AppRepository를 사용하도록 코루틴 함수로 변경
     private suspend fun loadChatRoomName(chatRoomId: String) {
         try {
             val name = repository.getChatRoomName(chatRoomId) ?: "가족 채팅방"
@@ -119,7 +98,6 @@ open class MessageViewModel(
     private fun listenForMessages(chatRoomId: String) {
         messagesListener?.remove()
         messagesListener = repository.listenForMessages(chatRoomId) { newMessages ->
-            // content와 imageUrl은 non-nullable이므로 Elvis operator 삭제
             val updatedMessages = newMessages.map { msg ->
                 msg.copy(
                     content = msg.content,
@@ -147,7 +125,6 @@ open class MessageViewModel(
                 sender = currentState.currentUserName,
                 text = messageText,
                 imageUrl = null
-                // type 파라미터 삭제 (repository.sendMessage 함수 시그니처 변경됨)
             )
             _uiState.update { it.copy(messageText = "") }
         }
@@ -169,9 +146,7 @@ open class MessageViewModel(
                         sender = currentState.currentUserName,
                         text = "",
                         imageUrl = imageUrl
-                        // type 파라미터 삭제
                     )
-                    Log.d("MessageViewModel", "이미지 메시지 전송 완료")
                 } else {
                     Log.e("MessageViewModel", "이미지 업로드 실패")
                     _uiState.update { it.copy(errorMessage = "이미지 업로드에 실패했습니다.") }
@@ -180,10 +155,9 @@ open class MessageViewModel(
         }
     }
 
-    // AppRepository의 getTodaysQuestion 함수를 사용하도록 변경
     private fun fetchTodayQuestion() {
         viewModelScope.launch {
-            val question = repository.getTodaysQuestion() // 코루틴으로 호출
+            val question = repository.getTodaysQuestion()
             question?.let { q ->
                 val currentMessages = _uiState.value.messages.toMutableList()
                 currentMessages.add(
@@ -208,7 +182,7 @@ open class MessageViewModel(
             val chatRoomId = repository.findUserChatRoomId(currentUser.uid)
             if (chatRoomId != null) {
                 _uiState.update { it.copy(chatRoomId = chatRoomId) }
-                loadChatRoomName(chatRoomId) // [수정] suspend 함수이므로 launch 스코프 내에서 호출
+                loadChatRoomName(chatRoomId)
                 listenForMessages(chatRoomId)
             } else {
                 _uiState.update { it.copy(isLoading = false) }
@@ -232,6 +206,7 @@ open class MessageViewModel(
         }
     }
 
+    // [수정됨] 초대 성공 시 화면 즉시 전환 로직 추가
     private fun inviteMember(email: String) {
         val inviterId = AuthManager.getCurrentUserId()
         if (inviterId.isNullOrBlank()) {
@@ -243,28 +218,42 @@ open class MessageViewModel(
         viewModelScope.launch {
             val result = repository.createInvitation(inviterId, email)
             if (result is AuthResult.Success) {
-                _uiState.update { it.copy(showInviteDialog = false, isLoading = false) }
+                // [중요] 성공 결과에 포함된 chatRoomId를 사용하여 화면 갱신
+                val newChatRoomId = result.chatRoomId
+                if (newChatRoomId != null) {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            showInviteDialog = false,
+                            chatRoomId = newChatRoomId
+                        )
+                    }
+                    // 채팅방 이름 및 메시지 리스너 로드
+                    loadChatRoomName(newChatRoomId)
+                    listenForMessages(newChatRoomId)
+                } else {
+                    // ID가 없을 경우(예외적 상황) 다시 로드 시도
+                    _uiState.update { it.copy(showInviteDialog = false, isLoading = false) }
+                    fetchChatRoomInfo()
+                }
             } else if (result is AuthResult.Failure) {
                 _uiState.update { it.copy(isLoading = false, errorMessage = result.message) }
             }
         }
     }
 
-    // private으로 변경
     private fun acceptInvitation(invitationId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val result = repository.acceptInvitation(invitationId)
             if (result is AuthResult.Success) {
-                // 수락 성공: 사용자의 채팅방 ID 다시 조회하거나 invitation 문서에서 chatRoomId를 읽어 업데이트
                 val currentUid = AuthManager.getCurrentUserId()
                 val newChatRoomId = repository.findUserChatRoomId(currentUid ?: "")
                 if (!newChatRoomId.isNullOrBlank()) {
                     _uiState.update { it.copy(chatRoomId = newChatRoomId, isLoading = false) }
-                    loadChatRoomName(newChatRoomId) // [수정] suspend 함수이므로 launch 스코프 내에서 호출
+                    loadChatRoomName(newChatRoomId)
                     listenForMessages(newChatRoomId)
                 } else {
-                    // 안전장치: 실패했지만 수락 자체는 되었을 가능성 -> UI 상태 정리
                     _uiState.update { it.copy(isLoading = false) }
                 }
             } else if (result is AuthResult.Failure) {
@@ -297,19 +286,16 @@ open class MessageViewModel(
             is MessageEvent.EditChatRoomName -> {
                 updateChatRoomName(event.newName)
             }
-            // 클래스 이름 변경에 따라 수정
             is MessageEvent.AcceptInvitation -> acceptInvitation(event.invitationId)
         }
     }
 
-    // 생성자에서 questionRepository 삭제
     class MessageViewModelFactory(
         private val repository: AppRepository
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(MessageViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                // 생성자에서 questionRepository 삭제
                 return MessageViewModel(repository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")

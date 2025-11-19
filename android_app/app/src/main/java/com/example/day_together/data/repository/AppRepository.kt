@@ -327,8 +327,8 @@ object AppRepository {
 
     /**
      * 특정 사용자가 속한 채팅방 ID를 찾음
-     * 'invitations' 컬렉션에서 수락(accepted)된 초대를 먼저 확인하고,
-     * 없으면 'chatRooms' 컬렉션에서 'members' 배열에 포함된 경우를 찾음
+     * [수정됨] 1순위: User 문서 내의 'invitedChatRoomId' 필드 확인 (가장 빠르고 정확)
+     * [수정됨] 2순위: 'chatRooms' 컬렉션에서 'members' 배열 검색 (Fallback)
      * @param userId 채팅방을 찾을 사용자의 ID
      * @return 채팅방 ID (String), 실패 시 null
      */
@@ -339,29 +339,36 @@ object AppRepository {
         }
 
         return try {
-            // 1. 'users'/{userId}/'invitations' 컬렉션에서 'accepted' 상태인 초대 확인
-            val invitationsSnap = FirebaseFirestore.getInstance().collection("users")
+            // [수정된 로직] 1. 'users'/{userId} 문서를 직접 조회하여 'invitedChatRoomId' 필드 확인
+            val userSnapshot = FirebaseFirestore.getInstance()
+                .collection("users")
                 .document(userId)
-                .collection("invitations")
-                .whereEqualTo("status", "accepted")
-                .limit(1)
                 .get()
                 .await()
 
-            val acceptedChatRoomId = invitationsSnap.documents.firstOrNull()
-                ?.getString("chatRoomId")
+            val directChatRoomId = userSnapshot.getString("invitedChatRoomId")
 
-            if (!acceptedChatRoomId.isNullOrBlank()) {
-                return acceptedChatRoomId // 수락한 초대의 채팅방 ID 반환
+            if (!directChatRoomId.isNullOrBlank()) {
+                Log.d("AppRepository", "유저 정보에서 채팅방 ID 발견: $directChatRoomId")
+                return directChatRoomId
             }
 
-            // 2. 수락한 초대가 없으면, 'chatRooms' 컬렉션에서 'members' 필드로 검색 (Fallback)
+            // [기존 로직 Fallback] 2. 유저 정보에 ID가 없다면 'chatRooms' 컬렉션 검색
             val chatRooms = FirebaseFirestore.getInstance().collection("chatRooms")
                 .whereArrayContains("members", userId)
                 .limit(1)
                 .get()
                 .await()
-            chatRooms.documents.firstOrNull()?.id // 찾은 채팅방 ID 반환
+
+            val foundId = chatRooms.documents.firstOrNull()?.id
+
+            // (선택 사항) 찾았다면 다음을 위해 유저 정보에 업데이트
+            if (foundId != null) {
+                FirebaseFirestore.getInstance().collection("users").document(userId)
+                    .update("invitedChatRoomId", foundId)
+            }
+
+            return foundId
         } catch (e: Exception) {
             Log.e("AppRepository", "findUserChatRoomId 실행 중 오류 발생", e)
             null
@@ -470,7 +477,13 @@ object AppRepository {
                 }
 
             // 3. 기존 채팅방이 없으면 새로 생성
+            // [수정] chatRoomId를 변수에 할당하여 성공 시 반환할 수 있도록 함
             val chatRoomId = existingChatRoom?.id ?: createNewChatRoom(inviterUserId)
+
+            // [추가] 채팅방 생성 실패 시 처리
+            if (chatRoomId == null) {
+                return AuthResult.Failure("채팅방을 생성할 수 없습니다.")
+            }
 
             val invitationId = UUID.randomUUID().toString()
             val invitationData = hashMapOf(
@@ -487,7 +500,8 @@ object AppRepository {
                 .set(invitationData)
                 .await()
 
-            AuthResult.Success()
+            // [수정] 성공 시 chatRoomId를 함께 반환
+            AuthResult.Success(chatRoomId)
         } catch (e: Exception) {
             Log.e("AppRepository", "inviteMember 실패", e)
             AuthResult.Failure("초대 전송 중 오류가 발생했습니다.")
