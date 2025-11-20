@@ -337,15 +337,33 @@ fun MessageBubble(message: ChatMessage, isMine: Boolean) {
             verticalAlignment = Alignment.Bottom
         ) {
             if (!isMine) {
-                // 상대방: [말풍선] [시간]
-                SenderBubble(message, isMine = false)
+                // 상대방 메시지: [말풍선(가변)] + [공백] + [시간(고정)]
+
+                // weight(1f, fill = false) 적용 -> 시간이 표시될 공간을 확보하고 남은 공간만 차지함
+                SenderBubble(
+                    message,
+                    isMine = false,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+
                 Spacer(modifier = Modifier.width(6.dp))
+
+                // 시간 표시는 그대로 둠
                 MessageTime(timeText)
+
             } else {
-                // 나: [시간] [말풍선]
+                // 내 메시지: [시간(고정)] + [공백] + [말풍선(가변)]
+
                 MessageTime(timeText)
+
                 Spacer(modifier = Modifier.width(6.dp))
-                SenderBubble(message, isMine = true)
+
+
+                SenderBubble(
+                    message,
+                    isMine = true,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
             }
         }
     }
@@ -353,8 +371,9 @@ fun MessageBubble(message: ChatMessage, isMine: Boolean) {
 
 
 @Composable
-private fun SenderBubble(message: ChatMessage, isMine: Boolean = false) {
+private fun SenderBubble(message: ChatMessage, isMine: Boolean = false, modifier: Modifier = Modifier) {
     Surface(
+        modifier = modifier,
         shape = RoundedCornerShape(16.dp),
         color = if (isMine)
             MaterialTheme.colorScheme.primary
