@@ -123,7 +123,7 @@ fun MainScreen(appNavController: NavHostController) {
                 modifier = Modifier.padding(innerPadding)
             ) {
                 composable(BottomNavItem.Home.route) {
-                    // [수정됨] 홈 화면 + 반투명 오버레이 구성
+                    // 홈 화면 + 반투명 오버레이 구성
                     Box(modifier = Modifier.fillMaxSize()) {
                         // 1. 실제 홈 화면 (항상 뒤에 그려짐)
                         HomeScreen(
@@ -138,7 +138,7 @@ fun MainScreen(appNavController: NavHostController) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.5f)) // 반투명 배경
+                                    .background(Color.Black.copy(alpha = 0.3f)) // 반투명 배경
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null // 클릭 리플 효과 제거
@@ -164,7 +164,7 @@ fun MainScreen(appNavController: NavHostController) {
             }
         }
 
-        // [전역 초대 알림]
+        // 기존 홈 화면 초대 알림 -> 화면 전역 초대 알림
         if (invitedChatRoomId.value != null) {
             InvitationDialog(
                 onAccept = {
@@ -188,7 +188,14 @@ fun MainScreen(appNavController: NavHostController) {
                         }
                     }
                 },
-                onDismiss = { invitedChatRoomId.value = null }
+                onDismiss = {
+                    val inviteId = invitedChatRoomId.value!!
+                    // 거절 로직 호출
+                    homeViewModel.rejectInvitation(inviteId) {
+                        // DB에 rejected 찍은 다음, 로컬 상태 초기화
+                        invitedChatRoomId.value = null
+                    }
+                }
             )
         }
     }

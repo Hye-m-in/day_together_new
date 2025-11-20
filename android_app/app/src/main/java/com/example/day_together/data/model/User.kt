@@ -2,10 +2,8 @@ package com.example.day_together.data.model
 
 import com.google.firebase.firestore.PropertyName
 
-/**
- * 앱 사용자의 정보를 담는 데이터 모델
- * Firestore의 문서(Document)와 1:1로 매핑됩니다.
- */
+// 앱 사용자의 정보를 담는 데이터 모델 -> Firestore의 문서(Document)와 1:1로 매핑
+
 data class User(
     // 사용자의 고유 식별자 (Firebase Auth의 UID, Firestore에는 'member_id'로 저장됨)
     @get:PropertyName("member_id") @set:PropertyName("member_id")

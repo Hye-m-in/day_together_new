@@ -1,5 +1,6 @@
 package com.example.day_together.ui.home
 
+import com.example.day_together.AuthManager
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -22,7 +23,6 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Date
-import java.util.UUID
 
 /**
  * 데이터를 한 곳(ViewModel)에서만 통제함으로써 코드가 꼬이는 것을 막음
@@ -55,34 +55,46 @@ class HomeViewModel : ViewModel() {
         viewModelScope.launch {
             // 1. 기본 정보 로드
             val user = repository.getCurrentUser()
-            val questionString = repository.getTodaysQuestion()
+            val currentUserId = AuthManager.getCurrentUserId()   // Firebase UID
 
-            val question = questionString?.let { Question(id = UUID.randomUUID().toString(), text = it) }
+            // 오늘의 질문
+            val question = repository.getTodaysQuestion()
 
             _uiState.update { it.copy(user = user, aiQuestion = question, familyQuote = "") }
 
-            if (user == null) {
+            // 로그인/유저 정보 둘 중 하나라도 없으면 중단
+            if (user == null || currentUserId.isNullOrBlank()) {
                 _uiState.update { it.copy(isLoading = false) }
                 return@launch
             }
 
-            // 2. 채팅방 ID 탐색 및 상태 업데이트
-            val chatRoomId = repository.findUserChatRoomId(user.uid)
+            // 2. 채팅방 ID 탐색 (⚠️ user.uid 대신 currentUserId 사용)
+            val chatRoomId = repository.findUserChatRoomId(currentUserId)
             _uiState.update { it.copy(chatRoomId = chatRoomId) }
 
             // 3. 분기 처리
             if (chatRoomId == null) {
-                // a. 채팅방 없음: 홈 화면 차단 상태 유지 (MainActivity에서 처리)
+                // a. 채팅방 없음
                 Log.d("HomeViewModel", "채팅방 없음. 홈 화면 데이터 로드 중단.")
                 _uiState.update { it.copy(isLoading = false) }
             } else {
-                // b. 채팅방 있음: 가족 캘린더 모드 시작
+                // b. 채팅방 있음
                 Log.d("HomeViewModel", "채팅방($chatRoomId) 발견. 가족 데이터 로드 시작.")
 
-                // b-1. 가족 구성원 생일 이벤트 생성
-                val familyMembers = repository.getFamilyMembers(chatRoomId)
+                // b-1. 실제 채팅방 멤버 기준으로 가족 구성원 불러오기
+                val familyMembersFromRepo = repository.getFamilyMembers(chatRoomId)
+
+                // 혹시라도 members 배열이 비어있거나 조회 실패한 경우를 대비해
+                // 최소한 "나 자신"은 포함되도록 fallback 처리
+                val familyMembers = if (familyMembersFromRepo.isEmpty()) {
+                    listOfNotNull(user)
+                } else {
+                    familyMembersFromRepo
+                }
+
                 val familyBirthdayEvents = createBirthdayEvents(familyMembers)
                 _uiState.update { it.copy(birthdayEventsByDate = familyBirthdayEvents) }
+
 
                 // b-2. 가족 일정 실시간 구독
                 calendarEventsListener = calendarManager.listenForEvents(chatRoomId) { familyEvents ->
@@ -106,10 +118,11 @@ class HomeViewModel : ViewModel() {
         }
     }
 
+
     fun refreshQuestion() {
         viewModelScope.launch {
-            val newQuestionString = repository.getTodaysQuestion()
-            val newQuestion = newQuestionString?.let { Question(id = UUID.randomUUID().toString(), text = it) }
+            // repository.getTodaysQuestion()은 Question 객체를 반환
+            val newQuestion = repository.getTodaysQuestion()
             _uiState.value = _uiState.value.copy(aiQuestion = newQuestion)
         }
     }
@@ -249,11 +262,26 @@ class HomeViewModel : ViewModel() {
      * 초대 수락 (AppRepository 호출)
      * MainActivity에서 호출되며, 성공 시 chatRoomId를 반환
      */
+    /**
+     * 초대 수락 (AppRepository 호출)
+     * MainActivity에서 호출되며, 성공 시 chatRoomId를 반환
+     */
     fun acceptInvitation(invitationId: String, onResult: (chatRoomId: String?) -> Unit) {
         viewModelScope.launch {
             when (val result = repository.acceptInvitation(invitationId)) {
                 is AuthResult.Success -> {
-                    onResult(result.chatRoomId)
+                    // FirebaseAuth UID 기준으로 다시 채팅방 조회
+                    val currentUserId = AuthManager.getCurrentUserId()
+                    val chatRoomId = if (!currentUserId.isNullOrBlank()) {
+                        repository.findUserChatRoomId(currentUserId)
+                    } else {
+                        null
+                    }
+
+                    // 상태에도 반영해 두는 게 안전
+                    _uiState.update { it.copy(chatRoomId = chatRoomId) }
+
+                    onResult(chatRoomId)
                 }
                 is AuthResult.Failure -> {
                     Log.e("HomeViewModel", result.message)
@@ -262,9 +290,29 @@ class HomeViewModel : ViewModel() {
             }
         }
     }
-}
 
-data class HomeUiState(
+    // 초대 거절 함수
+    fun rejectInvitation(
+        invitationId: String,
+        onComplete: () -> Unit
+    ) {
+        viewModelScope.launch {
+            val result = repository.rejectInvitation(invitationId)
+
+            if (result is AuthResult.Success) {
+                // 특별히 UI 상태 건드릴 건 없고, 그냥 콜백으로 다이얼로그 닫아주면 됨
+                onComplete()
+            } else if (result is AuthResult.Failure) {
+                // 필요하면 토스트 띄우거나 로그 찍는 용도로 에러 처리
+                Log.e("HomeViewModel", "초대 거절 실패: ${result.message}")
+                onComplete() // 실패했어도 일단 다이얼로그는 닫고 싶다면 유지
+            }
+        }
+    }
+
+
+
+    data class HomeUiState(
     val isLoading: Boolean = true,
     val user: User? = null,
     val chatRoomId: String? = null,
@@ -276,4 +324,4 @@ data class HomeUiState(
     val dDayTitle: String = "",
     val eventsByDate: Map<LocalDate, List<CalendarEvent>> = emptyMap(),
     val birthdayEventsByDate: Map<LocalDate, List<CalendarEvent>> = emptyMap()
-)
+)}

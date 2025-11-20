@@ -96,11 +96,13 @@ class GalleryViewModel(
 
     /** 특정 월의 댓글 목록을 불러옴. */
     private fun loadCommentsFor(yearMonth: YearMonth) {
+        
+        // 현재 Repository는 yearMonth만 받도록 되어 있어 chatRoomId 인자 제거
         val chatRoomId = _uiState.value.chatRoomId ?: return
 
         viewModelScope.launch {
-            // chatRoomId를 함께 전달
-            val comments = repository.getMonthlyComments(chatRoomId, yearMonth)
+            // repository.getMonthlyComments(chatRoomId, yearMonth) -> repository.getMonthlyComments(yearMonth)
+            val comments = repository.getMonthlyComments(yearMonth)
             _uiState.update { it.copy(comments = comments) }
         }
     }
@@ -167,8 +169,9 @@ class GalleryViewModel(
 
         // 실제 서버(Repository)에 댓글 추가 요청
         viewModelScope.launch {
-            // chatRoomId를 함께 전달
-            repository.addMonthlyComment(chatRoomId, targetYearMonth, newComment)
+            //  repository.addMonthlyComment(chatRoomId, targetYearMonth, newComment) -> repository.addMonthlyComment(targetYearMonth, newComment)
+            // 현재 Repository 정의에 맞춰 chatRoomId 인자 제거
+            repository.addMonthlyComment(targetYearMonth, newComment)
             // TODO: 요청 성공/실패에 따른 추가 로직 (예: 에러 메시지 표시, 실패 시 롤백 등)
         }
     }

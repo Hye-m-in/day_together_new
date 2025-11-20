@@ -123,8 +123,12 @@ fun ChatInfoScreen(
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = TextPrimary,
                             fontFamily = GothicA1
+
                         )
                     )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
                     // 개설일 날짜 (ViewModel 데이터 사용)
                     Text(
                         text = uiState.creationDate,

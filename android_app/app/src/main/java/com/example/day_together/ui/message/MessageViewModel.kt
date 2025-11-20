@@ -1,5 +1,10 @@
 package com.example.day_together.ui.message
 
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
+
+
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -31,6 +36,7 @@ data class ChatMessage(
 
 /**
  * ChatInfoScreen 및 MessageScreen의 UI 상태 관리 위한 데이터 클래스
+ * (참고: FamilyMember 클래스는 다른 파일에 정의되어 있다고 가정합니다)
  */
 data class MessageUiState(
     val isLoading: Boolean = true,
@@ -89,7 +95,10 @@ open class MessageViewModel(
 
     private suspend fun loadChatRoomName(chatRoomId: String) {
         try {
-            val name = repository.getChatRoomName(chatRoomId) ?: "가족 채팅방"
+            // AppRepository에 getChatRoomName이 없으므로 우선 기본값 사용
+            // 추후 Repository에 fun getChatRoomName(chatRoomId: String): String? 구현 필요
+            // val name = repository.getChatRoomName(chatRoomId) ?: "가족 채팅방"
+            val name = "가족 채팅방"
             _uiState.update { it.copy(chatRoomName = name) }
         } catch (e: Exception) {
             Log.e("MessageViewModel", "채팅방 이름 불러오기 실패", e)
@@ -99,10 +108,14 @@ open class MessageViewModel(
     private fun listenForMessages(chatRoomId: String) {
         messagesListener?.remove()
         messagesListener = repository.listenForMessages(chatRoomId) { newMessages ->
+
             val updatedMessages = newMessages.map { msg ->
-                msg.copy(
-                    content = msg.content,
-                    imageUrl = msg.imageUrl
+                ChatMessage(
+                    content = msg.content,              // 혹시 몰라서 ?: "" 써도 됨
+                    sender = msg.sender,
+                    timestamp = msg.timestamp,
+                    imageUrl = msg.imageUrl ?: "",     // null이면 빈 문자열로
+                    type = msg.type
                 )
             }
 
@@ -112,11 +125,16 @@ open class MessageViewModel(
         }
     }
 
+
     // 텍스트 메세지 전송
     private fun sendMessage() {
         val currentState = _uiState.value
         val chatRoomId = currentState.chatRoomId ?: return
         val messageText = currentState.messageText.trim()
+
+        // 디버그 로그 추가
+        Log.d("MessageViewModel", "sendMessage() 호출 - chatRoomId=$chatRoomId, text='$messageText', sender=${currentState.currentUserName}")
+
 
         if (messageText.isBlank()) return
 
@@ -125,7 +143,8 @@ open class MessageViewModel(
                 chatRoomId = chatRoomId,
                 sender = currentState.currentUserName,
                 text = messageText,
-                imageUrl = null
+                imageUrl = null,
+                type = "text" // type 파라미터 추가
             )
             _uiState.update { it.copy(messageText = "") }
         }
@@ -146,7 +165,8 @@ open class MessageViewModel(
                         chatRoomId = chatRoomId,
                         sender = currentState.currentUserName,
                         text = "",
-                        imageUrl = imageUrl
+                        imageUrl = imageUrl,
+                        type = "image" // type 파라미터 추가
                     )
                 } else {
                     Log.e("MessageViewModel", "이미지 업로드 실패")
@@ -162,7 +182,8 @@ open class MessageViewModel(
             question?.let { q ->
                 val currentMessages = _uiState.value.messages.toMutableList()
                 currentMessages.add(
-                    ChatMessage(content = q, sender = "system")
+                    // ChatMessage는 String을 받으므로 q.text 사용
+                    ChatMessage(content = q.text, sender = "system")
                 )
                 _uiState.update { it.copy(messages = currentMessages) }
             }
@@ -173,21 +194,33 @@ open class MessageViewModel(
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
             val currentUser = repository.getCurrentUser()
-            if (currentUser == null) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = "로그인이 필요합니다.") }
+            val currentUserId = AuthManager.getCurrentUserId()
+
+            if (currentUser == null || currentUserId.isNullOrBlank()) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "로그인이 필요합니다."
+                    )
+                }
                 return@launch
             }
 
+            // 이름은 프로필에서 가져오고
             _uiState.update { it.copy(currentUserName = currentUser.name) }
 
-            val chatRoomId = repository.findUserChatRoomId(currentUser.uid)
+            // 채팅방 찾을 때는 항상 Firebase UID 사용
+            val chatRoomId = repository.findUserChatRoomId(currentUserId)
             if (chatRoomId != null) {
                 _uiState.update { it.copy(chatRoomId = chatRoomId) }
+
                 loadChatRoomName(chatRoomId)
                 listenForMessages(chatRoomId)
+                loadChatRoomExtraInfo(chatRoomId)
             } else {
                 _uiState.update { it.copy(isLoading = false) }
             }
+
         }
     }
 
@@ -201,13 +234,14 @@ open class MessageViewModel(
             if (newRoomId != null) {
                 _uiState.update { it.copy(chatRoomId = newRoomId) }
                 listenForMessages(newRoomId)
+                loadChatRoomExtraInfo(newRoomId)
             } else {
                 _uiState.update { it.copy(isLoading = false, errorMessage = "채팅방 생성에 실패했습니다.") }
             }
         }
     }
 
-    // [수정됨] 초대 성공 시 화면 즉시 전환 로직 추가
+    // 초대 성공 시 화면 즉시 전환 로직 추가
     private fun inviteMember(email: String) {
         val inviterId = AuthManager.getCurrentUserId()
         if (inviterId.isNullOrBlank()) {
@@ -219,8 +253,10 @@ open class MessageViewModel(
         viewModelScope.launch {
             val result = repository.createInvitation(inviterId, email)
             if (result is AuthResult.Success) {
-                // [중요] 성공 결과에 포함된 chatRoomId를 사용하여 화면 갱신
-                val newChatRoomId = result.chatRoomId
+                // AuthResult.Success에는 ID가 없으므로, DB에서 갱신된 정보를 다시 조회
+                // 초대 생성 시 채팅방이 새로 만들어졌을 수 있으므로 확인 필요
+                val newChatRoomId = repository.findUserChatRoomId(inviterId)
+
                 if (newChatRoomId != null) {
                     _uiState.update {
                         it.copy(
@@ -232,6 +268,7 @@ open class MessageViewModel(
                     // 채팅방 이름 및 메시지 리스너 로드
                     loadChatRoomName(newChatRoomId)
                     listenForMessages(newChatRoomId)
+                    loadChatRoomExtraInfo(newChatRoomId)
                 } else {
                     // ID가 없을 경우(예외적 상황) 다시 로드 시도
                     _uiState.update { it.copy(showInviteDialog = false, isLoading = false) }
@@ -254,6 +291,7 @@ open class MessageViewModel(
                     _uiState.update { it.copy(chatRoomId = newChatRoomId, isLoading = false) }
                     loadChatRoomName(newChatRoomId)
                     listenForMessages(newChatRoomId)
+                    loadChatRoomExtraInfo(newChatRoomId)
                 } else {
                     _uiState.update { it.copy(isLoading = false) }
                 }
@@ -274,6 +312,38 @@ open class MessageViewModel(
             }
         }
     }
+
+    private suspend fun loadChatRoomExtraInfo(chatRoomId: String) {
+        try {
+            // 1) 가족 멤버 목록
+            val members: List<User> = repository.getFamilyMembers(chatRoomId)
+
+            val familyMembersUi = members.map { user ->
+                FamilyMember(
+                    id = user.uid,
+                    name = user.name.ifBlank { "이름 없음" }
+                )
+            }
+
+            // 2) 채팅방 생성일
+            val createdAt: Date? = repository.getChatRoomCreationDate(chatRoomId)
+            val creationDateStr: String = createdAt?.let { date ->
+                val formatter = SimpleDateFormat("yyyy년 MM월 dd일", Locale.KOREA)
+                formatter.timeZone = TimeZone.getTimeZone("Asia/Seoul")
+                formatter.format(date)
+            } ?: ""
+
+            _uiState.update {
+                it.copy(
+                    familyMembers = familyMembersUi,
+                    creationDate = creationDateStr
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("MessageViewModel", "loadChatRoomExtraInfo 실패", e)
+        }
+    }
+
 
     fun onEvent(event: MessageEvent) {
         when (event) {

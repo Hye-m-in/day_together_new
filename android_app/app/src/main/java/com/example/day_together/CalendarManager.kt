@@ -21,8 +21,7 @@ import java.time.format.DateTimeFormatter
 
 object CalendarManager {
 
-    // 정적 db 프로퍼티 삭제 (메모리 누수 방지)
-    // val db = FirebaseService.db
+    // 정적 db 프로퍼티 삭제 (메모리 누수 방지) -> val db = FirebaseService.db
 
     // 여러 곳에서 사용될 컬렉션 이름을 상수로 만들어 오타 방지
     private const val EVENTS_COLLECTION = "events"
@@ -32,25 +31,46 @@ object CalendarManager {
      */
     suspend fun addEvent(chatRoomId: String, event: CalendarEvent) {
         try {
-            // chatRooms/{chatRoomId}/events/{eventId} 경로에 데이터 저장
-            // FirebaseFirestore.getInstance() 직접 호출
-            FirebaseFirestore.getInstance().collection("chatRooms").document(chatRoomId).collection(EVENTS_COLLECTION)
-                .document(event.id) // CalendarEvent 생성 시 만들어진 고유 ID를 문서 ID로 사용
-                .set(event)
-                .await() // 작업이 끝날 때까지 기다림
-            Log.d("CalendarManager", "일정 추가 성공: ${event.title}")
+            val db = FirebaseFirestore.getInstance()
+
+            // 이벤트 ID가 비어 있으면 Firestore에서 자동 ID 발급
+            val docRef = if (event.id.isBlank()) {
+                db.collection("chatRooms")
+                    .document(chatRoomId)
+                    .collection(EVENTS_COLLECTION)
+                    .document()   // 자동 ID
+            } else {
+                db.collection("chatRooms")
+                    .document(chatRoomId)
+                    .collection(EVENTS_COLLECTION)
+                    .document(event.id)
+            }
+
+            // 비어 있던 id는 실제 문서 ID로 덮어쓰기
+            val finalEvent = if (event.id.isBlank()) {
+                event.copy(id = docRef.id)
+            } else {
+                event
+            }
+
+            // Firestore에 저장
+            docRef.set(finalEvent).await()
+
+            Log.d(
+                "CalendarManager",
+                "일정 추가 성공: chatRoomId=$chatRoomId, eventId=${finalEvent.id}, title=${finalEvent.title}"
+            )
         } catch (e: Exception) {
             Log.e("CalendarManager", "일정 추가 실패", e)
         }
     }
 
-    // 사용하지 않는 updateEvent 함수 삭제
+
 
     // ID를 이용해 일정을 삭제하는 함수
-
     suspend fun deleteEvent(chatRoomId: String, eventId: String) {
         try {
-            // [수정] FirebaseFirestore.getInstance() 직접 호출
+            // FirebaseFirestore.getInstance() 직접 호출
             FirebaseFirestore.getInstance().collection("chatRooms").document(chatRoomId).collection(EVENTS_COLLECTION)
                 .document(eventId)
                 .delete()
@@ -61,7 +81,7 @@ object CalendarManager {
         }
     }
 
-    // [실시간 공유 핵심 기능] 특정 채팅방의 일정 데이터 변경을 실시간으로 감지하고,변경될 때마다 onEventsUpdated 콜백 함수를 호출함
+    // 특정 채팅방의 일정 데이터 변경을 실시간으로 감지하고,변경될 때마다 onEventsUpdated 콜백 함수를 호출함
 
     fun listenForEvents(
         chatRoomId: String,
@@ -87,7 +107,6 @@ object CalendarManager {
     }
 
     // 사용자의 생일 정보를 가져와 캘린더에 자동으로 등록하는 함수
-
     fun registerBirthday(chatRoomId: String, userId: String) {
         // FirebaseFirestore.getInstance() 직접 호출
         FirebaseFirestore.getInstance().collection("users").document(userId).get().addOnSuccessListener { doc ->
@@ -116,7 +135,7 @@ object CalendarManager {
                 if (thisYearBirthday.isBefore(today.minusDays(1))) {
                     thisYearBirthday = thisYearBirthday.plusYears(1)
                 }
-                val title = "$name 님의 생일" // (양력) 텍스트 삭제
+                val title = "$name 님의 생일"
 
                 // LocalDate를 Timestamp로 변환
                 val birthdayTimestamp = Timestamp(
@@ -130,7 +149,7 @@ object CalendarManager {
                     creatorId = "SYSTEM_BIRTHDAY",
                     creatorName = "가족 캘린더",
                     type = "BIRTHDAY",
-                    description = "${birthDate.monthValue}월 ${birthDate.dayOfMonth}일" // [수정]
+                    description = "${birthDate.monthValue}월 ${birthDate.dayOfMonth}일"
                 )
 
                 // 생성된 생일 이벤트를 Firestore에 저장

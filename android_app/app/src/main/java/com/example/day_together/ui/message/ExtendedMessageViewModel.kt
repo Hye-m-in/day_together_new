@@ -20,8 +20,10 @@ class ExtendedMessageViewModel(
             question?.let { q ->
                 // _uiState는 MessageViewModel에서 protected로 선언되어 있어 접근 가능
                 val currentMessages = _uiState.value.messages.toMutableList()
+
+                // ChatMessage는 String을 받으므로 Question 객체(q) 대신 q.text를 사용하도록 수정
                 currentMessages.add(
-                    ChatMessage(content = q, sender = "system")
+                    ChatMessage(content = q.text, sender = "system")
                 )
                 _uiState.update { state ->
                     state.copy(messages = currentMessages)
