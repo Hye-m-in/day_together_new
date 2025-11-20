@@ -302,37 +302,51 @@ fun EmptyChatMessagesView(modifier: Modifier = Modifier) {
 }
 
 
+
+
 @Composable
 fun MessageBubble(message: ChatMessage, isMine: Boolean) {
 
     // 전송 시간 포맷팅
     val timeText = remember(message.timestamp) {
-        // Timestamp(Date) → 한국 시간 문자열 변환
         val localDate = message.timestamp
-
         val formatter = SimpleDateFormat("a h:mm", Locale.KOREA)
         formatter.timeZone = TimeZone.getTimeZone("Asia/Seoul")
-
         formatter.format(localDate)
     }
 
-    Row(
+    // 이름(위) + 말풍선(아래) 배치를 위해 Column 사용
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start,
-        verticalAlignment = Alignment.Bottom
+        horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
     ) {
+        // 1. 상대방일 경우에만 이름 표시
         if (!isMine) {
-            // 상대방: [말풍선] [시간]
-            SenderBubble(message, isMine = false)
-            Spacer(modifier = Modifier.width(6.dp))
-            MessageTime(timeText)
-        } else {
-            // 나: [시간] [말풍선]
-            MessageTime(timeText)
-            Spacer(modifier = Modifier.width(6.dp))
-            SenderBubble(message, isMine = true)
+            Text(
+                text = message.sender, // 사용자 이름
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
+            )
+        }
+
+        // 2. 말풍선과 시간 배치 (Row)
+        Row(
+            verticalAlignment = Alignment.Bottom
+        ) {
+            if (!isMine) {
+                // 상대방: [말풍선] [시간]
+                SenderBubble(message, isMine = false)
+                Spacer(modifier = Modifier.width(6.dp))
+                MessageTime(timeText)
+            } else {
+                // 나: [시간] [말풍선]
+                MessageTime(timeText)
+                Spacer(modifier = Modifier.width(6.dp))
+                SenderBubble(message, isMine = true)
+            }
         }
     }
 }
@@ -379,6 +393,18 @@ private fun SenderBubble(message: ChatMessage, isMine: Boolean = false) {
         }
     }
 }
+
+
+@Composable
+private fun MessageTime(timeText: String) {
+    Text(
+        text = timeText,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+    )
+}
+
+
 @Composable
 fun DateHeader(date: Date) {
     val dateText = remember(date) {
@@ -407,18 +433,7 @@ fun DateHeader(date: Date) {
     }
 }
 
-
-@Composable
-private fun MessageTime(timeText: String) {
-    Text(
-        text = timeText,
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-    )
-}
-
-
-
+// 입력창 컴포저블
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MessageInputArea(

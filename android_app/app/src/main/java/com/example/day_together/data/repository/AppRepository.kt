@@ -504,13 +504,12 @@ object AppRepository {
     }
 
 
-    // 초대 수락
-    suspend fun acceptInvitation(invitationId: String): AuthResult {
-        val inviteeId = authManager.getCurrentUserId() ?: return AuthResult.Failure("로그인이 필요합니다.")
+    // AppRepository.kt
 
-        // 디버깅용 로그 추가
-        Log.d("InvitationDebug", "acceptInvitation 시작: invitationId=$invitationId, inviteeId=$inviteeId")
-
+    // 반환 타입을 AuthResult -> String? 으로 변경 (성공 시 chatRoomId, 실패 시 null)
+    suspend fun acceptInvitation(invitationId: String): String? {
+        val inviteeId = authManager.getCurrentUserId()
+        if (inviteeId == null) return null // 실패 시 null 반환
 
         return try {
             val invitationRef = db.collection("users")
@@ -519,22 +518,18 @@ object AppRepository {
                 .document(invitationId)
 
             val invitationSnap = invitationRef.get().await()
-            if (!invitationSnap.exists()) {
-                return AuthResult.Failure("초대 정보를 찾을 수 없습니다.")
-            }
+            if (!invitationSnap.exists()) return null
 
-            val inviterId = invitationSnap.getString("inviterId") ?: return AuthResult.Failure("초대자 정보가 없습니다.")
+            val inviterId = invitationSnap.getString("inviterId") ?: return null
             var chatRoomId = invitationSnap.getString("chatRoomId")
 
-            // 만약 초대장에 방 ID가 없다면 새로 생성
+            // 방이 없으면 생성
             if (chatRoomId.isNullOrBlank()) {
                 chatRoomId = createNewChatRoom(inviterId)
-                if (chatRoomId == null) {
-                    return AuthResult.Failure("채팅방 생성에 실패했습니다.")
-                }
+                if (chatRoomId == null) return null
             }
 
-            // [1] 채팅방 members 배열에 나(수락자) 추가 -> arrayUnion은 중복을 자동으로 방지하므로 안전함
+            // [1] 채팅방 멤버 추가
             db.collection("chatRooms").document(chatRoomId)
                 .update("members", FieldValue.arrayUnion(inviterId, inviteeId))
                 .await()
@@ -548,19 +543,15 @@ object AppRepository {
                 )
             ).await()
 
-            // [3] 초대자와 수락자 양쪽의 '현재 가족방' 포인터(invitedChatRoomId)를 갱신 -> 이를 통해 다음에 누굴 초대할 때 이 방으로 초대하게 됨
-            db.collection("users").document(inviterId)
-                .update("invitedChatRoomId", chatRoomId)
-                .await()
+            // [3] 유저 정보 갱신
+            db.collection("users").document(inviterId).update("invitedChatRoomId", chatRoomId).await()
+            db.collection("users").document(inviteeId).update("invitedChatRoomId", chatRoomId).await()
 
-            db.collection("users").document(inviteeId)
-                .update("invitedChatRoomId", chatRoomId)
-                .await()
-
-            AuthResult.Success
+            // 성공 시 채팅방 ID 반환
+            chatRoomId
         } catch (e: Exception) {
             Log.e("AppRepository", "acceptInvitation 실패", e)
-            AuthResult.Failure("초대 수락 중 오류가 발생했습니다.")
+            null // 실패 시 null 반환
         }
     }
 
