@@ -251,8 +251,8 @@ open class MessageViewModel(
         _uiState.update { it.copy(showInviteDialog = false, isLoading = true) }
 
         viewModelScope.launch {
-            val result = repository.createInvitation(inviterId, email)
-            if (result is AuthResult.Success) {
+            val invitationId = repository.createInvitation(inviterId, email)
+            if (invitationId != null) {
                 // AuthResult.Success에는 ID가 없으므로, DB에서 갱신된 정보를 다시 조회
                 // 초대 생성 시 채팅방이 새로 만들어졌을 수 있으므로 확인 필요
                 val newChatRoomId = repository.findUserChatRoomId(inviterId)
@@ -274,8 +274,10 @@ open class MessageViewModel(
                     _uiState.update { it.copy(showInviteDialog = false, isLoading = false) }
                     fetchChatRoomInfo()
                 }
-            } else if (result is AuthResult.Failure) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = result.message) }
+            } else {
+                // 실패 (null 반환됨)
+                _uiState.update {
+                    it.copy(isLoading = false, errorMessage = "초대 발송에 실패했습니다.")}
             }
         }
     }
@@ -284,7 +286,7 @@ open class MessageViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val result = repository.acceptInvitation(invitationId)
-            if (result is AuthResult.Success) {
+            if (result != null) {
                 val currentUid = AuthManager.getCurrentUserId()
                 val newChatRoomId = repository.findUserChatRoomId(currentUid ?: "")
                 if (!newChatRoomId.isNullOrBlank()) {
@@ -295,8 +297,9 @@ open class MessageViewModel(
                 } else {
                     _uiState.update { it.copy(isLoading = false) }
                 }
-            } else if (result is AuthResult.Failure) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = result.message) }
+            } else {
+                // 실패 시(null일 때) 에러 처리
+                _uiState.update { it.copy(isLoading = false, errorMessage = "초대 수락 실패") }
             }
         }
     }
