@@ -7,7 +7,7 @@ import com.google.firebase.firestore.PropertyName
  */
 data class User(
     // 사용자의 고유 식별자 (Firebase Auth의 member_id)
-    @get:PropertyName("member_id") @set:PropertyName("member_id")
+    @get:PropertyName("user_id") @set:PropertyName("user_id")
     var uid: String = "",
 
     // 사용자 이름 (닉네임)
@@ -31,8 +31,8 @@ data class User(
     var position: String = "",
 
     // 프로필 이미지 URL
-    @get:PropertyName("profileImageUrl") @set:PropertyName("profileImageUrl")
-    var profileImageUrl: String = "",
+    @get:PropertyName("profile_image") @set:PropertyName("profile_image")
+    var profile_image: String = "",
 
     // 푸시 알림을 위한 FCM 토큰
     @get:PropertyName("fcmToken") @set:PropertyName("fcmToken")

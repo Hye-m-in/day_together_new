@@ -6,6 +6,7 @@ import com.example.day_together.AuthManager
 import com.example.day_together.CalendarManager
 import com.example.day_together.ui.message.ChatMessage
 import com.example.day_together.ChatRoomManager
+import com.example.day_together.FirebaseService
 import com.example.day_together.data.model.CalendarEvent
 import com.example.day_together.data.model.Question
 import com.example.day_together.data.model.User
@@ -38,6 +39,8 @@ import java.time.ZoneId
 import java.util.Date
 import java.util.UUID
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 /**
  * 앱의 모든 데이터 통신을 책임지는 통합 Repository 클래스
@@ -47,9 +50,8 @@ object AppRepository {
 
     // 실제 로직 담당 매니저들 선언
     private val authManager = AuthManager
-    private val chatRoomManager = ChatRoomManager
     private val calendarManager = CalendarManager
-    private val db = chatRoomManager.db // 편의를 위해 db 인스턴스 가져오기
+    private val db = FirebaseService.db
 
     /**
      * 이메일과 비밀번호로 로그인 요청
@@ -182,8 +184,20 @@ object AppRepository {
                         if (continuation.isActive) {
                             val name = document.getString("name") ?: "Unknown"
                             val email = document.getString("email") ?: "Unknown"
-                            val position = document.getString("position") ?: "가족"
-                            continuation.resume(User(uid = uid, name = name, email = email, position = position))
+                            val position = document.getString("position") ?: ""
+                            val birthDate = document.getString("birthDate") ?: ""
+                            val profileImage = document.getString("profile_image") ?: ""
+                            continuation.resume(
+                                User(
+                                    uid = uid,
+                                    name = name,
+                                    email = email,
+                                    position = position,
+                                    birthDate = birthDate,
+                                    profile_image = profileImage
+                                )
+                            )
+
                         }
                     }
                     .addOnFailureListener {
@@ -551,7 +565,7 @@ object AppRepository {
             .add(message)
     }
 
-
+    //채팅 이미지 스토리지 업로드
     fun uploadImageToStorage(uri: Uri, onComplete: (String?) -> Unit) {
         val storageRef = FirebaseStorage.getInstance().reference
         val imageRef = storageRef.child("chat_images/${UUID.randomUUID()}.jpg")
@@ -566,6 +580,25 @@ object AppRepository {
                 onComplete(null)
             }
     }
+
+    //프로필 이미지 스토리지 업로드
+    suspend fun uploadProfileImage(uri: Uri): String {
+        return suspendCoroutine { continuation ->
+            val storageRef = FirebaseStorage.getInstance().reference
+            val imageRef = storageRef.child("profile_image/${UUID.randomUUID()}.jpg")
+
+            imageRef.putFile(uri)
+                .addOnSuccessListener {
+                    imageRef.downloadUrl.addOnSuccessListener { downloadUri ->
+                        continuation.resume(downloadUri.toString())
+                    }
+                }
+                .addOnFailureListener { e ->
+                    continuation.resumeWithException(e)
+                }
+        }
+    }
+
 
     // SettingsViewModel
     fun getSettingsFlow(): Flow<UserSettings> {
