@@ -11,6 +11,8 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
 
+import com.google.firebase.firestore.ListenerRegistration
+
 
 
 /**
@@ -35,10 +37,15 @@ data class GalleryUiState(
     val currentDisplayYearMonth: YearMonth = YearMonth.now(),
     val commentSheetYearMonth: YearMonth? = null,
     val comments: List<MonthlyComment> = emptyList(),
-    val newCommentText: String = ""
+    val newCommentText: String = "",
+
+    val currentUserName: String = "" // 현재 로그인한 사용자 이름 저장용
 )
 
 class GalleryViewModel(
+    // 리스너 등록 객체 (나중에 연결 끊을 때 사용)
+    private var commentListener: ListenerRegistration? = null,
+
     private val repository: AppRepository = AppRepository
 ) : ViewModel() {
 
@@ -46,14 +53,35 @@ class GalleryViewModel(
     private val _uiState = MutableStateFlow(GalleryUiState())
     val uiState: StateFlow<GalleryUiState> = _uiState.asStateFlow()
 
+
     init {
         viewModelScope.launch {
+            // [1] 사용자 정보 가져오기
             val user = repository.getCurrentUser()
-            // invitedChatRoomId 우선, 없으면 getMyChatRoomId() 확인
             val chatRoomId = user?.invitedChatRoomId ?: repository.getMyChatRoomId()
 
-            // chatRoomId를 상태에 저장
-            _uiState.update { it.copy(chatRoomId = chatRoomId) }
+            // [2] 이름 가져오기
+            // 1순위: DB에 저장된 이름 (user.name)
+            // 2순위: 로그인된 계정의 프로필 이름 (Firebase Auth)
+            // 3순위: 둘 다 없으면 "알 수 없음" (나중에 "가족"으로 변환됨)
+
+            var myName = user?.name
+
+            if (myName.isNullOrBlank()) {
+                // DB에 이름이 없으면 구글/네이버 로그인 정보에서 이름 가져오기 시도
+                myName = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.displayName
+            }
+
+            // 로그로 확인 (Logcat에서 "GalleryViewModel" 검색해보세요)
+            android.util.Log.d("GalleryViewModel", "가져온 내 이름: $myName")
+
+            // [3] 상태 업데이트
+            _uiState.update {
+                it.copy(
+                    chatRoomId = chatRoomId,
+                    currentUserName = myName ?: "" // 없으면 빈 문자열
+                )
+            }
 
             chatRoomId?.let { loadImages(it) }
         }
@@ -75,9 +103,10 @@ class GalleryViewModel(
                     YearMonth.from(LocalDate.parse(photo.date))
                 }
 
-                val distinctYearMonths = (photosByYearMonth.keys + currentState.currentDisplayYearMonth)
-                    .distinct()
-                    .sorted()
+                val distinctYearMonths =
+                    (photosByYearMonth.keys + currentState.currentDisplayYearMonth)
+                        .distinct()
+                        .sorted()
 
                 val monthlyGroups = distinctYearMonths.map { ym ->
                     MonthlyPhotoGroupData(
@@ -94,17 +123,28 @@ class GalleryViewModel(
         }
     }
 
-    /** 특정 월의 댓글 목록을 불러옴. */
+    /** 댓글 목록을 실시간으로 감지함 */
     private fun loadCommentsFor(yearMonth: YearMonth) {
-        
-        // 현재 Repository는 yearMonth만 받도록 되어 있어 chatRoomId 인자 제거
         val chatRoomId = _uiState.value.chatRoomId ?: return
 
-        viewModelScope.launch {
-            // repository.getMonthlyComments(chatRoomId, yearMonth) -> repository.getMonthlyComments(yearMonth)
-            val comments = repository.getMonthlyComments(yearMonth)
-            _uiState.update { it.copy(comments = comments) }
-        }
+        // 기존에 연결된 리스너가 있다면 끊어줌 (중복 방지)
+        commentListener?.remove()
+
+        // 새로운 리스너 연결
+        commentListener =
+            repository.listenForMonthlyComments(chatRoomId, yearMonth) { updatedComments ->
+                // DB에 데이터가 변경될 때마다 이 코드가 실행됨 -> UI 자동 갱신
+                _uiState.update {
+                    it.copy(comments = updatedComments)
+                }
+            }
+    }
+
+
+    // ViewModel이 아예 사라질 때도 안전하게 제거
+    override fun onCleared() {
+        super.onCleared()
+        commentListener?.remove()
     }
 
     /** 3. 이벤트 처리 함수
@@ -151,28 +191,25 @@ class GalleryViewModel(
     fun onSendComment() {
         if (_uiState.value.newCommentText.isBlank()) return
 
+        val currentTimestamp = java.time.LocalDateTime.now()
+            .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+
+        // 이름 결정 로직
+        val safeAuthorName = _uiState.value.currentUserName.ifBlank { "익명" }
+
         val newComment = MonthlyComment(
-            author = "나", // 실제 앱에서는 로그인된 유저 정보를 사용해야 함
+            author = safeAuthorName,
             text = _uiState.value.newCommentText,
-            timestamp = "방금 전"
+            timestamp = currentTimestamp
         )
+
         val targetYearMonth = _uiState.value.commentSheetYearMonth ?: return
         val chatRoomId = _uiState.value.chatRoomId ?: return
 
-        // '낙관적 업데이트': 서버 응답을 기다리지 않고 UI에 먼저 변경사항 반영
-        _uiState.update {
-            it.copy(
-                comments = listOf(newComment) + it.comments, // 새 댓글을 목록 맨 앞에 추가
-                newCommentText = "" // 입력창 비우기
-            )
-        }
+        _uiState.update { it.copy(newCommentText = "") }
 
-        // 실제 서버(Repository)에 댓글 추가 요청
         viewModelScope.launch {
-            //  repository.addMonthlyComment(chatRoomId, targetYearMonth, newComment) -> repository.addMonthlyComment(targetYearMonth, newComment)
-            // 현재 Repository 정의에 맞춰 chatRoomId 인자 제거
-            repository.addMonthlyComment(targetYearMonth, newComment)
-            // TODO: 요청 성공/실패에 따른 추가 로직 (예: 에러 메시지 표시, 실패 시 롤백 등)
+            repository.addMonthlyComment(chatRoomId, targetYearMonth, newComment)
         }
     }
 }

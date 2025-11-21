@@ -1,5 +1,7 @@
 package com.example.day_together.data.repository
 
+
+
 import android.net.Uri
 import android.util.Log
 import com.example.day_together.AuthManager
@@ -288,14 +290,48 @@ object AppRepository {
         }
     }
 
-    suspend fun getMonthlyComments(yearMonth: YearMonth): List<MonthlyComment> {
-        delay(400)
-        return listOf()
+    // getMonthlyComments -> 댓글을 한 번만 가져오는 게 아니라, 변경사항이 생길 때마다 계속 알려주는 함수
+    fun listenForMonthlyComments(
+        chatRoomId: String,
+        yearMonth: YearMonth,
+        onCommentsUpdated: (List<MonthlyComment>) -> Unit
+    ): ListenerRegistration {
+        return db.collection("chatRooms")
+            .document(chatRoomId)
+            .collection("monthly_comments")
+            .document(yearMonth.toString()) // 예: "2025-11"
+            .collection("comments")
+            .orderBy("timestamp", Query.Direction.ASCENDING) // 오래된 순서대로 정렬 (대화 흐름)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.w("AppRepository", "댓글 불러오기 실패", error)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null) {
+                    val comments = snapshot.toObjects(MonthlyComment::class.java)
+                    onCommentsUpdated(comments)
+                }
+            }
     }
 
-    suspend fun addMonthlyComment(yearMonth: YearMonth, comment: MonthlyComment) {
-        delay(500)
-        println("TODO: ${yearMonth}에 댓글 추가 - ${comment.text}")
+    // chatRoomId를 받도록 변경하고, 실제 Firestore 저장 로직 구현
+    suspend fun addMonthlyComment(chatRoomId: String, yearMonth: YearMonth, comment: MonthlyComment) {
+        try {
+            // 경로: chatRooms/{chatRoomId}/monthly_comments/{2025-11}/comments/{commentId}
+            db.collection("chatRooms")
+                .document(chatRoomId)
+                .collection("monthly_comments")
+                .document(yearMonth.toString()) // 예: "2025-11" 문서를 생성 (없으면 자동생성)
+                .collection("comments")
+                .document(comment.id)
+                .set(comment)
+                .await()
+
+            Log.d("AppRepository", "댓글 저장 성공: ${comment.text}")
+        } catch (e: Exception) {
+            Log.e("AppRepository", "댓글 저장 실패", e)
+        }
     }
 
 
