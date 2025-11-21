@@ -13,7 +13,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.day_together.AuthManager
 import com.example.day_together.data.model.User
 import com.example.day_together.data.repository.AppRepository
-import com.example.day_together.data.repository.AuthResult
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -85,7 +84,7 @@ open class MessageViewModel(
 
     init {
         fetchChatRoomInfo()
-        fetchTodayQuestion()
+
     }
 
     override fun onCleared() {
@@ -172,20 +171,6 @@ open class MessageViewModel(
                     Log.e("MessageViewModel", "이미지 업로드 실패")
                     _uiState.update { it.copy(errorMessage = "이미지 업로드에 실패했습니다.") }
                 }
-            }
-        }
-    }
-
-    private fun fetchTodayQuestion() {
-        viewModelScope.launch {
-            val question = repository.getTodaysQuestion()
-            question?.let { q ->
-                val currentMessages = _uiState.value.messages.toMutableList()
-                currentMessages.add(
-                    // ChatMessage는 String을 받으므로 q.text 사용
-                    ChatMessage(content = q.text, sender = "system")
-                )
-                _uiState.update { it.copy(messages = currentMessages) }
             }
         }
     }

@@ -244,9 +244,39 @@ object AppRepository {
 
 
     // HomeViewModel 관련 함수
-    suspend fun getTodaysQuestion(): Question {
-        delay(300)
-        return Question(id = "q1", text = "우리 가족만의 특별한 루틴이 있나요?")
+    // 실제 채팅방에서 'system'이 보낸 가장 최신 메시지를 가져옴
+    // 오늘의 질문 가져오기
+    suspend fun getTodaysQuestion(chatRoomId: String): Question {
+        // 디버그 로그: 함수가 호출되었는지 확인
+        Log.d("AppRepository", "getTodaysQuestion 호출됨. 방ID: $chatRoomId")
+
+        return try {
+            val snapshot = db.collection("chatRooms")
+                .document(chatRoomId)
+                .collection("messages")
+                .whereEqualTo("sender", "system") // system이 보낸 것만
+                .orderBy("timestamp", Query.Direction.DESCENDING) // 최신순
+                .limit(1)
+                .get()
+                .await()
+
+            if (snapshot.isEmpty) {
+                Log.d("AppRepository", "질문 검색 결과 없음 (시스템 메시지가 하나도 없음)")
+                Question(id = "default", text = "아직 도착한 질문이 없어요.")
+            } else {
+                val doc = snapshot.documents[0]
+                val text = doc.getString("content") ?: "내용 없음"
+                Log.d("AppRepository", "질문 가져오기 성공: $text")
+                Question(id = doc.id, text = text)
+            }
+
+        } catch (e: Exception) {
+            // 인덱스 에러가 나면 로그에 링크가 뜸
+            Log.e("AppRepository", "질문 로드 중 에러 발생: ${e.message}", e)
+
+            // 에러가 나도 '로딩 중'으로 멈추지 않게 기본 메시지 반환
+            Question(id = "error", text = "질문을 불러올 수 없어요. (인터넷/설정 확인)")
+        }
     }
 
     suspend fun getFamilyQuote(): String {

@@ -41,12 +41,7 @@ class HomeViewModel : ViewModel() {
         loadInitialData()
     }
 
-    /**
-     * 초기 데이터 로드
-     * 1. 사용자 정보 로드
-     * 2. 채팅방 유무 확인 -> 없으면 로드 중단 (MainActivity에서 잠금 화면 표시)
-     * 3. 채팅방 있으면 가족 멤버 및 캘린더 이벤트 구독
-     */
+
     fun loadInitialData() {
         _uiState.update { it.copy(isLoading = true) }
 
@@ -56,33 +51,36 @@ class HomeViewModel : ViewModel() {
             val user = repository.getCurrentUser()
             val currentUserId = AuthManager.getCurrentUserId()
 
-            // 1. 로그인 체크
             if (user == null || currentUserId.isNullOrBlank()) {
-                Log.e("HomeViewModel", "로그인 정보 없음")
                 _uiState.update { it.copy(isLoading = false) }
                 return@launch
             }
 
-            // 오늘의 질문 등 로드
-            val question = repository.getTodaysQuestion()
-            _uiState.update { it.copy(user = user, aiQuestion = question) }
+            // 일단 유저 정보 먼저 저장
+            _uiState.update { it.copy(user = user) }
 
-            // 2. 채팅방 ID 탐색
-            // 여기서 User 2가 방을 못 찾으면 null이 됨
+            // 채팅방 ID 탐색
             val chatRoomId = repository.findUserChatRoomId(currentUserId)
-
-            // (로그 추가)실제로 방을 찾았는지 확인용
-            Log.d("HomeViewModel", "User ID: $currentUserId, 찾은 방 ID: $chatRoomId")
-
             _uiState.update { it.copy(chatRoomId = chatRoomId) }
 
             if (chatRoomId == null) {
-                // 채팅방 없음 -> 초기 화면 유지
                 _uiState.update { it.copy(isLoading = false) }
             } else {
-                // 채팅방 있음 -> 데이터 로드 시작
+                // 채팅방 ID가 있을 때 -> 질문 가져오기 & 가족 데이터 로드
+                val question = repository.getTodaysQuestion(chatRoomId)
+                _uiState.update { it.copy(aiQuestion = question) }
+
                 loadFamilyData(chatRoomId, user)
             }
+        }
+    }
+
+    // 새로고침 버튼 로직
+    fun refreshQuestion() {
+        val chatRoomId = _uiState.value.chatRoomId ?: return
+        viewModelScope.launch {
+            val newQuestion = repository.getTodaysQuestion(chatRoomId)
+            _uiState.update { it.copy(aiQuestion = newQuestion) }
         }
     }
 
@@ -115,13 +113,6 @@ class HomeViewModel : ViewModel() {
     }
 
 
-    fun refreshQuestion() {
-        viewModelScope.launch {
-            // repository.getTodaysQuestion()은 Question 객체를 반환
-            val newQuestion = repository.getTodaysQuestion()
-            _uiState.value = _uiState.value.copy(aiQuestion = newQuestion)
-        }
-    }
 
     fun addOrUpdateEvent(event: CalendarEvent) {
         val currentChatRoomId = _uiState.value.chatRoomId
