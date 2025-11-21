@@ -28,15 +28,32 @@ fun EventListItem(
             .padding(vertical = 8.dp, horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            // event.description -> event.title 로 변경
-            text = event.title,
-            style = MaterialTheme.typography.bodyLarge,
-            color = TextPrimary,
+        // Column을 사용해 제목과 작성자 이름을 세로로 배열
+        Column(
             modifier = Modifier.weight(1f).padding(end = 8.dp),
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                // event.description -> event.title 로 변경
+                text = event.title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = TextPrimary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            // 작성자 이름 표시
+            if (event.creatorName.isNotBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "작성자: ${event.creatorName}",
+                    style = MaterialTheme.typography.bodySmall, // 제목보다 작은 글씨
+                    color = TextPrimary.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
 
         Box {
             IconButton(onClick = { showMenu = true }) {

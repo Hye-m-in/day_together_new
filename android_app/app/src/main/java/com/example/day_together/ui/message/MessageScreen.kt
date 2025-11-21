@@ -1,5 +1,14 @@
 package com.example.day_together.ui.message
 
+import androidx.compose.foundation.background
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+import java.time.ZoneId
+import java.time.LocalDate
+
+
 import android.Manifest
 import android.net.Uri
 import android.os.Build
@@ -7,15 +16,16 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+
+
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.itemsIndexed
+
+
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -34,11 +44,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
-import com.example.day_together.AuthManager.auth
 import com.example.day_together.navigation.AppDestinations
 import com.example.day_together.R
 import com.example.day_together.data.repository.AppRepository
-import com.example.day_together.data.repository.QuestionRepository
 import com.example.day_together.ui.dialogs.InviteMemberDialog
 import com.example.day_together.ui.theme.*
 
@@ -47,12 +55,15 @@ import com.example.day_together.ui.theme.*
 fun MessageScreen(
     navController: NavHostController,
     modifier: Modifier = Modifier,
+    // QuestionRepository 삭제
     viewModel: MessageViewModel = viewModel(factory = MessageViewModel.MessageViewModelFactory(
-        AppRepository, QuestionRepository()))
+        AppRepository
+    ))
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
-    val currentUserId = auth.currentUser?.uid
+
+
 
     // 런타임 권한 요청
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -94,13 +105,11 @@ fun MessageScreen(
 
     Scaffold(
         topBar = {
-            if(uiState.chatRoomId != null){
+            if (uiState.chatRoomId != null) {
                 MessageTopBar(
                     chatRoomName = uiState.chatRoomName.toString(),
-                    onInviteClick = { viewModel.onEvent(MessageEvent.ShowInviteDialog) },
                     onMoreOptionsClick = { navController.navigate(AppDestinations.CHAT_INFO_ROUTE) },
                     onEditChatRoomName = { newName ->
-                        // ViewModel에 이벤트 전달
                         viewModel.onEvent(MessageEvent.EditChatRoomName(newName))
                     }
                 )
@@ -124,7 +133,6 @@ fun MessageScreen(
                     onSendClick = {
                         val text = viewModel.uiState.value.messageText // 입력창 내용 가져오기
                         viewModel.onEvent(MessageEvent.SendMessage(text)) },
-                    onInviteClick = { viewModel.onEvent(MessageEvent.ShowInviteDialog) },
                     onClipClick = { mediaPickerLauncher.launch("image/*") }
                 )
             }
@@ -139,22 +147,54 @@ fun ColumnScope.ChatScreenContent(
     messageText: String,
     onTextChange: (String) -> Unit,
     onSendClick: () -> Unit,
-    onInviteClick: () -> Unit,
     onClipClick: () -> Unit,
 ) {
     if (messages.isEmpty()) {
         // 메세지가 없을 때
         EmptyChatMessagesView(
-            modifier = Modifier.weight(1f),
-            onInviteClick = onInviteClick)
+            modifier = Modifier.weight(1f)
+        )
+
     } else {
         // 메세지가 있을 때
-        LazyColumn(modifier = Modifier.weight(1f).padding(8.dp)) {
-            items(messages, key = { it.timestamp.time }) { message ->
-                MessageBubble(message = message, isMine = message.sender == currentUserName)
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .padding(8.dp)
+        ) {
+            itemsIndexed(
+                items = messages,
+                key = { _, msg -> msg.timestamp.time }
+            ) { index, message ->
+
+                val currentDate: LocalDate = remember(message.timestamp) {
+                    message.timestamp.toInstant()
+                        .atZone(ZoneId.of("Asia/Seoul"))
+                        .toLocalDate()
+                }
+
+                val previousDate: LocalDate? =
+                    if (index > 0) {
+                        messages[index - 1].timestamp.toInstant()
+                            .atZone(ZoneId.of("Asia/Seoul"))
+                            .toLocalDate()
+                    } else {
+                        null
+                    }
+
+                if (index == 0 || currentDate != previousDate) {
+                    DateHeader(date = message.timestamp)
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+
+                MessageBubble(
+                    message = message,
+                    isMine = message.sender == currentUserName
+                )
                 Spacer(modifier = Modifier.height(12.dp))
             }
         }
+
     }
     MessageInputArea(
         text = messageText,
@@ -164,11 +204,13 @@ fun ColumnScope.ChatScreenContent(
     )
 }
 
+
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MessageTopBar(
     chatRoomName: String,
-    onInviteClick: () -> Unit,
     onMoreOptionsClick: () -> Unit,
     onEditChatRoomName: (String) -> Unit // 이름 수정 콜백
 ) {
@@ -219,9 +261,7 @@ fun MessageTopBar(
             }
         },
         actions = {
-            IconButton(onClick = onInviteClick) {
-                Icon(Icons.Default.Add, contentDescription = "가족 초대")
-            }
+
             IconButton(onClick = onMoreOptionsClick) {
                 Icon(
                     painterResource(id = R.drawable.ic_more_options),
@@ -247,67 +287,153 @@ fun EmptyChatRoomScreen(onInviteClick: () -> Unit) {
 }
 
 @Composable
-fun EmptyChatMessagesView(modifier: Modifier = Modifier, onInviteClick: () -> Unit) {
-    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+fun EmptyChatMessagesView(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("아직 대화가 없습니다.\n첫 메세지를 보내보세요!", textAlign = TextAlign.Center)
+            Text(
+                "아직 대화가 없습니다.\n첫 메세지를 보내보세요!",
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
 
+
+
+
 @Composable
 fun MessageBubble(message: ChatMessage, isMine: Boolean) {
+
+    // 전송 시간 포맷팅
+    val timeText = remember(message.timestamp) {
+        val localDate = message.timestamp
+        val formatter = SimpleDateFormat("a h:mm", Locale.KOREA)
+        formatter.timeZone = TimeZone.getTimeZone("Asia/Seoul")
+        formatter.format(localDate)
+    }
+
+    // 이름(위) + 말풍선(아래) 배치를 위해 Column 사용
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
     ) {
-        // 보낸 사람 이름(상대방)
+        // 1. 상대방일 경우에만 이름 표시
         if (!isMine) {
             Text(
-                text = message.sender,
-                style = MaterialTheme.typography.labelSmall,
+                text = message.sender, // 사용자 이름
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
+                modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
             )
         }
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = if (isMine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-            tonalElevation = 1.dp
-        ) {
-            Column(
-                modifier = Modifier.padding(8.dp),
-                horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
-            ) {
-                // 이미지가 있을 경우 표시
-                if (!message.imageUrl.isNullOrEmpty()) {
-                    AsyncImage(
-                        model = message.imageUrl,
-                        contentDescription = "Image message",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .sizeIn(maxWidth = 200.dp, maxHeight = 200.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
 
-                // 텍스트 메시지가 있을 경우 표시
-                if (!message.content.isNullOrEmpty()) {
-                    Text(
-                        text = message.content,
-                        modifier = Modifier.padding(top = 4.dp),
-                        color = if (isMine)
-                            MaterialTheme.colorScheme.onPrimary
-                        else
-                            MaterialTheme.colorScheme.onSurface
-                    )
-                }
+        // 2. 말풍선과 시간 배치 (Row)
+        Row(
+            verticalAlignment = Alignment.Bottom
+        ) {
+            if (!isMine) {
+                // 상대방: [말풍선] [시간]
+                SenderBubble(message, isMine = false)
+                Spacer(modifier = Modifier.width(6.dp))
+                MessageTime(timeText)
+            } else {
+                // 나: [시간] [말풍선]
+                MessageTime(timeText)
+                Spacer(modifier = Modifier.width(6.dp))
+                SenderBubble(message, isMine = true)
             }
         }
     }
 }
 
+
+@Composable
+private fun SenderBubble(message: ChatMessage, isMine: Boolean = false) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = if (isMine)
+            MaterialTheme.colorScheme.primary
+        else
+            MaterialTheme.colorScheme.surfaceVariant,
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(8.dp),
+            horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
+        ) {
+
+            // 이미지 있을 때
+            if (!message.imageUrl.isNullOrEmpty()) {
+                AsyncImage(
+                    model = message.imageUrl,
+                    contentDescription = "Image message",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .sizeIn(maxWidth = 200.dp, maxHeight = 200.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // 텍스트 메시지
+            if (!message.content.isNullOrEmpty()) {
+                Text(
+                    text = message.content,
+                    color = if (isMine)
+                        MaterialTheme.colorScheme.onPrimary
+                    else
+                        MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun MessageTime(timeText: String) {
+    Text(
+        text = timeText,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+    )
+}
+
+
+@Composable
+fun DateHeader(date: Date) {
+    val dateText = remember(date) {
+        val formatter = SimpleDateFormat("yyyy년 MM월 dd일 EEEE", Locale.KOREA)
+        formatter.timeZone = TimeZone.getTimeZone("Asia/Seoul")
+        formatter.format(date)
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = dateText,
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontWeight = FontWeight.Medium,
+                color = TextPrimary.copy(alpha = 0.85f)
+            ),
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFFE5E7EB))
+                .padding(horizontal = 12.dp, vertical = 4.dp)
+        )
+    }
+}
+
+// 입력창 컴포저블
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MessageInputArea(
