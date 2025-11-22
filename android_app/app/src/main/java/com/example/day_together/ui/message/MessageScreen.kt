@@ -315,37 +315,48 @@ fun MessageBubble(message: ChatMessage, isMine: Boolean) {
         formatter.format(localDate)
     }
 
-    // 이름(위) + 말풍선(아래) 배치를 위해 Column 사용
+    // 시스템 메시지 여부 판단 변수 추가
+    // ChatMessage 구조에 따라 message.type == "system" 등으로 변경 필요할 수 있음
+    val isSystem = message.sender == "system"
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
     ) {
-        // 1. 상대방일 경우에만 이름 표시
         if (!isMine) {
             Text(
-                text = message.sender, // 사용자 이름
+                text = message.sender,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
             )
         }
 
-        // 2. 말풍선과 시간 배치 (Row)
-        Row(
-            verticalAlignment = Alignment.Bottom
-        ) {
+        Row(verticalAlignment = Alignment.Bottom) {
             if (!isMine) {
-                // 상대방: [말풍선] [시간]
-                SenderBubble(message, isMine = false)
+
+                SenderBubble(
+                    message = message,
+                    isMine = false,
+                    isSystem = isSystem,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+
                 Spacer(modifier = Modifier.width(6.dp))
                 MessageTime(timeText)
+
             } else {
-                // 나: [시간] [말풍선]
                 MessageTime(timeText)
                 Spacer(modifier = Modifier.width(6.dp))
-                SenderBubble(message, isMine = true)
+
+                SenderBubble(
+                    message = message,
+                    isMine = true,
+                    isSystem = false,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
             }
         }
     }
@@ -353,13 +364,35 @@ fun MessageBubble(message: ChatMessage, isMine: Boolean) {
 
 
 @Composable
-private fun SenderBubble(message: ChatMessage, isMine: Boolean = false) {
+private fun SenderBubble(
+    message: ChatMessage,
+    isMine: Boolean = false,
+    isSystem : Boolean,
+    modifier: Modifier = Modifier) {
+
+    // 말풍선 색상 / 글자색 분기
+    val bubbleColor: Color
+    val textColor: Color
+
+    when {
+        isSystem -> { // GPT 질문
+            bubbleColor = Color.White
+            textColor = MaterialTheme.colorScheme.onSurface
+        }
+        isMine -> {  // 내 메세지
+            bubbleColor = MaterialTheme.colorScheme.primary
+            textColor = MaterialTheme.colorScheme.onPrimary
+        }
+        else -> {    // 가족 메세지
+            bubbleColor = Color(0x40F2E0B4)
+            textColor = MaterialTheme.colorScheme.onSurface
+        }
+    }
+
     Surface(
+        modifier = modifier,
         shape = RoundedCornerShape(16.dp),
-        color = if (isMine)
-            MaterialTheme.colorScheme.primary
-        else
-            MaterialTheme.colorScheme.surfaceVariant,
+        color = bubbleColor,
         tonalElevation = 1.dp
     ) {
         Column(
@@ -384,10 +417,7 @@ private fun SenderBubble(message: ChatMessage, isMine: Boolean = false) {
             if (!message.content.isNullOrEmpty()) {
                 Text(
                     text = message.content,
-                    color = if (isMine)
-                        MaterialTheme.colorScheme.onPrimary
-                    else
-                        MaterialTheme.colorScheme.onSurface
+                    color = textColor
                 )
             }
         }

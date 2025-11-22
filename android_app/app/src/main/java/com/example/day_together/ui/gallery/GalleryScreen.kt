@@ -1,5 +1,7 @@
 package com.example.day_together.ui.gallery
 
+import java.time.LocalDateTime
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -87,7 +89,12 @@ import java.util.UUID
 // 데이터 클래스 정의
 data class PhotoItem(val id: String, val imageUrl: String, val date: String)
 data class MonthlyPhotoGroupData(val yearMonth: YearMonth, val photos: List<PhotoItem>)
-data class MonthlyComment(val id: String = UUID.randomUUID().toString(), val author: String, val text: String, val timestamp: String)
+
+data class MonthlyComment(
+    val id: String = UUID.randomUUID().toString(),
+    val author: String = "",
+    val text: String = "",
+    val timestamp: String = "")
 
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -201,8 +208,6 @@ fun GalleryScreen(
 
 
 
-
-// 월별 댓글 목록(댓글 BottomSheet)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MonthlyCommentBottomSheet(
@@ -213,6 +218,12 @@ fun MonthlyCommentBottomSheet(
     onSendComment: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    // 날짜 변환을 위한 포맷터 정의
+    // 저장된 형식 (예: 2025-11-21 14:30:00)
+    val saveFormatter = remember { DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss") }
+    // 보여줄 형식 (예: 11월 21일)
+    val displayFormatter = remember { DateTimeFormatter.ofPattern("M월 d일", Locale.KOREAN) }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -251,16 +262,39 @@ fun MonthlyCommentBottomSheet(
                     LazyColumn(
                         modifier = Modifier
                             .weight(1f, fill = false)
-                            .heightIn(max = 200.dp)
+                            .heightIn(max = 300.dp) // 댓글이 많을 때를 대비해 높이 제한을 조금 늘림
                     ) {
                         items(comments.size, key = { comments[it].id }) { index ->
                             val comment = comments[index]
+
+                            // 날짜 포맷 변환 로직
+                            val displayTime = try {
+                                val date = LocalDateTime.parse(comment.timestamp, saveFormatter)
+                                date.format(displayFormatter)
+                            } catch (e: Exception) {
+                                // 포맷이 안 맞을 경우(과거 데이터 등) 그냥 원래대로 표시하거나 "날짜 없음" 처리
+                                comment.timestamp.take(10) // 앞의 날짜 부분만 잘라서 보여주기
+                            }
+
+                            // 이름이 비어있거나 '알 수 없음'일 때의 UI 처리
+                            val displayName = if (comment.author.isBlank() || comment.author == "알 수 없음") "가족" else comment.author
+
                             Column(modifier = Modifier.padding(vertical = 8.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(comment.author, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium, color = TextPrimary))
+                                    // 이름
+                                    Text(
+                                        text = displayName,
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = TextPrimary)
+                                    )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text(comment.timestamp, style = MaterialTheme.typography.labelSmall, color = TextPrimary.copy(alpha = 0.6f))
+                                    // 날짜
+                                    Text(
+                                        text = displayTime,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = TextPrimary.copy(alpha = 0.6f)
+                                    )
                                 }
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(comment.text, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
                             }
                             if (index < comments.lastIndex) {

@@ -13,7 +13,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.day_together.AuthManager
 import com.example.day_together.data.model.User
 import com.example.day_together.data.repository.AppRepository
-import com.example.day_together.data.repository.AuthResult
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -85,7 +84,7 @@ open class MessageViewModel(
 
     init {
         fetchChatRoomInfo()
-        fetchTodayQuestion()
+
     }
 
     override fun onCleared() {
@@ -176,20 +175,6 @@ open class MessageViewModel(
         }
     }
 
-    private fun fetchTodayQuestion() {
-        viewModelScope.launch {
-            val question = repository.getTodaysQuestion()
-            question?.let { q ->
-                val currentMessages = _uiState.value.messages.toMutableList()
-                currentMessages.add(
-                    // ChatMessage는 String을 받으므로 q.text 사용
-                    ChatMessage(content = q.text, sender = "system")
-                )
-                _uiState.update { it.copy(messages = currentMessages) }
-            }
-        }
-    }
-
     private fun fetchChatRoomInfo() {
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
@@ -251,8 +236,8 @@ open class MessageViewModel(
         _uiState.update { it.copy(showInviteDialog = false, isLoading = true) }
 
         viewModelScope.launch {
-            val result = repository.createInvitation(inviterId, email)
-            if (result is AuthResult.Success) {
+            val invitationId = repository.createInvitation(inviterId, email)
+            if (invitationId != null) {
                 // AuthResult.Success에는 ID가 없으므로, DB에서 갱신된 정보를 다시 조회
                 // 초대 생성 시 채팅방이 새로 만들어졌을 수 있으므로 확인 필요
                 val newChatRoomId = repository.findUserChatRoomId(inviterId)
@@ -274,8 +259,10 @@ open class MessageViewModel(
                     _uiState.update { it.copy(showInviteDialog = false, isLoading = false) }
                     fetchChatRoomInfo()
                 }
-            } else if (result is AuthResult.Failure) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = result.message) }
+            } else {
+                // 실패 (null 반환됨)
+                _uiState.update {
+                    it.copy(isLoading = false, errorMessage = "초대 발송에 실패했습니다.")}
             }
         }
     }
@@ -284,7 +271,7 @@ open class MessageViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val result = repository.acceptInvitation(invitationId)
-            if (result is AuthResult.Success) {
+            if (result != null) {
                 val currentUid = AuthManager.getCurrentUserId()
                 val newChatRoomId = repository.findUserChatRoomId(currentUid ?: "")
                 if (!newChatRoomId.isNullOrBlank()) {
@@ -295,8 +282,9 @@ open class MessageViewModel(
                 } else {
                     _uiState.update { it.copy(isLoading = false) }
                 }
-            } else if (result is AuthResult.Failure) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = result.message) }
+            } else {
+                // 실패 시(null일 때) 에러 처리
+                _uiState.update { it.copy(isLoading = false, errorMessage = "초대 수락 실패") }
             }
         }
     }

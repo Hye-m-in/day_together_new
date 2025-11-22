@@ -1,5 +1,7 @@
 package com.example.day_together.data.repository
 
+
+
 import android.net.Uri
 import android.util.Log
 import com.example.day_together.AuthManager
@@ -242,9 +244,39 @@ object AppRepository {
 
 
     // HomeViewModel 관련 함수
-    suspend fun getTodaysQuestion(): Question {
-        delay(300)
-        return Question(id = "q1", text = "우리 가족만의 특별한 루틴이 있나요?")
+    // 실제 채팅방에서 'system'이 보낸 가장 최신 메시지를 가져옴
+    // 오늘의 질문 가져오기
+    suspend fun getTodaysQuestion(chatRoomId: String): Question {
+        // 디버그 로그: 함수가 호출되었는지 확인
+        Log.d("AppRepository", "getTodaysQuestion 호출됨. 방ID: $chatRoomId")
+
+        return try {
+            val snapshot = db.collection("chatRooms")
+                .document(chatRoomId)
+                .collection("messages")
+                .whereEqualTo("sender", "system") // system이 보낸 것만
+                .orderBy("timestamp", Query.Direction.DESCENDING) // 최신순
+                .limit(1)
+                .get()
+                .await()
+
+            if (snapshot.isEmpty) {
+                Log.d("AppRepository", "질문 검색 결과 없음 (시스템 메시지가 하나도 없음)")
+                Question(id = "default", text = "아직 도착한 질문이 없어요.")
+            } else {
+                val doc = snapshot.documents[0]
+                val text = doc.getString("content") ?: "내용 없음"
+                Log.d("AppRepository", "질문 가져오기 성공: $text")
+                Question(id = doc.id, text = text)
+            }
+
+        } catch (e: Exception) {
+            // 인덱스 에러가 나면 로그에 링크가 뜸
+            Log.e("AppRepository", "질문 로드 중 에러 발생: ${e.message}", e)
+
+            // 에러가 나도 '로딩 중'으로 멈추지 않게 기본 메시지 반환
+            Question(id = "error", text = "질문을 불러올 수 없어요. (인터넷/설정 확인)")
+        }
     }
 
     suspend fun getFamilyQuote(): String {
@@ -288,14 +320,48 @@ object AppRepository {
         }
     }
 
-    suspend fun getMonthlyComments(yearMonth: YearMonth): List<MonthlyComment> {
-        delay(400)
-        return listOf()
+    // getMonthlyComments -> 댓글을 한 번만 가져오는 게 아니라, 변경사항이 생길 때마다 계속 알려주는 함수
+    fun listenForMonthlyComments(
+        chatRoomId: String,
+        yearMonth: YearMonth,
+        onCommentsUpdated: (List<MonthlyComment>) -> Unit
+    ): ListenerRegistration {
+        return db.collection("chatRooms")
+            .document(chatRoomId)
+            .collection("monthly_comments")
+            .document(yearMonth.toString()) // 예: "2025-11"
+            .collection("comments")
+            .orderBy("timestamp", Query.Direction.ASCENDING) // 오래된 순서대로 정렬 (대화 흐름)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.w("AppRepository", "댓글 불러오기 실패", error)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null) {
+                    val comments = snapshot.toObjects(MonthlyComment::class.java)
+                    onCommentsUpdated(comments)
+                }
+            }
     }
 
-    suspend fun addMonthlyComment(yearMonth: YearMonth, comment: MonthlyComment) {
-        delay(500)
-        println("TODO: ${yearMonth}에 댓글 추가 - ${comment.text}")
+    // chatRoomId를 받도록 변경하고, 실제 Firestore 저장 로직 구현
+    suspend fun addMonthlyComment(chatRoomId: String, yearMonth: YearMonth, comment: MonthlyComment) {
+        try {
+            // 경로: chatRooms/{chatRoomId}/monthly_comments/{2025-11}/comments/{commentId}
+            db.collection("chatRooms")
+                .document(chatRoomId)
+                .collection("monthly_comments")
+                .document(yearMonth.toString()) // 예: "2025-11" 문서를 생성 (없으면 자동생성)
+                .collection("comments")
+                .document(comment.id)
+                .set(comment)
+                .await()
+
+            Log.d("AppRepository", "댓글 저장 성공: ${comment.text}")
+        } catch (e: Exception) {
+            Log.e("AppRepository", "댓글 저장 실패", e)
+        }
     }
 
 
