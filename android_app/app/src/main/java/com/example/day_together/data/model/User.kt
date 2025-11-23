@@ -2,11 +2,10 @@ package com.example.day_together.data.model
 
 import com.google.firebase.firestore.PropertyName
 
-/**
- * 앱 사용자의 정보를 담는 데이터 모델
- */
+// 앱 사용자의 정보를 담는 데이터 모델 -> Firestore의 문서(Document)와 1:1로 매핑
+
 data class User(
-    // 사용자의 고유 식별자 (Firebase Auth의 member_id)
+    // 사용자의 고유 식별자 (Firebase Auth의 UID, Firestore에는 'member_id'로 저장됨)
     @get:PropertyName("member_id") @set:PropertyName("member_id")
     var uid: String = "",
 
@@ -22,10 +21,6 @@ data class User(
     @get:PropertyName("birthDate") @set:PropertyName("birthDate")
     var birthDate: String? = null,
 
-    // 생년월일의 음력 여부
-    @get:PropertyName("isLunar") @set:PropertyName("isLunar")
-    var isLunar: Boolean? = null,
-
     // 가족 내 역할 또는 호칭 (예: "아빠", "딸")
     @get:PropertyName("position") @set:PropertyName("position")
     var position: String = "",
@@ -38,7 +33,8 @@ data class User(
     @get:PropertyName("fcmToken") @set:PropertyName("fcmToken")
     var fcmToken: String? = null,
 
-    // 현재 초대받은 채팅방의 ID
+    // 현재 초대받거나 소속된 채팅방의 ID
+    // (초대 수락 시 AppRepository에서 이 필드를 업데이트함)
     @get:PropertyName("invitedChatRoomId") @set:PropertyName("invitedChatRoomId")
     var invitedChatRoomId: String? = null
 )

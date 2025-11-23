@@ -1,22 +1,19 @@
 package com.example.day_together.ui.auth
 
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.day_together.data.repository.AuthRepository
-import com.google.firebase.auth.FirebaseAuth
 import com.example.day_together.data.repository.AppRepository
 import com.example.day_together.data.repository.AuthResult
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.net.URL
+import java.util.UUID
 
-
-/**
- * 데이터를 한 곳(ViewModel)에서만 통제함으로써 코드가 꼬이는 것을 막음
- * UI 화면이 마음대로 데이터를 바꾸면 앱이 복잡해질수록 어디서 버그가 생기는지 찾기 매우 어려워짐
- */
 
 /**
  * 로그인, 회원가입, 계정 찾기 등 인증 관련 화면들의
@@ -25,8 +22,6 @@ import kotlinx.coroutines.launch
 class AuthViewModel : ViewModel() {
 
     private val repository: AppRepository = AppRepository
-
-
     /**
      * 인증 화면의 모든 UI 상태를 관리하는 StateFlow. View는 이 State를 구독(실시간 상태 감지)하여 UI에 반영
      * StateFlow : 실시간으로 업데이트되는 '상태 게시판'
@@ -38,7 +33,6 @@ class AuthViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(AuthUiState())
     // public : ViewModel 외부에서는 오직 읽기만 가능한 공개용 게시판
     val uiState = _uiState.asStateFlow()
-
 
     /**
      * 이벤트 핸들러 함수들
@@ -55,7 +49,6 @@ class AuthViewModel : ViewModel() {
 
     fun onLoginEmailChange(email: String) { _uiState.update { it.copy(loginEmail = email, loginError = null) } }
     fun onLoginPasswordChange(password: String) { _uiState.update { it.copy(loginPassword = password, loginError = null) } }
-
     fun onSignUpNameChange(name: String) { _uiState.update { it.copy(signUpName = name) } }
     fun onSignUpBirthDateChange(date: String) {
         // 생년월일은 8자리까지 입력 가능
@@ -64,7 +57,7 @@ class AuthViewModel : ViewModel() {
             _uiState.update { it.copy(signUpBirthDate = date, signUpBirthDateError = error) }
         }
     }
-    fun onSignUpIsLunarChange(isLunar: Boolean) { _uiState.update { it.copy(signUpIsLunar = isLunar) } }
+
 
     fun onSignUpEmailChange(email: String) {
         // 이메일 형식 실시간 검증
@@ -75,7 +68,7 @@ class AuthViewModel : ViewModel() {
 
     fun onSignUpPasswordChange(password: String) {
         // 1. 비밀번호 설정 검사(영문, 숫자, 특수기호 포함 8자리 이상)
-        val passwordRegex = Regex("^(?=.*[A-Za-z])(?=.*\\d)(?=.*[!@#\\$%^&*()_+=<>?]).{8,}$")
+        val passwordRegex = Regex("^(?=.*[A-Za-z])(?=.*\\d)(?=.*[!@#$%^&*()_+=<>?]).{8,}$")
         val error = if (password.isNotEmpty() && !password.matches(passwordRegex)) "영문, 숫자, 특수기호를 포함해 8자리 이상이어야 해요." else null
 
         // 2. 상태 업데이트(입력된 비밀번호 및 에러 메세지 기록)
@@ -92,7 +85,68 @@ class AuthViewModel : ViewModel() {
         _uiState.update { it.copy(signUpConfirmPassword = password, signUpConfirmPasswordError = error) }
     }
 
+    fun uploadProfileImagesAndSignUp(){
+        val uri = _uiState.value.profileImageUri
+        if (uri == null){
+            // 프로필 이미지 없이 회원가입
+            signUpWithoutImage()
+            return
+        }
+
+        val storageRef = FirebaseStorage.getInstance().reference
+        val imageRef = storageRef.child("profile_image/${UUID.randomUUID()}.jpg")
+
+        imageRef.putFile(uri).addOnSuccessListener {
+            imageRef.downloadUrl.addOnSuccessListener { downloadUri ->
+                _uiState.update { it.copy(profileImageUrl = downloadUri.toString()) }
+                signUpWithoutImage() // 이미지 업로드 후 회원가입 실행
+            }
+        }.addOnFailureListener { e ->
+            Log.e("AuthViewModel", "프로필 이미지 업로드 실패", e)
+            // 업로드 실패 시 이미지 없이 회원가입
+            signUpWithoutImage()
+        }
+    }
+
+    private fun signUpWithoutImage() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, signUpResult = null) }
+
+            val state = _uiState.value
+
+            // 1) 가족 역할 문자열 계산
+            val position = resolvePosition(state)
+
+            // 2) Repository에 역할까지 같이 전달
+            val result = repository.signUp(
+                name        = state.signUpName,
+                email       = state.signUpEmail,
+                password    = state.signUpPassword,
+                birthDate   = state.signUpBirthDate,
+                position    = position,                         // 가족 position 파라미터 추가
+                profileImage = state.profileImageUrl ?: ""      // 프로필 이미지 URL(없으면 빈 문자열)
+            )
+
+            if (result is AuthResult.Success) {
+                // 회원가입 직후 자동 로그인
+                repository.login(state.signUpEmail, state.signUpPassword)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        signUpResult = result,
+                        isSignUpAndLoginSuccess = true
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(isLoading = false, signUpResult = result) }
+            }
+        }
+    }
+
+
+
     fun onProfileImageChanged(uri: Uri?) {
+        Log.d("AuthViewModel", "선택된 이미지 URI: $uri")
         _uiState.update { it.copy(profileImageUri = uri) }
     }
 
@@ -108,8 +162,29 @@ class AuthViewModel : ViewModel() {
     fun onOtherFamilyMemberTextChange(text: String) { if (text.length <= 10) _uiState.update { it.copy(otherFamilyMemberText = text) } }
     fun onFindPwNameChange(name: String) { _uiState.update { it.copy(findPwName = name) } }
     fun onFindPwEmailChange(email: String) { _uiState.update { it.copy(findPwEmail = email) } }
-    fun onFindIdNameChange(name: String) { _uiState.update { it.copy(findIdName = name) } }
-    fun onFindIdEmailChange(email: String) { _uiState.update { it.copy(findIdEmail = email) } }
+
+
+
+
+    private fun resolvePosition(state: AuthUiState): String {
+        return when {
+            state.familyMemberSelections["할아버지"] == true -> "할아버지"
+            state.familyMemberSelections["할머니"] == true -> "할머니"
+            state.familyMemberSelections["아버지"] == true -> "아버지"
+            state.familyMemberSelections["어머니"] == true -> "어머니"
+            state.familyMemberSelections["아들"] == true   -> "아들"
+            state.familyMemberSelections["딸"] == true     -> "딸"
+
+            state.otherFamilyMemberChecked && state.otherFamilyMemberText.isNotBlank() ->
+                state.otherFamilyMemberText
+
+            else -> "기타"
+        }
+    }
+
+
+
+
 
     /**
      * 실제 비즈니스 로직(로그인, 회원가입 등) 실행하는 함수
@@ -141,22 +216,7 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    /**
-     * 구글 ID 토큰으로 Firebase에 직접 로그인하는 로직
-     * 지금은 사용하지 않지만, 레거시/비교용으로 남겨둠
-     */
-    fun signInWithGoogle(idToken: String) {
-        _uiState.update { it.copy(isLoading = true, isLoginSuccess = false, loginError = null) }
-        viewModelScope.launch {
-            val result = repository.signInWithGoogle(idToken)
-            _uiState.update {
-                when (result) {
-                    is AuthResult.Success -> it.copy(isLoading = false, isLoginSuccess = true)
-                    is AuthResult.Failure -> it.copy(isLoading = false, loginError = result.message)
-                }
-            }
-        }
-    }
+
 
     /**
      * 구글 ID 토큰을 서버로 보내 커스텀 토큰을 받은 뒤 Firebase에 로그인
@@ -196,17 +256,13 @@ class AuthViewModel : ViewModel() {
     fun signUp() {
         _uiState.update { it.copy(isLoading = true, signUpResult = null) }
         viewModelScope.launch {
-            val result = repository.signUp(
-                name = _uiState.value.signUpName,
-                email = _uiState.value.signUpEmail,
-                password = _uiState.value.signUpPassword
-            )
-            // 회원가입 성공 시, 자동 로그인 수행
-            if (result is AuthResult.Success) {
-                repository.login(_uiState.value.signUpEmail, _uiState.value.signUpPassword)
-                _uiState.update { it.copy(isLoading = false, signUpResult = result, isSignUpAndLoginSuccess = true) }
+            val uri = _uiState.value.profileImageUri
+            if (uri != null) {
+                // 프로필 이미지가 있으면 업로드 후 회원가입 실행
+                uploadProfileImagesAndSignUp()
             } else {
-                _uiState.update { it.copy(isLoading = false, signUpResult = result) }
+                // 이미지 없이 회원가입
+                signUpWithoutImage()
             }
         }
     }
@@ -220,17 +276,7 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    // 아이디 찾기 로직
-    fun findId() {
-        _uiState.update { it.copy(isLoading = true, findAccountResult = null) }
-        viewModelScope.launch {
-            val result = repository.findId(
-                name = _uiState.value.findIdName,
-                email = _uiState.value.findIdEmail
-            )
-            _uiState.update { it.copy(isLoading = false, findAccountResult = result) }
-        }
-    }
+
 
     /**
      * 상태 초기화 함수 : 특정 액션이 끝난 후, 관련 상태를 초기화하여 UI를 정리
@@ -269,12 +315,13 @@ data class AuthUiState(
     val signUpPasswordError: String? = null,
     val signUpConfirmPasswordError: String? = null,
     val signUpBirthDateError: String? = null,
-    val profileImageUri: Uri? = null,
     val familyMemberSelections: Map<String, Boolean> = emptyMap(),
     val otherFamilyMemberChecked: Boolean = false,
     val otherFamilyMemberText: String = "",
     val signUpResult: AuthResult? = null,
     val isSignUpAndLoginSuccess: Boolean = false,
+    val profileImageUri: Uri? = null,
+    val profileImageUrl: String? = null,
 
     // 계정 찾기 화면 상태
     val findIdName: String = "",

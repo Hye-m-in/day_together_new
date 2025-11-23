@@ -17,26 +17,30 @@ object AuthManager {
         name: String,
         email: String,
         password: String,
+        birthDate: String, // 생년월일 파라미터 추가
         position: String,
+        profileImage: String,
         onResult: (Boolean, String?) -> Unit
     ) {
         auth.createUserWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     val user = auth.currentUser
-                    val memberId = user?.uid ?: ""
+                    val userId = user?.uid ?: ""
 
-                    val memberData = hashMapOf(
-                        "member_id" to memberId,
+                    val userData = hashMapOf(
+                        "user_id" to userId,
                         "name" to name,
                         "email" to email,
+                        "birthDate" to birthDate, // DB에 생년월일 저장 추가
                         "position" to position,
+                        "profile_image" to profileImage,
                         "invitedChatRoomId" to null
                     )
 
                     db.collection("users")
-                        .document(memberId)
-                        .set(memberData)
+                        .document(userId)
+                        .set(userData)
                         .addOnSuccessListener {
                             onResult(true, null)
                         }
@@ -92,6 +96,7 @@ object AuthManager {
                                     "email" to user.email,
                                     "position" to "가족", // 기본값
                                     "invitedChatRoomId" to null
+                                    // 참고: 구글 로그인 시에는 생년월일을 바로 알 수 없으므로 추후 입력받는 로직이 필요
                                 )
                                 userDocRef.set(memberData)
                                     .addOnSuccessListener { onResult(true, null) }
@@ -101,8 +106,6 @@ object AuthManager {
                                 onResult(true, null)
                             }
                         }
-                    } else {
-                        onResult(true, null) // Firestore 확인이 안돼도 로그인 자체는 성공
                     }
                 } else {
                     // 로그인 실패

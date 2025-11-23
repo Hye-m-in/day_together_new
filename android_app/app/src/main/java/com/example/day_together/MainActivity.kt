@@ -1,14 +1,20 @@
 package com.example.day_together
 
+import android.widget.Toast
+import android.util.Log
+import androidx.compose.ui.platform.LocalContext
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -18,10 +24,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.day_together.data.repository.AppRepository
-import com.example.day_together.data.repository.QuestionRepository
 import com.example.day_together.navigation.AppNavigation
+import com.example.day_together.ui.dialogs.InvitationDialog
 import com.example.day_together.ui.gallery.GalleryScreen
 import com.example.day_together.ui.home.HomeScreen
+import com.example.day_together.ui.home.HomeViewModel
 import com.example.day_together.ui.message.MessageScreen
 import com.example.day_together.ui.message.MessageViewModel
 import com.example.day_together.ui.navigation.BottomNavItem
@@ -31,151 +38,199 @@ import com.example.day_together.ui.theme.NavIconSelected
 import com.example.day_together.ui.theme.NavIconUnselected
 import com.google.firebase.firestore.ListenerRegistration
 
-/**
- * MainActivity는 앱이 실행될 때 가장 먼저 시작되는 화면
- * Jetpack Compose를 사용하여 전체 UI 구성하는 역할
- */
 class MainActivity : ComponentActivity() {
-    /**
-     * Activity가 생성될 때 호출되는 함수
-     * 여기서 앱의 초기 화면 내용 설정
-     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // setContent 블록 안에서 Composable 함수를 호출하여 UI 그림
         setContent {
-            // 앱의 전체적인 디자인 테마 적용
             Day_togetherTheme {
-                // navigation 패키지에 정의된 앱의 전체 화면 전환 로직을 호출
                 AppNavigation()
             }
         }
     }
 }
 
-/**
- * 하단 네비게이션 바를 포함하는 메인 화면의 전체적인 UI 구조를 정의하는 Composable 함수
- * -> 로그인 후에 나타나는 핵심 화면들의 컨테이너 역할
- *
- * @param appNavController 앱의 최상위 NavController: 로그인 화면 등 메인 화면 바깥의 화면으로 이동할 때 사용
- */
 @Composable
 fun MainScreen(appNavController: NavHostController) {
-    // MainScreen 내부(하단 바)의 화면 전환을 독립적으로 관리하기 위한 NavController
+    // Context를 Composable 스코프 내에서 미리 변수에 담아둠
+    val context = LocalContext.current
     val innerNavController = rememberNavController()
-    // 새로운 채팅방 초대를 받았을 때, 해당 채팅방의 ID를 저장하는 상태 변수
     val invitedChatRoomId = remember { mutableStateOf<String?>(null) }
-    // Firebase 실시간 리스너를 관리하기 위한 변수 -> 화면이 사라질 때 리스너 정리하는 데 사용
     var invitationListener: ListenerRegistration? by remember { mutableStateOf(null) }
 
-    // Composable이 화면에 나타나거나 사라질 때 특정 코드 실행하기 위한 효과 핸들러
-    // 여기서는 사용자가 로그인/로그아웃할 때마다 새로운 초대 리스너를 설정하거나 제거함
+    // 로그인 상태에 따라 초대 리스너 등록/해제
     DisposableEffect(ChatRoomManager.auth.currentUser) {
         val userId = ChatRoomManager.auth.currentUser?.uid
         if (userId != null) {
-            // 현재 로그인한 사용자의 ID로 초대를 실시간으로 감지하는 리스너 설정
-            invitationListener = ChatRoomManager.listenForInvitations(userId) { pendingInvitationId ->
-                // 새로운 초대가 감지되면 상태 변수에 채팅방 ID를 저장하여 UI에 알림
-                invitedChatRoomId.value = pendingInvitationId
-            }
+            invitationListener =
+                ChatRoomManager.listenForInvitations(userId) { pendingInvitationId ->
+                    invitedChatRoomId.value = pendingInvitationId
+                }
         }
-        // 화면에서 벗어나거나 Composable이 재구성될 때 실행될 정리 로직
         onDispose {
-            // 메모리 누수를 방지하기 위해 활성화된 리스너 제거
             invitationListener?.remove()
         }
     }
 
-    // 하단 네비게이션 바에 표시될 아이템 목록
     val bottomNavItems = listOf(
         BottomNavItem.Home, BottomNavItem.Message, BottomNavItem.Gallery, BottomNavItem.Settings
     )
 
+    val homeViewModel: HomeViewModel = viewModel()
+    val homeUiState by homeViewModel.uiState.collectAsState()
 
-    Scaffold(
-        // 하단 네비게이션 바 UI 정의
-        bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                // 현재 네비게이션 스택의 최상단 항목을 실시간으로 감지
-                val navBackStackEntry by innerNavController.currentBackStackEntryAsState()
-                // 현재 보여지고 있는 화면의 목적지 정보를 가져옴
-                val currentDestination = navBackStackEntry?.destination
+    // 채팅방 존재 여부 확인 (null이나 공백이 아니면 true)
+    val hasChatRoom = !homeUiState.chatRoomId.isNullOrBlank()
 
-                // bottomNavItems 목록에 있는 각 아이템을 순회하면서 NavigationBarItem을 만듦
-                bottomNavItems.forEach { screen ->
-                    // 현재 목적지가 현재 아이템의 경로 계층에 속하는지 확인하면서 선택 상태를 결정함
-                    val isSelected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
-                    NavigationBarItem(
-                        icon = {
-                            Icon(
-                                painter = painterResource(id = screen.iconResId),
-                                contentDescription = screen.label,
-                                // 선택 상태에 따라 아이콘 색상을 다르게 설정함
-                                tint = if (isSelected) NavIconSelected else NavIconUnselected
-                            )
-                        },
-                        selected = isSelected,
-                        onClick = {
-                            // 아이콘 클릭 시 해당 화면으로 이동
-                            innerNavController.navigate(screen.route) {
-                                // 백스택의 시작 목적지까지 꺼내서(pop) 중복 스택이 쌓이는 것을 방지함
-                                popUpTo(innerNavController.graph.findStartDestination().id) { saveState = true }
-                                // 이미 스택에 해당 화면이 있으면 새로 만들지 않고 재사용
-                                launchSingleTop = true
-                                // 이전 상태 복원
-                                restoreState = true
-                            }
-                        },
-                        alwaysShowLabel = false, // 아이콘 아래에 라벨 텍스트를 항상 표시할지 여부
-                        colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent) // 선택 시 배경 효과를 투명하게 처리함
-                    )
+    // 시작 화면 결정 로직
+    // 채팅방이 있으면 Home, 없으면 Message 화면을 시작점으로
+    // 이렇게 하면 채팅방 없는 유저는 아예 홈 화면에 진입할 수 없음
+    val startDest = if (hasChatRoom) BottomNavItem.Home.route else BottomNavItem.Message.route
+
+    val navBackStackEntry by innerNavController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    // 탭이 'Home'으로 변경될 때마다 데이터 새로고침 (화면 갱신 보장)
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == BottomNavItem.Home.route) {
+            homeViewModel.loadInitialData()
+        }
+    }
+
+    // 가장 바깥 Box
+    Box(modifier = Modifier.fillMaxSize()) {
+
+        // [1층] 앱의 메인 화면들 (Scaffold)
+        Scaffold(
+            bottomBar = {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                    val currentDestination = navBackStackEntry?.destination
+
+                    bottomNavItems.forEach { screen ->
+                        val isSelected =
+                            currentDestination?.hierarchy?.any { it.route == screen.route } == true
+
+                        // 홈 버튼 활성화/비활성화 로직
+                        // 화면이 'Home'인데 채팅방이 없다면 -> 비활성화(false)
+                        // 나머지 화면은 항상 활성화(true)
+                        val isEnabled = if (screen == BottomNavItem.Home) hasChatRoom else true
+
+                        NavigationBarItem(
+                            icon = {
+                                Icon(
+                                    painter = painterResource(id = screen.iconResId),
+                                    contentDescription = screen.label,
+                                    // 비활성화되면 회색(Gray)으로 보이게 처리
+                                    tint = if (isSelected) NavIconSelected
+                                    else if (!isEnabled) Color.Gray.copy(alpha = 0.5f)
+                                    else NavIconUnselected
+                                )
+                            },
+                            selected = isSelected,
+                            // enabled 속성 적용 (false면 클릭 안됨)
+                            enabled = isEnabled,
+                            onClick = {
+                                // 비활성화 상태면 클릭 이벤트 무시
+                                if (isEnabled) {
+                                    innerNavController.navigate(screen.route) {
+                                        popUpTo(innerNavController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                            },
+                            alwaysShowLabel = false,
+                            colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent)
+                        )
+                    }
                 }
             }
-        }
-    ) { innerPadding ->
-        // Scaffold의 본문 영역에 들어갈 내용을 정의
-        // 하단 바 내부의 화면 전환을 담당하는 NavHost
-        NavHost(
-            navController = innerNavController,
-            startDestination = BottomNavItem.Home.route, // 시작 화면은 홈으로 설정
-            modifier = Modifier.padding(innerPadding) // Scaffold가 제공하는 패딩을 적용하여 하단 바와 겹치지 않도록 함
-        ) {
-            // 홈경로일 때 HomeScreen을 보여줌
-            composable(BottomNavItem.Home.route) {
-                HomeScreen(
-                    appNavController = appNavController,
-                    invitedChatRoomId = invitedChatRoomId,
-                    onAcceptInvitation = { chatRoomId ->
-                        ChatRoomManager.acceptInvitation(chatRoomId) { success, _ ->
-                            if (success) {
-                                invitedChatRoomId.value = null // 성공 시 초대 상태 초기화
+        ) { innerPadding ->
+            NavHost(
+                navController = innerNavController,
+                // 위에서 계산한 startDest를 사용하여 시작 화면을 동적으로 결정
+                startDestination = startDest,
+                modifier = Modifier.padding(innerPadding)
+            ) {
+                composable(BottomNavItem.Home.route) {
+                    // 홈 화면
+                    HomeScreen(
+                        homeViewModel = homeViewModel,
+                        invitedChatRoomId = invitedChatRoomId,
+                        onAcceptInvitation = { }, // MainActivity 레벨에서 처리하므로 비워둠
+                        onDismissInvitation = { }
+                    )
+                }
+                composable(BottomNavItem.Message.route) {
+                    val messageViewModel: MessageViewModel = viewModel(
+                        factory = MessageViewModel.MessageViewModelFactory(AppRepository)
+                    )
+                    MessageScreen(navController = appNavController, viewModel = messageViewModel)
+                }
+                composable(BottomNavItem.Gallery.route) {
+                    GalleryScreen(navController = appNavController)
+                }
+                composable(BottomNavItem.Settings.route) {
+                    SettingsScreen(appNavController = appNavController)
+                }
+            }
+        } // Scaffold 끝
+
+        // 기존 홈 화면 초대 알림 -> 화면 전역 초대 알림
+        // 채팅방 유무와 상관없이, 초대장이 오면 무조건 띄움 (화면 어디에 있든)
+        if (invitedChatRoomId.value != null) {
+            // Box로 감싸서 화면 중앙 정렬 및 최상단(zIndex) 보장
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(2f), // 혹시 모를 겹침 방지용 최상단 설정
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                InvitationDialog(
+                    onAccept = {
+                        val inviteId = invitedChatRoomId.value!!
+
+                        // 로딩 표시가 필요하다면 여기서 상태 변수를 true로 변경 (선택 사항)
+                        homeViewModel.acceptInvitation(inviteId) { acceptedChatRoomId ->
+                            // 콜백 실행
+                            if (acceptedChatRoomId != null) {
+                                // [성공 시]
+                                Log.d("Invitation", "초대 수락 성공: $acceptedChatRoomId")
+
+                                invitedChatRoomId.value = null // 1. 다이얼로그 닫기
+                                homeViewModel.loadInitialData() // 2. 데이터 갱신
+
+                                // 수락 성공 시, 이제 방이 생겼으므로 'Home'으로 자동 이동!
+                                innerNavController.navigate(BottomNavItem.Home.route) {
+                                    popUpTo(innerNavController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            } else {
+                                // [실패 시]
+                                Log.e("Invitation", "초대 수락 실패")
+
+                                // 실패했더라도 일단 다이얼로그를 닫고 로그를 남김
+                                invitedChatRoomId.value = null
+
+                                // 미리 받아둔 context 변수를 사용하여 Toast 표시
+                                Toast.makeText(context, "초대 수락에 실패했습니다.", Toast.LENGTH_SHORT).show()
                             }
                         }
                     },
-                    onDismissInvitation = {
-                        // TODO: 초대 거절 로직 구현 필요
-                        invitedChatRoomId.value = null
+                    onDismiss = {
+                        val inviteId = invitedChatRoomId.value!!
+                        homeViewModel.rejectInvitation(inviteId) {
+                            // 거절 로직 완료 후 다이얼로그 닫기
+                            invitedChatRoomId.value = null
+                        }
                     }
                 )
             }
-            // 메시지 경로일 때 MessageScreen 보여줌
-            composable(BottomNavItem.Message.route) {
-                val messageViewModel: MessageViewModel = viewModel(
-                    factory = MessageViewModel.MessageViewModelFactory(
-                        AppRepository,
-                        QuestionRepository()
-                    )
-                )
-                MessageScreen(navController = appNavController, viewModel = messageViewModel)
-            }
-            // 갤러리 경로일 때 GalleryScreen을 보여줌
-            composable(BottomNavItem.Gallery.route) {
-                GalleryScreen(navController = appNavController)
-            }
-            // 설정 경로일 때 SettingsScreen을 보여줌
-            composable(BottomNavItem.Settings.route) {
-                SettingsScreen(appNavController = appNavController)
-            }
         }
+
     }
 }

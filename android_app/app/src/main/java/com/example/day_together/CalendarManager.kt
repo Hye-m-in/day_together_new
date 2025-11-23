@@ -2,25 +2,27 @@ package com.example.day_together
 
 import java.util.Date
 import android.util.Log
+
 import com.example.day_together.data.model.CalendarEvent
 import com.google.firebase.Timestamp
-import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
-import com.google.firebase.firestore.ktx.toObject
+
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
-/**
- * 캘린더 관련 모든 Firestore 작업을 처리하는 객체 
- */
+// 캘린더 관련 모든 Firestore 작업을 처리하는 객체
+
 object CalendarManager {
 
-    val db = FirebaseService.db
+    // 정적 db 프로퍼티 삭제 (메모리 누수 방지) -> val db = FirebaseService.db
+
     // 여러 곳에서 사용될 컬렉션 이름을 상수로 만들어 오타 방지
     private const val EVENTS_COLLECTION = "events"
 
@@ -29,31 +31,47 @@ object CalendarManager {
      */
     suspend fun addEvent(chatRoomId: String, event: CalendarEvent) {
         try {
-            // chatRooms/{chatRoomId}/events/{eventId} 경로에 데이터 저장
-            db.collection("chatRooms").document(chatRoomId).collection(EVENTS_COLLECTION)
-                .document(event.id) // CalendarEvent 생성 시 만들어진 고유 ID를 문서 ID로 사용
-                .set(event)
-                .await() // 작업이 끝날 때까지 기다림
-            Log.d("CalendarManager", "일정 추가 성공: ${event.title}")
+            val db = FirebaseFirestore.getInstance()
+
+            // 이벤트 ID가 비어 있으면 Firestore에서 자동 ID 발급
+            val docRef = if (event.id.isBlank()) {
+                db.collection("chatRooms")
+                    .document(chatRoomId)
+                    .collection(EVENTS_COLLECTION)
+                    .document()   // 자동 ID
+            } else {
+                db.collection("chatRooms")
+                    .document(chatRoomId)
+                    .collection(EVENTS_COLLECTION)
+                    .document(event.id)
+            }
+
+            // 비어 있던 id는 실제 문서 ID로 덮어쓰기
+            val finalEvent = if (event.id.isBlank()) {
+                event.copy(id = docRef.id)
+            } else {
+                event
+            }
+
+            // Firestore에 저장
+            docRef.set(finalEvent).await()
+
+            Log.d(
+                "CalendarManager",
+                "일정 추가 성공: chatRoomId=$chatRoomId, eventId=${finalEvent.id}, title=${finalEvent.title}"
+            )
         } catch (e: Exception) {
             Log.e("CalendarManager", "일정 추가 실패", e)
         }
     }
 
-    /**
-     * 기존 일정을 수정하는 함수
-     */
-    suspend fun updateEvent(chatRoomId: String, event: CalendarEvent) {
-        // Firestore의 set은 문서를 덮어쓰므로, addEvent와 동일한 로직으로 수정 가능
-        addEvent(chatRoomId, event)
-    }
 
-    /**
-     * ID를 이용해 일정을 삭제하는 함수
-     */
+
+    // ID를 이용해 일정을 삭제하는 함수
     suspend fun deleteEvent(chatRoomId: String, eventId: String) {
         try {
-            db.collection("chatRooms").document(chatRoomId).collection(EVENTS_COLLECTION)
+            // FirebaseFirestore.getInstance() 직접 호출
+            FirebaseFirestore.getInstance().collection("chatRooms").document(chatRoomId).collection(EVENTS_COLLECTION)
                 .document(eventId)
                 .delete()
                 .await()
@@ -63,16 +81,14 @@ object CalendarManager {
         }
     }
 
-    /**
-     * [실시간 공유 핵심 기능]
-     * 특정 채팅방의 일정 데이터 변경을 실시간으로 감지하고,
-     * 변경될 때마다 onEventsUpdated 콜백 함수를 호출함
-     */
+    // 특정 채팅방의 일정 데이터 변경을 실시간으로 감지하고,변경될 때마다 onEventsUpdated 콜백 함수를 호출함
+
     fun listenForEvents(
         chatRoomId: String,
         onEventsUpdated: (List<CalendarEvent>) -> Unit
     ): ListenerRegistration { // 리스너를 나중에 제거할 수 있도록 등록 객체 반환
-        return db.collection("chatRooms").document(chatRoomId).collection(EVENTS_COLLECTION)
+        // FirebaseFirestore.getInstance() 직접 호출
+        return FirebaseFirestore.getInstance().collection("chatRooms").document(chatRoomId).collection(EVENTS_COLLECTION)
             .orderBy("startTime") // 시간순으로 정렬
             .addSnapshotListener { snapshots, error ->
                 if (error != null) {
@@ -83,26 +99,43 @@ object CalendarManager {
 
                 if (snapshots != null) {
                     // Firestore 문서 목록을 CalendarEvent 객체 목록으로 자동 변환
-                    val events = snapshots.mapNotNull { it.toObject<CalendarEvent>() }
+                    // Deprecated된 toObject<T>() 대신 toObject(Class) 사용
+                    val events = snapshots.mapNotNull { it.toObject(CalendarEvent::class.java) }
                     onEventsUpdated(events) // 변경된 최신 일정 목록 전체를 전달
                 }
             }
     }
 
-    /**
-     * 사용자의 생일 정보를 가져와 캘린더에 자동으로 등록하는 함수
-     */
+    // 사용자의 생일 정보를 가져와 캘린더에 자동으로 등록하는 함수
     fun registerBirthday(chatRoomId: String, userId: String) {
-        db.collection("users").document(userId).get().addOnSuccessListener { doc ->
+        // FirebaseFirestore.getInstance() 직접 호출
+        FirebaseFirestore.getInstance().collection("users").document(userId).get().addOnSuccessListener { doc ->
             val name = doc.getString("name") ?: return@addOnSuccessListener
-            // Firestore에 'birthday' 필드가 'YYYY-MM-DD' 형식으로 저장되어 있다고 가정
-            val birthdayStr = doc.getString("birthday") ?: return@addOnSuccessListener
+            // 'birthDate' 필드를 읽음 (YYYYMMDD 형식)
+            val birthdayStr = doc.getString("birthDate")
+
+            // YYYYMMDD 형식인지 확인
+            if (birthdayStr.isNullOrBlank() || birthdayStr.length != 8) {
+                Log.w("CalendarManager", "$name 님의 생일 정보가 없거나 형식이(YYYYMMDD) 맞지 않습니다.")
+                return@addOnSuccessListener
+            }
+
+            // YYYYMMDD 형식용 포맷터
+            val birthDateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
 
             try {
-                // "YYYY-MM-DD" 형식의 문자열을 LocalDate로 변환
-                val birthDate = LocalDate.parse(birthdayStr)
-                // 올해 생일 날짜로 변경
-                val thisYearBirthday = birthDate.withYear(LocalDate.now().year)
+                // "YYYYMMDD" 형식의 문자열을 LocalDate로 변환
+                val birthDate = LocalDate.parse(birthdayStr, birthDateFormatter)
+                val today = LocalDate.now()
+
+
+                // (양력)생일 변수 선언과 할당 합침
+                var thisYearBirthday = birthDate.withYear(today.year)
+
+                if (thisYearBirthday.isBefore(today.minusDays(1))) {
+                    thisYearBirthday = thisYearBirthday.plusYears(1)
+                }
+                val title = "$name 님의 생일"
 
                 // LocalDate를 Timestamp로 변환
                 val birthdayTimestamp = Timestamp(
@@ -110,17 +143,25 @@ object CalendarManager {
                 )
 
                 val birthdayEvent = CalendarEvent(
-                    title = "$name 님의 생일",
+                    id = "birthday_${userId}", // 고유 ID
+                    title = title,
                     startTime = birthdayTimestamp,
-                    creatorId = "system", // 시스템이 자동으로 생성했음을 표시
-                    creatorName = "시스템",
-                    type = "birthday"
+                    creatorId = "SYSTEM_BIRTHDAY",
+                    creatorName = "가족 캘린더",
+                    type = "BIRTHDAY",
+                    description = "${birthDate.monthValue}월 ${birthDate.dayOfMonth}일"
                 )
 
                 // 생성된 생일 이벤트를 Firestore에 저장
                 // addEvent는 suspend 함수이므로 코루틴 안에서 호출해야 함
                 CoroutineScope(Dispatchers.IO).launch {
-                    addEvent(chatRoomId, birthdayEvent)
+                    // SetOptions.merge()를 사용해 덮어쓰기 (매년 갱신 가능하도록)
+                    // FirebaseFirestore.getInstance() 직접 호출
+                    FirebaseFirestore.getInstance().collection("chatRooms").document(chatRoomId).collection(EVENTS_COLLECTION)
+                        .document(birthdayEvent.id)
+                        .set(birthdayEvent, SetOptions.merge()) // set + merge
+                        .await()
+                    Log.d("CalendarManager", "$name 님의 생일 일정 등록/업데이트 성공")
                 }
 
             } catch (e: Exception) {

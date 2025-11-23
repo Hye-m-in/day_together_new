@@ -1,8 +1,6 @@
 package com.example.day_together.ui.auth
 
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
+
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -40,7 +38,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.day_together.data.repository.AuthResult
-import com.example.day_together.navigation.AppDestinations
 import com.example.day_together.ui.theme.*
 
 /**
@@ -62,8 +59,6 @@ fun SignUpScreen(
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
 
-
-
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
 
@@ -77,6 +72,8 @@ fun SignUpScreen(
     )
 
     // 2. 부가 효과(Side Effects) 처리
+    // [삭제] isSignUpAndLoginSuccess 관련 LaunchedEffect 삭제
+    /*
     LaunchedEffect(key1 = uiState.isSignUpAndLoginSuccess) {
         if (uiState.isSignUpAndLoginSuccess) {
             Toast.makeText(context, "회원가입 및 로그인 성공!", Toast.LENGTH_SHORT).show()
@@ -90,13 +87,22 @@ fun SignUpScreen(
             authViewModel.clearSignUpResult() // 상태 초기화
         }
     }
+    */
 
+
+    // signUpResult가 성공/실패를 모두 처리하도록 변경
     LaunchedEffect(key1 = uiState.signUpResult) {
         uiState.signUpResult?.let { result ->
-            if (result is AuthResult.Failure) {
-                Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
-                authViewModel.clearSignUpResult()
+            when (result) {
+                is AuthResult.Failure -> {
+                    Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+                }
+                is AuthResult.Success -> {
+                    Toast.makeText(context, "회원가입이 완료되었습니다. 로그인해주세요.", Toast.LENGTH_SHORT).show()
+                    navController.popBackStack() // 로그인 화면으로 돌아가기
+                }
             }
+            authViewModel.clearSignUpResult() // 결과 처리 후 상태 초기화
         }
     }
 
@@ -180,15 +186,7 @@ fun SignUpScreen(
                         color = TextPrimary,
                         modifier = Modifier.padding(bottom = 6.dp)
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        SolarLunarCheckbox(text = "양력", checked = !uiState.signUpIsLunar, onCheckedChange = { if (it) authViewModel.onSignUpIsLunarChange(false) })
-                        Spacer(modifier = Modifier.width(16.dp))
-                        SolarLunarCheckbox(text = "음력", checked = uiState.signUpIsLunar, onCheckedChange = { if (it) authViewModel.onSignUpIsLunarChange(true) })
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
+
                     OutlinedTextField(
                         value = uiState.signUpBirthDate,
                         onValueChange = authViewModel::onSignUpBirthDateChange,
@@ -290,5 +288,4 @@ fun SignUpScreen(
         }
     }
 }
-
 

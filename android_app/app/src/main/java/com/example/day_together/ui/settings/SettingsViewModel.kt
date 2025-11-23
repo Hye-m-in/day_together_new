@@ -2,9 +2,9 @@ package com.example.day_together.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.day_together.AuthManager
 import com.example.day_together.data.repository.AppRepository
-import com.example.day_together.data.repository.UserSettings // 예시 데이터 클래스
+
+import com.example.day_together.data.repository.UserSettings
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,19 +27,16 @@ data class SettingsUiState(
     val isLoading: Boolean = true
 )
 
-/**
- * 설정 화면에서 발생하는 일회성 이벤트 정의
- */
+// 설정 화면에서 발생하는 일회성 이벤트 정의
+
 sealed class SettingsEvent {
     data object NavigateToLogin : SettingsEvent()
 }
 
-/**
- * 설정 화면의 로직을 처리하는 ViewModel
- * UI(Screen)로부터 이벤트를 받아 로직을 처리하고, UI에 표시될 상태(State)를 관리
- */
+// 설정 화면의 로직을 처리하는 ViewModel
+// UI(Screen)로부터 이벤트를 받아 로직을 처리하고, UI에 표시될 상태(State)를 관리
+
 class SettingsViewModel(
-    // AppRepository는 데이터 통신을 담당하는 클래스라고 가정
     private val repository: AppRepository = AppRepository
 ) : ViewModel() {
 
@@ -69,41 +66,35 @@ class SettingsViewModel(
             .launchIn(viewModelScope)
     }
 
-    /**
-     * 질문 빈도 변경 시 호출되는 이벤트 핸들러
-     */
+    // 질문 빈도 변경 시 호출되는 이벤트 핸들러
+
     fun onFrequencyChange(frequency: String) {
         _uiState.update { it.copy(questionFrequency = frequency) }
         saveCurrentSettings()
     }
 
-    /**
-     * 질문 시간대 변경 시 호출되는 이벤트 핸들러
-     */
+    // 질문 시간대 변경 시 호출되는 이벤트 핸들러
     fun onTimeChange(time: String) {
         _uiState.update { it.copy(questionTime = time) }
         saveCurrentSettings()
     }
 
-    /**
-     * 알림 설정 토글 시 호출되는 이벤트 핸들러
-     */
+    // 알림 설정 토글 시 호출되는 이벤트 핸들러
+
     fun onNotificationToggle(enabled: Boolean) {
         _uiState.update { it.copy(notificationEnabled = enabled) }
         saveCurrentSettings()
     }
 
-    /**
-     * 진동 설정 토글 시 호출되는 이벤트 핸들러
-     */
+    // 진동 설정 토글 시 호출되는 이벤트 핸들러
+
     fun onVibrationToggle(enabled: Boolean) {
         _uiState.update { it.copy(vibrationEnabled = enabled) }
         saveCurrentSettings()
     }
 
-    /**
-     * 로그아웃 버튼 클릭 시 호출되는 이벤트 핸들러
-     */
+    // 로그아웃 버튼 클릭 시 호출되는 이벤트 핸들러
+
     fun onLogoutClicked() {
         viewModelScope.launch {
             repository.logout() // Repository에 로그아웃 요청
@@ -111,9 +102,8 @@ class SettingsViewModel(
         }
     }
 
-    /**
-     * 현재 UI 상태를 Repository를 통해 저장하는 private 함수
-     */
+    // 현재 UI 상태를 Repository를 통해 저장하는 private 함수
+
     private fun saveCurrentSettings() {
         viewModelScope.launch {
             val currentSettings = UserSettings(
