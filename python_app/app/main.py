@@ -3,9 +3,8 @@ import sys
 import os
 import httpx
 import pytz
-from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException, WebSocket,Body
 from fastapi.middleware.cors import CORSMiddleware
 from .services.firebase_client import db, fb_auth
 
@@ -29,64 +28,46 @@ from .models.schemas import GoogleTokenRequest, NaverTokenRequest, TokenResponse
 
 from fastapi.middleware.cors import CORSMiddleware
 
-
-#스케줄러 초기화
-scheduler = BackgroundScheduler()
-
-#--------질문 저장 이벤트 스케줄러--------------
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    #앱 시작 시 실행
-    seoul_tz = pytz.timezone("Asia/Seoul")
-    scheduler.add_job(
-        generate_and_store_daily_question,
-        CronTrigger(hour=22, minute=0, timezone=seoul_tz)
-    )
-    scheduler.start()
-    print("[Scheduler] Started")
-
-    yield #앱 실행 유지
-
-    #앱 종료 시 실행
-    scheduler.shutdown()
-    print("[Scheduler] Stopped")
+# ---------------------------------------------------------
+# 1) 스케줄러 & 질문 생성 함수
+# ---------------------------------------------------------
+seoul_tz = pytz.timezone("Asia/Seoul")
+scheduler = BackgroundScheduler(timezone=seoul_tz)
 
 
 def generate_and_store_daily_question():
+    print("[Question] 질문 생성 job 실행됨")
     try:
-        # ✅ 매번 실행 시점 기준으로 내일 날짜 계산 (파일 상단에서 고정하지 않음)
-        seoul_tz = pytz.timezone("Asia/Seoul")
         tomorrow = (datetime.now(seoul_tz) + timedelta(days=1)).date()
 
-        # chatRooms 컬렉션 순회
         chat_rooms = db.collection("chatRooms").stream()
         for room in chat_rooms:
             room_id = room.id
-            # ✅ room.to.dict() → 오타 수정: room.to_dict()
             family_name = room.to_dict().get("familyName", "우리 가족")
 
-            # GPT로 질문 생성
-            data = qg.generate_daily_question(family_name=family_name, recent_questions=[])
+            data = qg.generate_daily_question(
+                chat_room_name=family_name,
+                recent_questions=[],
+            )
 
-            # 1) daily_questions 저장 (로그/통계용)
+            # 1) daily_questions 저장
             db.collection("daily_questions").add({
                 "chatRoomId": room_id,
                 "question": data["question"],
                 "category": data["category"],
                 "tone": data["tone"],
                 "timeframe": data["timeframe"],
-                # ✅ created_at 사용 (date 필드 없음)
                 "created_at": firestore.SERVER_TIMESTAMP,
-                "target_date": tomorrow.isoformat()
+                "target_date": tomorrow.isoformat(),
             })
 
-            # 2) chatRooms/{roomId}/messages 저장 (실시간 채팅방 표시용)
+            # 2) messages 저장
             db.collection("chatRooms").document(room_id).collection("messages").add({
                 "sender": "system",
                 "content": data["question"],
                 "timestamp": firestore.SERVER_TIMESTAMP,
                 "type": "system",
-                "target_date": tomorrow.isoformat()
+                "target_date": tomorrow.isoformat(),
             })
 
             print(f"[Scheduler] Daily question saved for room {room_id}")
@@ -97,8 +78,38 @@ def generate_and_store_daily_question():
         print(f"[Scheduler] Error: {e}")
 
 
-# 한 번만 생성
-app = FastAPI(lifespan=lifespan)
+# ---------------------------------------------------------
+# 2) FastAPI 앱 생성 (단 한 번만!)
+# ---------------------------------------------------------
+app = FastAPI()
+
+
+# ---------------------------------------------------------
+# 3) 앱 시작/종료 이벤트에 스케줄러 연결
+# ---------------------------------------------------------
+@app.on_event("startup")
+async def on_startup():
+    print("[App] startup event 진입")
+
+    if not scheduler.running:
+        # 테스트용: 1분마다 실행
+        scheduler.add_job(
+            generate_and_store_daily_question,
+            CronTrigger(hour=22, minute=0, timezone=seoul_tz)
+        )
+        scheduler.start()
+        print("[Scheduler] Started")
+
+    # 로컬/서버 공통으로 안전하게 종료하도록 등록
+    atexit.register(lambda: scheduler.shutdown(wait=False))
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    if scheduler.running:
+        scheduler.shutdown()
+        print("[Scheduler] Stopped")
+
 
 # Naver 검증 로직 인라인
 load_dotenv()
@@ -122,6 +133,26 @@ async def verify_naver_token(access_token: str) -> dict | None:
     return data["response"]
 
 
+@app.get("/health")
+def health():
+    return{"ok": True}
+
+@app.get("/")
+def home():
+    return {"message": "DayTogether API is running"}
+
+@app.websocket("/ws")
+async def ws_echo(ws: WebSocket):
+    await ws.accept()
+    await ws.send_text("connected")
+    try:
+        while True:
+            msg = await ws.receive_text()
+            await ws.send_text(f"echo: {msg}")
+    except Exception:
+        await ws.close()
+
+
 # CORS 설정: Android 에뮬레이터/디바이스에서 호출 허용
 app.add_middleware(
     CORSMiddleware,
@@ -130,6 +161,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # ----- 구글 로그인 핸들러 -----
 @app.post("/google-login", response_model=TokenResponse)
@@ -222,11 +254,11 @@ async def naver_login(body: NaverTokenRequest):
     #2. Firebase 사용자 확인
     try:
         user_record = fb_auth.get_user_by_email(email)
-        #이미 존재 하면 -> 로그인 처리
+        #이미 존재하면 -> 로그인 처리
         print(f"[DEBUG] Found existing user for {email}, uid={user_record.uid}")
         
     except fb_auth.UserNotFoundError:
-        # 👉 신규 회원가입 처리
+        #  신규 회원가입 처리
         try:
             fb_auth.get_user(uid)
             print(f"[DEBUG] Auth user {uid} already exists")
@@ -257,9 +289,6 @@ async def naver_login(body: NaverTokenRequest):
     custom_token = custom_token_bytes.decode("utf-8")
     print(f"[DEBUG] Returning custom token for {uid}")
     return TokenResponse(custom_token=custom_token)
-
-
-
 
 
 
@@ -321,6 +350,3 @@ async def daily_question():
 
 
     return results
-
-
-
