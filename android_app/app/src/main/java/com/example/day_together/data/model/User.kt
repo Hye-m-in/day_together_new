@@ -23,7 +23,7 @@ data class User(
 
     // 가족 내 역할 또는 호칭 (예: "아빠", "딸")
     @get:PropertyName("position") @set:PropertyName("position")
-    var position: String = "",
+    var position: String? = null,
 
     // 프로필 이미지 URL
     @get:PropertyName("profileImageUrl") @set:PropertyName("profileImageUrl")

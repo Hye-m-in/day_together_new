@@ -1,5 +1,7 @@
 package com.example.day_together.data.repository
 
+import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.tasks.await
 
 
 import android.net.Uri
@@ -38,6 +40,9 @@ import java.time.YearMonth
 import java.util.Date
 import java.util.UUID
 import kotlin.coroutines.resume
+
+import com.google.firebase.auth.EmailAuthProvider
+
 
 /**
  * 앱의 모든 데이터 통신을 책임지는 통합 Repository 클래스
@@ -119,7 +124,28 @@ object AppRepository {
             if (customToken.isBlank()) {
                 return AuthResult.Failure("서버로부터 유효한 토큰을 받지 못했습니다.")
             }
+            // 1) 커스텀 토큰으로 Firebase 로그인
             FirebaseAuth.getInstance().signInWithCustomToken(customToken).await()
+
+            // 2) 로그인된 Firebase UID 찍기
+            val uid = FirebaseAuth.getInstance().currentUser?.uid
+            Log.d("DEBUG_NAVER_LOGIN", "네이버 로그인 성공, uid = $uid")
+
+            // 3) 이 uid로 속한 채팅방이 몇 개인지 바로 확인
+            if (uid != null) {
+                val roomsSnapshot = FirebaseFirestore.getInstance()
+                    .collection("chatRooms")
+                    .whereArrayContains("members", uid)
+                    .get()
+                    .await()
+
+                val roomIds = roomsSnapshot.documents.map { it.id }
+                Log.d(
+                    "DEBUG_NAVER_LOGIN",
+                    "네이버 로그인 직후 이 uid가 포함된 chatRooms 개수 = ${roomsSnapshot.size()}, ids = $roomIds"
+                )
+            }
+
             AuthResult.Success
         } catch (e: Exception) {
             if (e is HttpException && e.code() == 400) {
@@ -176,60 +202,165 @@ object AppRepository {
      */
     suspend fun getCurrentUser(): User? {
         val uid = authManager.getCurrentUserId()
+
         return suspendCancellableCoroutine { continuation ->
-            if (uid != null) {
-                db.collection("users").document(uid).get()
-                    .addOnSuccessListener { document ->
-                        if (continuation.isActive) {
-                            // User 객체로 바로 변환
-                            val user = document.toObject(User::class.java)
-                            if (user != null) {
-                                continuation.resume(user)
-                            } else {
-                                // 변환 실패 시 수동 매핑
-                                val name = document.getString("name") ?: "Unknown"
-                                val email = document.getString("email") ?: "Unknown"
-                                val position = document.getString("position") ?: "가족" //todo
-                                continuation.resume(User(uid = uid, name = name, email = email, position = position))
-                            }
-                        }
-                    }
-                    .addOnFailureListener {
-                        if (continuation.isActive) continuation.resume(null)
-                    }
-            } else {
+            if (uid == null) {
                 if (continuation.isActive) continuation.resume(null)
+                return@suspendCancellableCoroutine
             }
+
+            db.collection("users").document(uid).get()
+                .addOnSuccessListener { document ->
+                    if (!continuation.isActive) return@addOnSuccessListener
+
+                    // Firestore → User 변환
+                    val userFromDoc = document.toObject(User::class.java)
+
+                    if (userFromDoc != null) {
+                        // uid는 member_id로 저장되어 있으므로 강제로 현재 uid로 덮어쓰기
+                        userFromDoc.uid = uid
+
+                        // position이 null/빈값인 경우 기본값 설정
+                        if (userFromDoc.position.isNullOrBlank()) {
+                            userFromDoc.position = "가족"   // 원하는 기본 호칭으로 변경 가능
+                        }
+
+                        continuation.resume(userFromDoc)
+                    } else {
+                        // 변환 실패 시 수동 매핑
+                        val name = document.getString("name") ?: "Unknown"
+                        val email = document.getString("email") ?: "Unknown"
+                        val position = document.getString("position") ?: "가족"
+
+                        continuation.resume(
+                            User(
+                                uid = uid,
+                                name = name,
+                                email = email,
+                                position = position
+                            )
+                        )
+                    }
+                }
+                .addOnFailureListener {
+                    if (continuation.isActive) continuation.resume(null)
+                }
         }
     }
 
+
     //내 채팅방ID 찾기
     suspend fun getMyChatRoomId(): String? = suspendCancellableCoroutine { cont ->
-        val uid = authManager.getCurrentUserId() ?: return@suspendCancellableCoroutine cont.resume(null)
+        val uid = authManager.getCurrentUserId()
+            ?: return@suspendCancellableCoroutine cont.resume(null)
+
         db.collection("chatRooms")
             .whereArrayContains("members", uid)
             .get()
             .addOnSuccessListener { docs ->
-                val chatRoomId = docs.firstOrNull()?.id
+                // 네이버로그인 1인 채팅방 생성 문제 해결 -> members에 실제 UID가 2명 이상인 방만 유효한 가족방으로 취급
+                val validRoom = docs.documents.firstOrNull { doc ->
+                    val members = doc.get("members") as? List<*>
+                    val count = members
+                        ?.filterIsInstance<String>()
+                        ?.count { it.isNotBlank() }
+                        ?: 0
+                    count >= 2
+                }
+
+                val chatRoomId = validRoom?.id
+
+                val allIds = docs.documents.map { it.id }
+                Log.d(
+                    "DEBUG_GET_MY_CHATROOM",
+                    "getMyChatRoomId - uid=$uid, totalRooms=${docs.size()}, " +
+                            "chosenRoom=$chatRoomId, allRoomIds=$allIds"
+                )
+
                 cont.resume(chatRoomId)
             }
-            .addOnFailureListener { cont.resume(null) }
+            .addOnFailureListener { e ->
+                Log.e("DEBUG_GET_MY_CHATROOM", "채팅방 조회 실패 (uid=$uid)", e)
+                cont.resume(null)
+            }
     }
+
+
 
     /**
      * 수정된 사용자 정보 DB에 업데이트
      */
     suspend fun updateUser(updatedUser: User) {
-        println("TODO: DB에 사용자 정보 업데이트: $updatedUser")
-        delay(500)
+        try {
+            // uid가 비어 있으면 현재 로그인한 유저의 uid를 사용
+            val uid = if (updatedUser.uid.isNotBlank()) {
+                updatedUser.uid
+            } else {
+                authManager.getCurrentUserId()
+                    ?: return  // 로그인 안 되어 있으면 그냥 종료
+            }
+
+            // Firestore에 저장할 데이터 매핑
+            val data = hashMapOf<String, Any?>(
+                // 스키마 맞추기용: member_id도 같이 넣어두면 나중에 편함
+                "member_id" to uid,
+
+                "name" to updatedUser.name,
+                "email" to updatedUser.email,
+                "birthDate" to updatedUser.birthDate,
+                "position" to (updatedUser.position ?: "가족"),
+
+                // 프로필 이미지: 기존에 profile_image로 쓰던 것도 있어서 둘 다 기록
+                "profile_image" to updatedUser.profileImageUrl,
+                "profileImageUrl" to updatedUser.profileImageUrl,
+
+                "fcmToken" to updatedUser.fcmToken,
+                "invitedChatRoomId" to updatedUser.invitedChatRoomId
+            )
+
+            // null 값은 빼고 업데이트
+            val nonNullData = data.filterValues { it != null }
+
+            db.collection("users")
+                .document(uid)
+                .set(nonNullData, SetOptions.merge()) // 기존 필드 유지 + 변경분만 덮어쓰기
+                .await()
+
+            Log.d("AppRepository", "updateUser 성공: $uid -> $nonNullData")
+
+        } catch (e: Exception) {
+            Log.e("AppRepository", "updateUser 실패", e)
+            }
     }
+
 
     /**
      * 비밀번호 변경
+     * - oldPassword: 현재 비밀번호
+     * - newPassword: 새 비밀번호
      */
-    suspend fun changePassword(email: String, newPassword: String) {
-        println("TODO: DB에 비밀번호 변경 요청: $email")
-        delay(500)
+    suspend fun changePassword(oldPassword: String, newPassword: String): AuthResult {
+        val user = authManager.auth.currentUser
+            ?: return AuthResult.Failure("로그인이 필요합니다.")
+
+        val email = user.email
+            ?: return AuthResult.Failure("이메일 정보를 찾을 수 없습니다.")
+
+        return try {
+            // 1) 기존 비밀번호로 재인증
+            val credential = EmailAuthProvider.getCredential(email, oldPassword)
+            user.reauthenticate(credential).await()
+
+            // 2) 새 비밀번호로 변경
+            user.updatePassword(newPassword).await()
+
+            AuthResult.Success
+        } catch (e: Exception) {
+            Log.e("AppRepository", "changePassword 실패", e)
+            AuthResult.Failure(
+                e.message ?: "비밀번호 변경에 실패했습니다. 기존 비밀번호를 다시 확인해주세요."
+            )
+        }
     }
 
     /**

@@ -85,11 +85,12 @@ class EditProfileViewModel(
                 // 2. 기본 역할 목록 기반으로 선택 상태 Map 생성
                 val selections = defaultFamilyMembers.associateWith { it == position && isDefaultMember }
 
-                // 3. '기타' 체크 여부 결정 (position이 비어있지 않고, 기본 목록에도 없을 때만 true)
-                val isOther = position.isNotBlank() && !isDefaultMember
+                // 3. '기타' 체크 여부 결정
+                // null-safe 처리
+                val isOther = !position.isNullOrBlank() && !isDefaultMember
 
                 // 4. '기타' 텍스트 설정 ('기타'가 체크되었을 때만 position 값 사용)
-                val otherText = if (isOther) position else ""
+                val otherText = if (isOther) position.orEmpty() else ""
 
 
                 _uiState.update {
