@@ -37,16 +37,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
+
 import com.example.day_together.data.model.CalendarEvent
 import com.example.day_together.ui.theme.*
 import java.time.LocalDate
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.draw.clipToBounds
-import com.google.firebase.Timestamp
-import java.time.ZoneId
+
 import java.util.UUID
-import java.util.Date
+
 
 @Composable
 internal fun MonthlyCalendarHeader(
@@ -342,7 +341,7 @@ private fun MonthlyDayCell(
                         val maxEventsToShow = if (cellHeight < 50.dp) 1 else if (cellHeight < 70.dp) 2 else 4
                         events.take(maxEventsToShow).forEach { event ->
                             Text(
-                                // [수정] event.description -> event.title
+                                // event.description -> event.title
                                 text = event.title,
                                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
@@ -438,67 +437,3 @@ fun EventDetailsDialog(
     )
 }
 
-@Preview(showBackground = true, name = "월간 캘린더 뷰 (전체)", widthDp = 390)
-@Composable
-fun MonthlyCalendarViewFullPreview() {
-    Day_togetherTheme {
-        val today = LocalDate.now()
-        // [수정] Preview용 더미 데이터도 새로운 모델에 맞게 수정
-        val todayTimestamp = Timestamp(Date.from(today.atStartOfDay(ZoneId.systemDefault()).toInstant()))
-
-        val dummyEvents = mapOf(
-            today.plusDays(1) to listOf(
-                CalendarEvent(title = "회의", startTime = todayTimestamp),
-                CalendarEvent(title = "점심 약속", startTime = todayTimestamp)
-            ),
-            today to listOf(
-                CalendarEvent(title = "오늘의 할일 1", startTime = todayTimestamp),
-                CalendarEvent(title = "오늘의 할일 2", startTime = todayTimestamp)
-            )
-        )
-
-        var currentMonthPreview by remember { mutableStateOf(YearMonth.now()) }
-        var selectedDateForDetailsPreview by remember { mutableStateOf<LocalDate?>(null) }
-        var dateForBorderOnlyPreview by remember { mutableStateOf<LocalDate?>(null) }
-
-        Column(Modifier.background(Color.White)) {
-            MonthlyCalendarView(
-                currentMonth = currentMonthPreview,
-                onMonthChange = { newMonth ->
-                    currentMonthPreview = newMonth
-                    selectedDateForDetailsPreview = null
-                    dateForBorderOnlyPreview = null
-                },
-                onDateClick = { clickedDate ->
-                    if (clickedDate == null) return@MonthlyCalendarView
-                    if (clickedDate == today) {
-                        if (dateForBorderOnlyPreview == today) {
-                            selectedDateForDetailsPreview = today
-                            dateForBorderOnlyPreview = null
-                        } else {
-                            selectedDateForDetailsPreview = null
-                            dateForBorderOnlyPreview = today
-                        }
-                    } else {
-                        selectedDateForDetailsPreview = clickedDate
-                        dateForBorderOnlyPreview = null
-                    }
-                },
-                eventsByDate = dummyEvents,
-                selectedDateForDetails = selectedDateForDetailsPreview,
-                dateForBorderOnly = dateForBorderOnlyPreview,
-                onEditEventRequest = { _, _ -> },
-                onDeleteEventRequest = { _, _ -> },
-                onTitleClick = { },
-                onCalendarIconClick = { },
-                onTodayHeaderButtonClick = {
-                    currentMonthPreview = YearMonth.now()
-                    selectedDateForDetailsPreview = null
-                    dateForBorderOnlyPreview = LocalDate.now()
-                }
-            )
-            Text("Selected for Details (Popup): ${selectedDateForDetailsPreview?.toString() ?: "None"}")
-            Text("Border Only For (Today first click): ${dateForBorderOnlyPreview?.toString() ?: "None"}")
-        }
-    }
-}

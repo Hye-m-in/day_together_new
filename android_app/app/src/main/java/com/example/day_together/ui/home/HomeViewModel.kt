@@ -11,7 +11,7 @@ import com.example.day_together.data.model.Question
 import com.example.day_together.data.model.User
 import com.example.day_together.data.repository.AppRepository
 import com.example.day_together.data.repository.AuthResult
-import com.google.firebase.Timestamp
+
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,10 +19,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.ZoneId
+
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import java.util.Date
+
 
 /**
  * 데이터를 한 곳(ViewModel)에서만 통제함으로써 코드가 꼬이는 것을 막음
@@ -95,9 +95,20 @@ class HomeViewModel : ViewModel() {
 
         // b-2. 가족 일정 구독
         calendarEventsListener = calendarManager.listenForEvents(chatRoomId) { familyEvents ->
-            val familyEventsMap = familyEvents.groupBy {
-                it.startTime.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+
+            // date가 비어있는 event는 파싱하기 전에 필터링
+            val validEvents = familyEvents.filter { event ->
+                if (event.date.isNullOrBlank()) {
+                    Log.w("HomeViewModel", "무시된 이벤트: date가 비어있습니다 (id=${event.id}, title=${event.title})")
+                    false
+                } else true
             }
+
+            // 안전하게 변환
+            val familyEventsMap = validEvents.groupBy { event ->
+                LocalDate.parse(event.date)   // "2025-11-27" -> LocalDate
+            }
+
             val mergedEvents = mergeEventMaps(familyEventsMap, familyBirthdayEvents)
             val dDayInfo = calculateDDayInfo(mergedEvents)
 
@@ -111,6 +122,7 @@ class HomeViewModel : ViewModel() {
             }
         }
     }
+
 
 
 
@@ -161,74 +173,78 @@ class HomeViewModel : ViewModel() {
         val tomorrow = today.plusDays(1)
 
         val allFutureEvents = events.values.flatten().filter {
-            val eventDate = it.startTime.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+            event ->
+            val eventDate = LocalDate.parse(event.date)   // "2025-11-27" → LocalDate
             eventDate.isAfter(today) || eventDate.isEqual(today)
         }
 
         // 1. D-1 생일 우선 확인
         val d1Birthday = allFutureEvents.find { event ->
-            val eventDate = event.startTime.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
-            event.type == "BIRTHDAY" && eventDate.isEqual(tomorrow)
+            event.type == "BIRTHDAY" && LocalDate.parse(event.date).isEqual(tomorrow)
         }
 
         if (d1Birthday != null) {
             return Pair("D-1", d1Birthday.title)
         }
 
-        // 2. 설정된 D-Day 확인
+        // 2-1. 설정된 D-Day 확인 : 가장 최근에 d-day를 켠 일정 우선
         val priorityEvents = allFutureEvents.filter { it.isPriority && it.prioritySetAt != null }
         val latestPriorityEvent = priorityEvents.maxByOrNull { it.prioritySetAt!!.seconds }
-        val closestEvent = latestPriorityEvent ?: allFutureEvents.minByOrNull { it.startTime.seconds }
+        // 2-2. 없으면, 날짜가 가장 가까운 일정 선택
+        val closestEvent = latestPriorityEvent ?: allFutureEvents.minByOrNull { event ->
+            LocalDate.parse(event.date).toEpochDay()
+        }
 
-        return closestEvent?.let {
-            val eventDate = it.startTime.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+        return closestEvent?.let { event ->
+            val eventDate = LocalDate.parse(event.date)
             val dDay = ChronoUnit.DAYS.between(today, eventDate)
 
             val dDayText = if (dDay == 0L) "D-Day" else "D-${dDay}"
-            val dDayTitle = it.title
+            val dDayTitle = event.title
             Pair(dDayText, dDayTitle)
         } ?: Pair("D-Day", "다가오는 일정이 없어요")
     }
 
     private fun createBirthdayEvents(members: List<User>): Map<LocalDate, List<CalendarEvent>> {
-        val events = mutableListOf<CalendarEvent>()
         val today = LocalDate.now()
         val birthDateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
 
-        for (member in members) {
-            val birthDateStr = member.birthDate
+        val birthdayList = members.mapNotNull { member ->
+            val birthDateStr = member.birthDate ?: return@mapNotNull null
+
             try {
-                if (birthDateStr != null && birthDateStr.length == 8) {
-                    val birthDate = LocalDate.parse(birthDateStr, birthDateFormatter)
-                    val title: String = "${member.name} 님의 생일"
-                    var thisYearBirthday: LocalDate = birthDate.withYear(today.year)
+                if (birthDateStr.length != 8) return@mapNotNull null
 
-                    if (thisYearBirthday.isBefore(today.minusDays(1))) {
-                        thisYearBirthday = thisYearBirthday.plusYears(1)
-                    }
+                val birthDate = LocalDate.parse(birthDateStr, birthDateFormatter)
+                val title = "${member.name} 님의 생일"
 
-                    val birthdayEvent = CalendarEvent(
-                        id = "birthday_${member.uid}",
-                        title = title,
-                        description = "${birthDate.monthValue}월 ${birthDate.dayOfMonth}일",
-                        startTime = Timestamp(Date.from(thisYearBirthday.atStartOfDay(ZoneId.systemDefault()).toInstant())),
-                        endTime = null,
-                        creatorId = member.uid,
-                        creatorName = member.name,
-                        type = "BIRTHDAY",
-                        isPriority = false
-                    )
-                    events.add(birthdayEvent)
+                var birthdayThisYear = birthDate.withYear(today.year)
+                if (birthdayThisYear.isBefore(today.minusDays(1))) {
+                    birthdayThisYear = birthdayThisYear.plusYears(1)
                 }
+
+                CalendarEvent(
+                    id = "birthday_${member.uid}",
+                    title = title,
+                    description = "${birthDate.monthValue}월 ${birthDate.dayOfMonth}일",
+                    date = birthdayThisYear.toString(),
+                    creatorId = member.uid,
+                    creatorName = member.name,
+                    type = "BIRTHDAY",
+                    isPriority = false
+                )
+
             } catch (e: Exception) {
-                Log.e("HomeViewModel", "${member.name}님의 생일($birthDateStr) 변환 중 오류", e)
+                Log.e("HomeViewModel", "생일 변환 오류 - ${member.name} : $birthDateStr", e)
+                null
             }
         }
 
-        return events.groupBy {
-            it.startTime.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+        return birthdayList.groupBy { event ->
+            LocalDate.parse(event.date)
         }
     }
+
 
     private fun mergeEventMaps(
         regularEvents: Map<LocalDate, List<CalendarEvent>>,
@@ -246,7 +262,6 @@ class HomeViewModel : ViewModel() {
     }
 
     // 초대 수락 -> String? (채팅방 ID)를 직접 반환
-
     fun acceptInvitation(invitationId: String, onResult: (chatRoomId: String?) -> Unit) {
         viewModelScope.launch {
             // 1. Repository에서 채팅방 ID를 직접 받아옴 (실패 시 null)
@@ -256,16 +271,23 @@ class HomeViewModel : ViewModel() {
                 // 2. 성공 시: ViewModel 상태(uiState)를 즉시 업데이트
                 _uiState.update { it.copy(chatRoomId = chatRoomId) }
 
-                // 3. MainActivity로 ID 전달 (다이얼로그 닫기 및 이동용)
+                // 3. 현재 로그인한 유저의 생일을 Firestore events에 저장
+                val currentUserId = _uiState.value.user?.uid ?: AuthManager.getCurrentUserId()
+                if (!currentUserId.isNullOrBlank()) {
+                    CalendarManager.registerBirthday(chatRoomId, currentUserId)
+                }
+
+                // 4. MainActivity로 ID 전달 (다이얼로그 닫기 및 이동용)
                 Log.d("HomeViewModel", "초대 수락 성공. 방 ID: $chatRoomId")
                 onResult(chatRoomId)
             } else {
-                // 4. 실패 시: null 전달
+                // 5. 실패 시: null 전달
                 Log.e("HomeViewModel", "초대 수락 실패 (Repository returned null)")
                 onResult(null)
             }
         }
     }
+
 
     // 초대 거절 함수
     fun rejectInvitation(

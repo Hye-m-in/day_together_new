@@ -1,10 +1,10 @@
 package com.example.day_together
 
-import java.util.Date
+
 import android.util.Log
 
 import com.example.day_together.data.model.CalendarEvent
-import com.google.firebase.Timestamp
+
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
@@ -14,7 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
-import java.time.ZoneId
+
 import java.time.format.DateTimeFormatter
 
 // 캘린더 관련 모든 Firestore 작업을 처리하는 객체
@@ -89,7 +89,7 @@ object CalendarManager {
     ): ListenerRegistration { // 리스너를 나중에 제거할 수 있도록 등록 객체 반환
         // FirebaseFirestore.getInstance() 직접 호출
         return FirebaseFirestore.getInstance().collection("chatRooms").document(chatRoomId).collection(EVENTS_COLLECTION)
-            .orderBy("startTime") // 시간순으로 정렬
+            .orderBy("date")
             .addSnapshotListener { snapshots, error ->
                 if (error != null) {
                     Log.e("CalendarManager", "실시간 일정 감지 실패", error)
@@ -109,64 +109,72 @@ object CalendarManager {
     // 사용자의 생일 정보를 가져와 캘린더에 자동으로 등록하는 함수
     fun registerBirthday(chatRoomId: String, userId: String) {
         // FirebaseFirestore.getInstance() 직접 호출
-        FirebaseFirestore.getInstance().collection("users").document(userId).get().addOnSuccessListener { doc ->
-            val name = doc.getString("name") ?: return@addOnSuccessListener
-            // 'birthDate' 필드를 읽음 (YYYYMMDD 형식)
-            val birthdayStr = doc.getString("birthDate")
+        FirebaseFirestore.getInstance()
+            .collection("users")
+            .document(userId)
+            .get()
+            .addOnSuccessListener { doc ->
+                val name = doc.getString("name") ?: return@addOnSuccessListener
+                // 'birthDate' 필드를 읽음 (YYYYMMDD 형식)
+                val birthdayStr = doc.getString("birthDate")
 
-            // YYYYMMDD 형식인지 확인
-            if (birthdayStr.isNullOrBlank() || birthdayStr.length != 8) {
-                Log.w("CalendarManager", "$name 님의 생일 정보가 없거나 형식이(YYYYMMDD) 맞지 않습니다.")
-                return@addOnSuccessListener
-            }
-
-            // YYYYMMDD 형식용 포맷터
-            val birthDateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
-
-            try {
-                // "YYYYMMDD" 형식의 문자열을 LocalDate로 변환
-                val birthDate = LocalDate.parse(birthdayStr, birthDateFormatter)
-                val today = LocalDate.now()
-
-
-                // (양력)생일 변수 선언과 할당 합침
-                var thisYearBirthday = birthDate.withYear(today.year)
-
-                if (thisYearBirthday.isBefore(today.minusDays(1))) {
-                    thisYearBirthday = thisYearBirthday.plusYears(1)
-                }
-                val title = "$name 님의 생일"
-
-                // LocalDate를 Timestamp로 변환
-                val birthdayTimestamp = Timestamp(
-                    Date.from(thisYearBirthday.atStartOfDay(ZoneId.systemDefault()).toInstant())
-                )
-
-                val birthdayEvent = CalendarEvent(
-                    id = "birthday_${userId}", // 고유 ID
-                    title = title,
-                    startTime = birthdayTimestamp,
-                    creatorId = "SYSTEM_BIRTHDAY",
-                    creatorName = "가족 캘린더",
-                    type = "BIRTHDAY",
-                    description = "${birthDate.monthValue}월 ${birthDate.dayOfMonth}일"
-                )
-
-                // 생성된 생일 이벤트를 Firestore에 저장
-                // addEvent는 suspend 함수이므로 코루틴 안에서 호출해야 함
-                CoroutineScope(Dispatchers.IO).launch {
-                    // SetOptions.merge()를 사용해 덮어쓰기 (매년 갱신 가능하도록)
-                    // FirebaseFirestore.getInstance() 직접 호출
-                    FirebaseFirestore.getInstance().collection("chatRooms").document(chatRoomId).collection(EVENTS_COLLECTION)
-                        .document(birthdayEvent.id)
-                        .set(birthdayEvent, SetOptions.merge()) // set + merge
-                        .await()
-                    Log.d("CalendarManager", "$name 님의 생일 일정 등록/업데이트 성공")
+                // YYYYMMDD 형식인지 확인
+                if (birthdayStr.isNullOrBlank() || birthdayStr.length != 8) {
+                    Log.w(
+                        "CalendarManager",
+                        "$name 님의 생일 정보가 없거나 형식이(YYYYMMDD) 맞지 않습니다."
+                    )
+                    return@addOnSuccessListener
                 }
 
-            } catch (e: Exception) {
-                Log.e("CalendarManager", "생일 날짜 형식 변환 실패: $birthdayStr", e)
+                // YYYYMMDD 형식용 포맷터
+                val birthDateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
+
+                try {
+                    // "YYYYMMDD" 형식의 문자열을 LocalDate로 변환
+                    val birthDate = LocalDate.parse(birthdayStr, birthDateFormatter)
+                    val today = LocalDate.now()
+
+                    // 올해 생일 기준
+                    var thisYearBirthday = birthDate.withYear(today.year)
+                    if (thisYearBirthday.isBefore(today.minusDays(1))) {
+                        thisYearBirthday = thisYearBirthday.plusYears(1)
+                    }
+
+                    val title = "$name 님의 생일"
+
+                    val birthdayEvent = CalendarEvent(
+                        id = "birthday_${userId}", // 고유 ID (매년 덮어쓰기용)
+                        title = title,
+                        date = thisYearBirthday.toString(), // "yyyy-MM-dd"
+                        creatorId = "SYSTEM_BIRTHDAY",
+                        creatorName = "가족 캘린더",
+                        type = "BIRTHDAY",
+                        description = "${birthDate.monthValue}월 ${birthDate.dayOfMonth}일",
+                        isPriority = false,
+                        prioritySetAt = null
+                    )
+
+                    // 생성된 생일 이벤트를 Firestore에 저장
+                    CoroutineScope(Dispatchers.IO).launch {
+                        FirebaseFirestore.getInstance()
+                            .collection("chatRooms")
+                            .document(chatRoomId)
+                            .collection(EVENTS_COLLECTION)
+                            .document(birthdayEvent.id)
+                            .set(birthdayEvent, SetOptions.merge()) // set + merge (있으면 갱신)
+                            .await()
+
+                        Log.d(
+                            "CalendarManager",
+                            "$name 님의 생일 일정 등록/업데이트 성공"
+                        )
+                    }
+
+                } catch (e: Exception) {
+                    Log.e("CalendarManager", "생일 날짜 형식 변환 실패: $birthdayStr", e)
+                }
             }
-        }
     }
+
 }
