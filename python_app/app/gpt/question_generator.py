@@ -1,4 +1,4 @@
-import openai
+from openai import OpenAI
 import os
 import random
 import json
@@ -9,9 +9,9 @@ from dotenv import load_dotenv
 from typing import List, Optional, Dict, Any, Tuple
 import string
 
-# .env 파일 로드
+# .env 파일 로드 + OpenAI 클라이언트 생성
 load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # =============== 유틸 ===============
 def normalize(text: str) -> str:
@@ -118,7 +118,7 @@ def generate_daily_question(
         system, user = build_prompt(chat_room_name, today, recent_hint)
 
         try:
-            resp = openai.ChatCompletion.create(
+            resp = client.chat.completions.create(
                 model="gpt-4-turbo",
                 messages=[
                     {"role": "system", "content": system},
@@ -130,7 +130,7 @@ def generate_daily_question(
                 frequency_penalty=frequency_penalty,
                 max_tokens=200,
             )
-            content = resp["choices"][0]["message"]["content"].strip()
+            content = resp.choices[0].message.content.strip()
 
             if debug:
                 print("[원문 응답(JSON 파싱 전)]")

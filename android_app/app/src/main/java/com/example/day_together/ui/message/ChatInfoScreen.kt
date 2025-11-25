@@ -25,15 +25,12 @@ import androidx.compose.ui.unit.dp
 
 // 네비게이션 기능
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 
 // 리소스와 테마 임포트
 import com.example.day_together.R
 import com.example.day_together.ui.theme.*
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.day_together.data.repository.AppRepository
-import com.example.day_together.data.repository.QuestionRepository
 import com.example.day_together.ui.dialogs.InviteMemberDialog
 
 // 가족 멤버를 표현하는 데이터 클래스 정의
@@ -47,8 +44,10 @@ data class FamilyMember(
 @Composable
 fun ChatInfoScreen(
     navController: NavController,
+    // MessageViewModelFactory에서 QuestionRepository() 삭제
     viewModel: MessageViewModel = viewModel(factory = MessageViewModel.MessageViewModelFactory(
-        AppRepository, QuestionRepository()))
+        AppRepository
+    ))
 ) {
     val uiState by viewModel.uiState.collectAsState() // ViewModel 상태 구독
 
@@ -124,8 +123,12 @@ fun ChatInfoScreen(
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = TextPrimary,
                             fontFamily = GothicA1
+
                         )
                     )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
                     // 개설일 날짜 (ViewModel 데이터 사용)
                     Text(
                         text = uiState.creationDate,

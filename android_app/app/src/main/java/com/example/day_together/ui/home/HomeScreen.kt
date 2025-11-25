@@ -1,17 +1,21 @@
 package com.example.day_together.ui.home
 
 // Compose 및 UI 관련
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
-// Navigation 및 ViewModel 관련
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavController
 
 // 프로젝트 내부 다른 파일 및 클래스
 import com.example.day_together.R
@@ -36,11 +40,11 @@ import java.time.DayOfWeek as JavaDayOfWeek
 /**
  * 앱의 메인 화면(홈)을 구성하는 Composable 함수
  */
-@OptIn(ExperimentalMaterial3Api::class)
+// OptIn 삭제
 @Composable
 fun HomeScreen(
-    appNavController: NavController,
-    homeViewModel: HomeViewModel = viewModel(),
+    // appNavController 파라미터 삭제
+    homeViewModel: HomeViewModel,
     invitedChatRoomId: MutableState<String?>,
     onAcceptInvitation: (String) -> Unit,
     onDismissInvitation: () -> Unit
@@ -95,188 +99,238 @@ fun HomeScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        ActualHomeScreenContent(
-            upcomingAnniversaryText = uiState.dDayTitle,
-            dDayText = uiState.dDayText,
-            dDayTitle = uiState.dDayTitle,
-            randomCloudResIds = randomCloudResIds,
-            currentYearMonth = currentYearMonth,
-            isMonthlyView = isMonthlyView,
-            selectedDateForDetails = selectedDateForDetails,
-            dateForBorderOnly = dateForBorderOnly,
-            eventsByDate = uiState.eventsByDate,
-            weeklyCalendarData = weeklyCalendarDataState,
-            isQuestionAnsweredByAll = uiState.isQuestionAnsweredByAll,
-            aiQuestion = uiState.aiQuestion?.text ?: "로딩 중",
-            familyQuote = uiState.familyQuote,
-            showAddEventInputScreen = showAddEventSheet,
-            isBottomBarVisible = !showAddEventSheet && selectedDateForDetails == null,
-            onMonthChange = { newMonth -> currentYearMonth = newMonth },
-            onDateClick = { dateClicked ->
-                if (dateClicked != null) {
-                    selectedDateForDetails = dateClicked
-                    dateForBorderOnly = dateClicked
-                    showAddEventSheet = false
-                    eventToEdit = null
-                    dateForNewEvent = null
-                } else {
-                    selectedDateForDetails = null
-                }
-            },
-            onToggleCalendarView = { isMonthlyView = !isMonthlyView },
-            onMonthlyCalendarHeaderTitleClick = { isMonthlyView = false },
-            onMonthlyCalendarHeaderIconClick = {
-                if(isMonthlyView) {
-                    tempSelectedYearMonth = currentYearMonth
-                    showCustomYearMonthPicker = true
-                }
-            },
-            onRefreshQuestionClicked = homeViewModel::refreshQuestion,
-            onMonthlyTodayButtonClick = {
-                val todayDate = LocalDate.now()
-                currentYearMonth = YearMonth.from(todayDate)
-                dateForBorderOnly = todayDate
-                selectedDateForDetails = null
-                showAddEventSheet = false
-            },
-            onEditEventRequest = { date, event ->
-                dateForNewEvent = date
-                eventToEdit = event
-                currentEventTitleInput = event.title
-                currentEventIsPriority = event.isPriority // isPriority 상태 설정
-                showAddEventSheet = true
-                selectedDateForDetails = null
-            },
-            onDeleteEventRequest = { _, event ->
-                eventToDeleteConfirmState = event
-                showDeleteConfirmDialog = true
-            }
-        )
 
-        if (selectedDateForDetails != null && !showAddEventSheet) {
-            Box(modifier = Modifier.align(Alignment.BottomCenter)) {
-                DateEventsBottomSheet(
-                    visible = true,
-                    targetDate = selectedDateForDetails!!,
-                    events = uiState.eventsByDate[selectedDateForDetails!!] ?: emptyList(),
-                    onDismiss = { selectedDateForDetails = null },
-                    onAddNewEventClick = {
-                        dateForNewEvent = selectedDateForDetails
+        // 1. 로딩, 2. (캘린더 + 차단) 순으로
+        if (uiState.isLoading) {
+            // 1. 로딩 중
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+
+        } else {
+            // 2. 로딩 완료: 캘린더 UI를 먼저 그림
+            ActualHomeScreenContent(
+                upcomingAnniversaryText = uiState.dDayTitle,
+                dDayText = uiState.dDayText,
+                dDayTitle = uiState.dDayTitle,
+                randomCloudResIds = randomCloudResIds,
+                currentYearMonth = currentYearMonth,
+                isMonthlyView = isMonthlyView,
+                selectedDateForDetails = selectedDateForDetails,
+                dateForBorderOnly = dateForBorderOnly,
+                eventsByDate = uiState.eventsByDate,
+                weeklyCalendarData = weeklyCalendarDataState,
+                isQuestionAnsweredByAll = uiState.isQuestionAnsweredByAll,
+                aiQuestion = uiState.aiQuestion?.text ?: "로딩 중",
+                familyQuote = uiState.familyQuote,
+                showAddEventInputScreen = showAddEventSheet,
+                isBottomBarVisible = !showAddEventSheet && selectedDateForDetails == null,
+                onMonthChange = { newMonth -> currentYearMonth = newMonth },
+                onDateClick = { dateClicked ->
+                    if (dateClicked != null) {
+                        selectedDateForDetails = dateClicked
+                        dateForBorderOnly = dateClicked
+                        showAddEventSheet = false
                         eventToEdit = null
-                        currentEventTitleInput = ""
-                        currentEventIsPriority = false // 새로 추가 시 기본값 false
+                        dateForNewEvent = null
+                    } else {
+                        selectedDateForDetails = null
+                    }
+                },
+                onToggleCalendarView = { isMonthlyView = !isMonthlyView },
+                onMonthlyCalendarHeaderTitleClick = { isMonthlyView = false },
+                onMonthlyCalendarHeaderIconClick = {
+                    if(isMonthlyView) {
+                        tempSelectedYearMonth = currentYearMonth
+                        showCustomYearMonthPicker = true
+                    }
+                },
+                onRefreshQuestionClicked = homeViewModel::refreshQuestion,
+                onMonthlyTodayButtonClick = {
+                    val todayDate = LocalDate.now()
+                    currentYearMonth = YearMonth.from(todayDate)
+                    dateForBorderOnly = todayDate
+                    selectedDateForDetails = null
+                    showAddEventSheet = false
+                },
+                onEditEventRequest = { date, event ->
+                    if (event.type != "BIRTHDAY") {
+                        dateForNewEvent = date
+                        eventToEdit = event
+                        currentEventTitleInput = event.title
+                        currentEventIsPriority = event.isPriority
                         showAddEventSheet = true
                         selectedDateForDetails = null
-                    },
-                    onEditEvent = { eventToEditFromSheet ->
-                        dateForNewEvent = selectedDateForDetails
-                        eventToEdit = eventToEditFromSheet
-                        currentEventTitleInput = eventToEditFromSheet.title
-                        currentEventIsPriority = eventToEditFromSheet.isPriority // isPriority 상태 설정
-                        showAddEventSheet = true
-                        selectedDateForDetails = null
-                    },
-                    onDeleteEventRequested = { eventToDelete ->
-                        eventToDeleteConfirmState = eventToDelete
+                    }
+                },
+                onDeleteEventRequest = { _, event ->
+                    if (event.type != "BIRTHDAY") {
+                        eventToDeleteConfirmState = event
                         showDeleteConfirmDialog = true
                     }
-                )
-            }
-        }
+                }
+            )
 
-        if (showAddEventSheet && dateForNewEvent != null) {
-            val isInEditMode = eventToEdit != null
-            Box(modifier = Modifier.align(Alignment.BottomCenter)) {
-                AddEventInputView(
-                    visible = true,
-                    targetDate = dateForNewEvent!!,
-                    eventTitle = currentEventTitleInput,
-                    isEditing = isInEditMode,
-                    isPriority = currentEventIsPriority,
-                    onTitleChange = { newTitle ->
-                        currentEventTitleInput = newTitle
-                    },
-                    onPriorityChange = { newPriority ->
-                        currentEventIsPriority = newPriority
-                    },
-                    onSave = {
-                        val titleToSave = currentEventTitleInput.trim()
-                        if (titleToSave.isNotBlank()) {
-                            val eventToSave = eventToEdit?.copy(
-                                title = titleToSave,
-                                isPriority = currentEventIsPriority
-                            ) ?: CalendarEvent(
-                                title = titleToSave,
-                                startTime = Timestamp(Date.from(dateForNewEvent!!.atStartOfDay(ZoneId.systemDefault()).toInstant())),
-                                creatorId = uiState.user?.uid ?: "",
-                                creatorName = uiState.user?.name ?: "",
-                                isPriority = currentEventIsPriority
-                            )
-                            homeViewModel.addOrUpdateEvent(eventToSave)
+            // 3. 채팅방이 없을 경우에만 반투명 오버레이를 그림
+            if (uiState.chatRoomId == null) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.7f)) // 반투명 배경
+                        .padding(horizontal = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "가족채팅방 생성 후 이용 가능합니다.",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                }
+            } else {
+                // 4. 채팅방이 있을 때만 하단 시트/다이얼로그 등이 동작하도록 함
+                if (selectedDateForDetails != null && !showAddEventSheet) {
+                    Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+                        DateEventsBottomSheet(
+                            visible = true,
+                            targetDate = selectedDateForDetails!!,
+                            events = uiState.eventsByDate[selectedDateForDetails!!] ?: emptyList(),
+                            onDismiss = { selectedDateForDetails = null },
+                            onAddNewEventClick = {
+                                dateForNewEvent = selectedDateForDetails
+                                eventToEdit = null
+                                currentEventTitleInput = ""
+                                currentEventIsPriority = false // 새로 추가 시 기본값 false
+                                showAddEventSheet = true
+                                selectedDateForDetails = null
+                            },
+                            onEditEvent = { eventToEditFromSheet ->
+                                if (eventToEditFromSheet.type != "BIRTHDAY") {
+                                    dateForNewEvent = selectedDateForDetails
+                                    eventToEdit = eventToEditFromSheet
+                                    currentEventTitleInput = eventToEditFromSheet.title
+                                    currentEventIsPriority = eventToEditFromSheet.isPriority
+                                    showAddEventSheet = true
+                                    selectedDateForDetails = null
+                                }
+                            },
+                            onDeleteEventRequested = { eventToDelete ->
+                                if (eventToDelete.type != "BIRTHDAY") {
+                                    eventToDeleteConfirmState = eventToDelete
+                                    showDeleteConfirmDialog = true
+                                }
+                            }
+                        )
+                    }
+                }
+
+                if (showAddEventSheet && dateForNewEvent != null) {
+                    val isInEditMode = eventToEdit != null
+                    Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+                        AddEventInputView(
+                            visible = true,
+                            targetDate = dateForNewEvent!!,
+                            eventTitle = currentEventTitleInput,
+                            isEditing = isInEditMode,
+                            isPriority = currentEventIsPriority,
+                            onTitleChange = { newTitle ->
+                                currentEventTitleInput = newTitle
+                            },
+                            onPriorityChange = { newPriority ->
+                                currentEventIsPriority = newPriority
+                            },
+                            onSave = {
+                                val titleToSave = currentEventTitleInput.trim()
+                                if (titleToSave.isNotBlank()) {
+
+                                    val newPriority = currentEventIsPriority
+                                    // 'Assignment' can be lifted out of 'if'
+                                    val newPrioritySetAt: Timestamp? = if (newPriority) {
+                                        Timestamp.now()
+                                    } else {
+                                        null
+                                    }
+
+                                    val eventToSave = eventToEdit?.copy(
+                                        title = titleToSave,
+                                        isPriority = newPriority,
+                                        prioritySetAt = newPrioritySetAt
+                                    ) ?: CalendarEvent(
+                                        title = titleToSave,
+                                        startTime = Timestamp(Date.from(dateForNewEvent!!.atStartOfDay(ZoneId.systemDefault()).toInstant())),
+                                        creatorId = uiState.user?.uid ?: "",
+                                        creatorName = uiState.user?.name ?: "",
+                                        isPriority = newPriority,
+                                        prioritySetAt = newPrioritySetAt,
+                                        type = "EVENT"
+                                    )
+
+                                    if (newPriority) {
+                                        homeViewModel.setExclusiveDDay(eventToSave)
+                                    } else {
+                                        homeViewModel.addOrUpdateEvent(eventToSave)
+                                    }
+                                }
+                                showAddEventSheet = false
+                                eventToEdit = null
+                                dateForNewEvent = null
+                                currentEventTitleInput = ""
+                                currentEventIsPriority = false
+                            },
+                            onCancel = {
+                                showAddEventSheet = false
+                                eventToEdit = null
+                                dateForNewEvent = null
+                                currentEventTitleInput = ""
+                                currentEventIsPriority = false
+                            }
+                        )
+                    }
+                }
+
+                if (showCustomYearMonthPicker) {
+                    WheelCustomYearMonthPickerDialog(
+                        initialYearMonth = currentYearMonth,
+                        onDismissRequest = {
+                            currentYearMonth = tempSelectedYearMonth
+                            selectedDateForDetails = null
+                            dateForBorderOnly = null
+                            showCustomYearMonthPicker = false
+                        },
+                        onSelectionChanged = { selectedYearMonth ->
+                            tempSelectedYearMonth = selectedYearMonth
                         }
-                        showAddEventSheet = false
-                        eventToEdit = null
-                        dateForNewEvent = null
-                        currentEventTitleInput = ""
-                        currentEventIsPriority = false
-                    },
-                    onCancel = {
-                        showAddEventSheet = false
-                        eventToEdit = null
-                        dateForNewEvent = null
-                        currentEventTitleInput = ""
-                        currentEventIsPriority = false
-                    }
-                )
+                    )
+                }
+
+                if (showDeleteConfirmDialog && eventToDeleteConfirmState != null) {
+                    DeleteConfirmationDialog(
+                        onConfirm = {
+                            homeViewModel.deleteEvent(eventToDeleteConfirmState!!)
+                            if (selectedDateForDetails != null && uiState.eventsByDate[selectedDateForDetails!!].isNullOrEmpty()) {
+                                selectedDateForDetails = null
+                                dateForBorderOnly = null
+                            }
+                        },
+                        onDismiss = {
+                            showDeleteConfirmDialog = false
+                            eventToDeleteConfirmState = null
+                        }
+                    )
+                }
             }
         }
 
-        if (showCustomYearMonthPicker) {
-            WheelCustomYearMonthPickerDialog(
-                initialYearMonth = currentYearMonth,
-                onDismissRequest = {
-                    currentYearMonth = tempSelectedYearMonth
-                    selectedDateForDetails = null
-                    dateForBorderOnly = null
-                    showCustomYearMonthPicker = false
-                },
-                onSelectionChanged = { selectedYearMonth ->
-                    tempSelectedYearMonth = selectedYearMonth
-                }
-            )
-        }
-
-        if (showDeleteConfirmDialog && eventToDeleteConfirmState != null) {
-            DeleteConfirmationDialog(
-                onConfirm = {
-                    homeViewModel.deleteEvent(eventToDeleteConfirmState!!)
-                    if (selectedDateForDetails != null && uiState.eventsByDate[selectedDateForDetails!!].isNullOrEmpty()) {
-                        selectedDateForDetails = null
-                        dateForBorderOnly = null
-                    }
-                },
-                onDismiss = {
-                    showDeleteConfirmDialog = false
-                    eventToDeleteConfirmState = null
-                }
-            )
-        }
-
-        if (invitedChatRoomId.value != null) {
+        // 초대장 다이얼로그 (로딩이 끝났으면 항상 표시)
+        if (!uiState.isLoading && invitedChatRoomId.value != null) {
             InvitationDialog(
                 onAccept = {
                     val invitationId = invitedChatRoomId.value!!
-                    homeViewModel.acceptInvitation(invitationId) { chatRoomId ->
-                        if (chatRoomId != null) {
-                            invitedChatRoomId.value = null
-                            appNavController.navigate("chat_screen/$chatRoomId")
-                        } else {
-                            // 실패 시 메시지 표시 가능
-                        }
-                    }
+                    // MainActivity의 onAcceptInvitation 람다 호출
+                    onAcceptInvitation(invitationId)
                 },
                 onDismiss = {
-                    invitedChatRoomId.value = null
+                    onDismissInvitation() // MainActivity의 onDismissInvitation 람다 호출
                 }
             )
         }

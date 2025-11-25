@@ -139,40 +139,6 @@ fun SignUpTextField(
     }
 }
 
-/**
- * 양력/음력 선택에 사용되는 체크박스 컴포저블
- * @param text 체크박스 옆에 표시될 텍스트(양력/음력)
- * @param checked 체크 상태
- * @param onCheckedChange 체크 상태 변경 시 호출되는 콜백
- */
-@Composable
-fun SolarLunarCheckbox(
-    text: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.clickable { onCheckedChange(!checked) }
-    ) {
-        Checkbox(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            modifier = Modifier.size(20.dp),
-            colors = CheckboxDefaults.colors(
-                checkedColor = MaterialTheme.colorScheme.primary,
-                uncheckedColor = TextPrimary.copy(alpha = 0.7f),
-                checkmarkColor = ScreenBackground
-            )
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
-            color = TextPrimary
-        )
-    }
-}
 
 /**
  * 가족 구성원(역할)을 선택하는 UI 컴포저블. '기타'의 직접 입력 기능 포함
@@ -297,9 +263,7 @@ fun FamilyMemberSelection(
     }
 }
 
-/**
- * `FamilyMemberSelection` 내에서 사용되는 개별 가족 구성원 박스 (가족구성원 역할 텍스트 +  텍스트)
- */
+// `FamilyMemberSelection` 내에서 사용되는 개별 가족 구성원 박스 (가족구성원 역할 텍스트 +  텍스트)
 @Composable
 private fun FamilyMemberItem(
     text: String,
