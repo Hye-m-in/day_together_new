@@ -31,9 +31,9 @@ import com.example.day_together.ui.home.composables.DateEventsBottomSheet
 import com.google.firebase.Timestamp
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.ZoneId
+
 import java.time.format.TextStyle
-import java.util.Date
+
 import java.util.Locale
 import java.time.DayOfWeek as JavaDayOfWeek
 
@@ -241,10 +241,9 @@ fun HomeScreen(
                             },
                             onSave = {
                                 val titleToSave = currentEventTitleInput.trim()
-                                if (titleToSave.isNotBlank()) {
+                                if (titleToSave.isNotBlank() && dateForNewEvent != null) {
 
                                     val newPriority = currentEventIsPriority
-                                    // 'Assignment' can be lifted out of 'if'
                                     val newPrioritySetAt: Timestamp? = if (newPriority) {
                                         Timestamp.now()
                                     } else {
@@ -253,16 +252,17 @@ fun HomeScreen(
 
                                     val eventToSave = eventToEdit?.copy(
                                         title = titleToSave,
+                                        date = dateForNewEvent!!.toString(),   // 수정 모드에서 date 유지/갱신
                                         isPriority = newPriority,
                                         prioritySetAt = newPrioritySetAt
                                     ) ?: CalendarEvent(
                                         title = titleToSave,
-                                        startTime = Timestamp(Date.from(dateForNewEvent!!.atStartOfDay(ZoneId.systemDefault()).toInstant())),
+                                        date = dateForNewEvent!!.toString(),   // 새 일정 생성 시 필수
                                         creatorId = uiState.user?.uid ?: "",
                                         creatorName = uiState.user?.name ?: "",
+                                        type = "EVENT",
                                         isPriority = newPriority,
-                                        prioritySetAt = newPrioritySetAt,
-                                        type = "EVENT"
+                                        prioritySetAt = newPrioritySetAt
                                     )
 
                                     if (newPriority) {
@@ -271,13 +271,15 @@ fun HomeScreen(
                                         homeViewModel.addOrUpdateEvent(eventToSave)
                                     }
                                 }
+
                                 showAddEventSheet = false
                                 eventToEdit = null
                                 dateForNewEvent = null
                                 currentEventTitleInput = ""
                                 currentEventIsPriority = false
                             },
-                            onCancel = {
+
+                                onCancel = {
                                 showAddEventSheet = false
                                 eventToEdit = null
                                 dateForNewEvent = null
@@ -285,6 +287,9 @@ fun HomeScreen(
                                 currentEventIsPriority = false
                             }
                         )
+
+
+
                     }
                 }
 

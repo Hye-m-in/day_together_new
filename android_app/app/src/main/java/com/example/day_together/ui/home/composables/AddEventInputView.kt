@@ -40,7 +40,10 @@ fun AddEventInputView(
     onTitleChange: (String) -> Unit,
     onPriorityChange: (Boolean) -> Unit,
     onSave: () -> Unit,
+
     onCancel: () -> Unit,
+
+
     modifier: Modifier = Modifier
 ) {
     val dateFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd (E)", Locale.KOREAN)
