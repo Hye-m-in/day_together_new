@@ -75,14 +75,7 @@ class HomeViewModel : ViewModel() {
         }
     }
 
-    // 새로고침 버튼 로직
-    fun refreshQuestion() {
-        val chatRoomId = _uiState.value.chatRoomId ?: return
-        viewModelScope.launch {
-            val newQuestion = repository.getTodaysQuestion(chatRoomId)
-            _uiState.update { it.copy(aiQuestion = newQuestion) }
-        }
-    }
+
 
     // 코드 중복 방지를 위해 분리한 함수
     private suspend fun loadFamilyData(chatRoomId: String, user: User) {
@@ -209,6 +202,9 @@ class HomeViewModel : ViewModel() {
         val today = LocalDate.now()
         val birthDateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
 
+
+
+
         val birthdayList = members.mapNotNull { member ->
             val birthDateStr = member.birthDate ?: return@mapNotNull null
 
@@ -252,7 +248,9 @@ class HomeViewModel : ViewModel() {
     ): Map<LocalDate, List<CalendarEvent>> {
         val allKeys = regularEvents.keys + birthdayEvents.keys
         return allKeys.associateWith { date ->
-            (regularEvents[date] ?: emptyList()) + (birthdayEvents[date] ?: emptyList())
+            val mergedList = (regularEvents[date] ?: emptyList()) + (birthdayEvents[date] ?: emptyList())
+
+            mergedList.distinctBy { it.id } // ID가 같은 중복 일정 제거
         }
     }
 
