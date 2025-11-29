@@ -45,6 +45,8 @@ import java.util.UUID
 import kotlin.coroutines.resume
 
 import com.google.firebase.auth.EmailAuthProvider
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 
 /**
@@ -311,8 +313,7 @@ object AppRepository {
                 "position" to (updatedUser.position ?: "가족"),
 
                 // 프로필 이미지: 기존에 profile_image로 쓰던 것도 있어서 둘 다 기록
-                "profile_image" to updatedUser.profileImageUrl,
-                "profileImageUrl" to updatedUser.profileImageUrl,
+                "profile_image" to updatedUser.profile_image,
 
                 "fcmToken" to updatedUser.fcmToken,
                 "invitedChatRoomId" to updatedUser.invitedChatRoomId
@@ -591,7 +592,7 @@ object AppRepository {
 
             val data = hashMapOf(
                 "chatRoomId" to chatRoomId,
-                "chatRoomName" to "우리 가족 채팅방",      // 기본 방 이름
+                "chatRoomName" to "가족 채팅방",      // 기본 방 이름
                 "members" to listOf(inviterUserId),        // 방 만든 사람만 먼저 멤버로
                 "invitedUsers" to listOf<String>(),        // 초대된 사람들 uid 리스트 (초기엔 비어있음)
                 "createdAt" to Date()
@@ -626,6 +627,21 @@ object AppRepository {
                 }
             }
     }
+
+    //채팅방 이름 불러오기
+    suspend fun getChatRoomName(chatRoomId: String): String? {
+        return try {
+            val doc = db.collection("chatRooms")
+                .document(chatRoomId)
+                .get()
+                .await()
+
+            doc.getString("chatRoomName")
+        } catch (e: Exception) {
+            null
+        }
+    }
+
 
     // 채팅방 이름 변경
     suspend fun updateChatRoomName(chatRoomId: String, newName: String) {

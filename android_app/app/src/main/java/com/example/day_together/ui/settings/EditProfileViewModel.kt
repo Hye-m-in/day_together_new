@@ -111,8 +111,8 @@ class EditProfileViewModel(
                         // 변환된 가족 역할 UI 상태 업데이트
                         familyMemberSelections = selections,
                         otherFamilyMemberChecked = isOther,
-                        otherFamilyMemberText = otherText
-                        profile_image = currentUser.profile_image ?: ""
+                        otherFamilyMemberText = otherText,
+                        profile_image = currentUser.profile_image
                     )
                 }
             } else {

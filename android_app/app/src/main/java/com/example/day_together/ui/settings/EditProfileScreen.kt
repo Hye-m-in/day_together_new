@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusManager
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
@@ -96,17 +97,19 @@ fun EditProfileScreen(
 
     // 2. UI 로직 및 상태 계산
     // '완료' 버튼의 활성화 여부를 계산 -> 이 로직은 ViewModel의 상태에 따라 결정
-    val isCompleteButtonEnabled = !uiState.isLoading && // 로딩 중이 아닐 때
-            (uiState.nameInput.isNotBlank() && uiState.birthDateInput.length == 8) && // 필수 정보 유효성
-            (
+    val isCompleteButtonEnabled = !uiState.isLoading &&
+            uiState.nameError == null &&
+            uiState.passwordError == null
+            // 로딩 중이 아닐 때
+  //          (uiState.nameInput.isNotBlank() && uiState.birthDateInput.length == 8) && // 필수 정보 유효성
                     // 정보가 변경되었거나
-                    (
-                            isProfileImageChanged || uiState.nameInput != uiState.user?.name ||
-                            uiState.birthDateInput != uiState.user?.birthDate ||
-                            uiState.positionInput != uiState.user?.position) ||
-                            // 혹은 유효한 비밀번호 변경 시도가 있을 때
-                            (uiState.oldPasswordInput.isNotBlank() && uiState.newPasswordInput.length >= 8 && uiState.newPasswordInput == uiState.confirmNewPasswordInput)
-                    )
+                    //(
+//                            isProfileImageChanged || uiState.nameInput != uiState.user?.name ||
+//                            uiState.birthDateInput != uiState.user?.birthDate ||
+//                            uiState.positionInput != uiState.user?.position) ||
+//                            // 혹은 유효한 비밀번호 변경 시도가 있을 때
+//                            (uiState.oldPasswordInput.isNotBlank() && uiState.newPasswordInput.length >= 8 && uiState.newPasswordInput == uiState.confirmNewPasswordInput)
+//                      )
 
 
     // 3. UI 레이아웃 구성
