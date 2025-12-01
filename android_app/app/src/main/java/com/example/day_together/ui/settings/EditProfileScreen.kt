@@ -1,6 +1,11 @@
 package com.example.day_together.ui.settings
 
+import android.net.Uri
+import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusManager
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
@@ -32,9 +38,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.day_together.R
+import com.example.day_together.ui.auth.AuthViewModel
 import com.example.day_together.ui.auth.FamilyMemberSelection
 import com.example.day_together.ui.theme.*
+import com.google.firebase.storage.FirebaseStorage
 
 /**
  * 개인정보 수정 화면의 UI를 구성하는 메인 컴포저블 함수
@@ -47,13 +57,23 @@ import com.example.day_together.ui.theme.*
 @Composable
 fun EditProfileScreen(
     navController: NavController,
-    viewModel: EditProfileViewModel = viewModel() // ViewModel 주입
+    viewModel: EditProfileViewModel = viewModel()
 ) {
     // ViewModel의 uiState를 구독하여 상태 변경 시 자동으로 UI를 업데이트
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
+    val isProfileImageChanged = uiState.newProfileImageUri != null
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+        onResult = { uri ->
+            if (uri != null) {
+                viewModel.onProfileImageChanged(uri)
+            }
+        }
+    )
 
     // 1. 부가 효과(Side Effect) 처리
     // 사용자에게 보여줄 메시지(Toast)나 화면 이동 같은 일회성 이벤트 처리
@@ -79,8 +99,17 @@ fun EditProfileScreen(
     // '완료' 버튼의 활성화 여부를 계산 -> 이 로직은 ViewModel의 상태에 따라 결정
     val isCompleteButtonEnabled = !uiState.isLoading &&
             uiState.nameError == null &&
-            uiState.birthDateError == null && // 생일은 수정 안하지만, 기존 로직 유지
             uiState.passwordError == null
+            // 로딩 중이 아닐 때
+  //          (uiState.nameInput.isNotBlank() && uiState.birthDateInput.length == 8) && // 필수 정보 유효성
+                    // 정보가 변경되었거나
+                    //(
+//                            isProfileImageChanged || uiState.nameInput != uiState.user?.name ||
+//                            uiState.birthDateInput != uiState.user?.birthDate ||
+//                            uiState.positionInput != uiState.user?.position) ||
+//                            // 혹은 유효한 비밀번호 변경 시도가 있을 때
+//                            (uiState.oldPasswordInput.isNotBlank() && uiState.newPasswordInput.length >= 8 && uiState.newPasswordInput == uiState.confirmNewPasswordInput)
+//                      )
 
 
     // 3. UI 레이아웃 구성
@@ -111,14 +140,19 @@ fun EditProfileScreen(
                 if (uiState.isLoading) {
                     CircularProgressIndicator()
                 } else {
-                    // 프로필 이미지 영역
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_add_photo), // TODO: ViewModel에서 이미지 URL 받아와서 AsyncImage로 교체
+                    val profileImageModel = uiState.newProfileImageUri ?: if (uiState.profile_image.isNotBlank())
+                        uiState.profile_image else R.drawable.ic_add_photo
+
+                    Log.d("EditProfile", "Profile URL: ${uiState.user?.profile_image}")
+                    AsyncImage(
+                        model = profileImageModel,
                         contentDescription = "프로필 이미지",
                         modifier = Modifier
                             .size(100.dp)
                             .clip(CircleShape)
-                            .clickable { /* TODO: 갤러리 열기 기능 연결 */ }
+                            .clickable { galleryLauncher.launch("image/*")
+                            },
+                        contentScale = ContentScale.Crop
                     )
                     Spacer(modifier = Modifier.height(32.dp))
 
@@ -223,7 +257,7 @@ fun EditProfileScreen(
     }
 }
 
-// 하위 컴포저블
+// --- 하위 컴포저블 ---
 
 @Composable
 private fun EditProfileTextField(
@@ -257,8 +291,7 @@ private fun EditProfileTextField(
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), // [수정]
-                disabledTextColor = TextPrimary.copy(alpha = 0.7f), // [수정]
+                disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
                 cursorColor = MaterialTheme.colorScheme.primary,
             ),
             enabled = !readOnly
@@ -266,3 +299,11 @@ private fun EditProfileTextField(
     }
 }
 
+@Composable
+private fun SolarLunarCheckbox(text: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onCheckedChange(true) }) {
+        Checkbox(checked = checked, onCheckedChange = null, modifier = Modifier.size(20.dp), colors = CheckboxDefaults.colors())
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(text, style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp), color = TextPrimary)
+    }
+}

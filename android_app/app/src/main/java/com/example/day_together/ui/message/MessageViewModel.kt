@@ -41,7 +41,7 @@ data class MessageUiState(
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
     val chatRoomId: String? = null,
-    val chatRoomName: String? = "가족 채팅방",
+    val chatRoomName: String? = "",
     val currentUser: User? = null,
     val currentUserName: String = "사용자",
 
@@ -92,15 +92,14 @@ open class MessageViewModel(
         super.onCleared()
     }
 
-    private suspend fun loadChatRoomName(chatRoomId: String) {
-        try {
-            // AppRepository에 getChatRoomName이 없으므로 우선 기본값 사용
-            // 추후 Repository에 fun getChatRoomName(chatRoomId: String): String? 구현 필요
-            // val name = repository.getChatRoomName(chatRoomId) ?: "가족 채팅방"
-            val name = "가족 채팅방"
-            _uiState.update { it.copy(chatRoomName = name) }
-        } catch (e: Exception) {
-            Log.e("MessageViewModel", "채팅방 이름 불러오기 실패", e)
+    private fun loadChatRoomName(chatRoomId: String) {
+        viewModelScope.launch {
+            try {
+                val name = repository.getChatRoomName(chatRoomId) ?: "가족 채팅방"
+                _uiState.update { it.copy(chatRoomName = name) }
+            } catch (e: Exception) {
+                Log.e("MessageViewModel", "채팅방 이름 불러오기 실패", e)
+            }
         }
     }
 

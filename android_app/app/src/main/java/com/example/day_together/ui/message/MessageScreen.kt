@@ -1,6 +1,5 @@
 package com.example.day_together.ui.message
 
-import androidx.compose.foundation.background
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -8,20 +7,16 @@ import java.util.TimeZone
 import java.time.ZoneId
 import java.time.LocalDate
 
-
 import android.Manifest
 import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-
-
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-
-
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -34,11 +29,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -62,7 +63,6 @@ fun MessageScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
-
 
 
     // 런타임 권한 요청
@@ -205,8 +205,6 @@ fun ColumnScope.ChatScreenContent(
 }
 
 
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MessageTopBar(
@@ -286,6 +284,7 @@ fun EmptyChatRoomScreen(onInviteClick: () -> Unit) {
     }
 }
 
+
 @Composable
 fun EmptyChatMessagesView(modifier: Modifier = Modifier) {
     Box(
@@ -300,8 +299,6 @@ fun EmptyChatMessagesView(modifier: Modifier = Modifier) {
         }
     }
 }
-
-
 
 
 @Composable
@@ -483,13 +480,44 @@ fun MessageInputArea(
             OutlinedTextField(
                 value = text,
                 onValueChange = onTextChanged,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    // 자동 확장(min 1줄, max ~5줄). 5줄을 초과하면 내부 스크롤 발생
+                    .heightIn(min = 56.dp, max = 150.dp)
+                    // 하드웨어 엔터(키보드)의 Enter도 감지해서 전송하도록 처리
+                    .onPreviewKeyEvent { keyEvent ->
+                        val isEnterUp = keyEvent.key == Key.Enter && keyEvent.type == KeyEventType.KeyUp
+                        if (isEnterUp) {
+                            // 엔터 눌렀을 때 (하드웨어 키) 전송
+                            if (text.isNotBlank()) {
+                                onSendClick()
+                            }
+                            true
+                        } else {
+                            false
+                        }
+                    },
                 placeholder = { Text("메시지 입력") },
                 shape = RoundedCornerShape(24.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     unfocusedBorderColor = Color.Transparent,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary
-                )
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                ),
+                // 여러 줄 허용, 최대 5줄까지 확장
+                singleLine = false,
+                maxLines = 5,
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Send,
+                    keyboardType = KeyboardType.Text,
+                ),
+                keyboardActions = KeyboardActions(
+                    onSend = {
+                        // 소프트키보드의 전송(IME_ACTION_SEND)
+                        if (text.isNotBlank()) {
+                            onSendClick()
+                        }
+                    },
+                ),
             )
             IconButton(onClick = onSendClick, enabled = text.isNotBlank()) {
                 Icon(painterResource(id = R.drawable.ic_send_arrow), contentDescription = "전송")

@@ -8,6 +8,9 @@ import android.net.Uri
 import android.util.Log
 import com.example.day_together.AuthManager
 import com.example.day_together.ui.message.ChatMessage
+import com.example.day_together.ChatRoomManager
+import com.example.day_together.FirebaseService
+import com.example.day_together.data.model.CalendarEvent
 import com.example.day_together.data.model.Question
 import com.example.day_together.data.model.User
 import com.example.day_together.ui.gallery.MonthlyComment
@@ -42,6 +45,8 @@ import java.util.UUID
 import kotlin.coroutines.resume
 
 import com.google.firebase.auth.EmailAuthProvider
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 
 /**
@@ -248,7 +253,6 @@ object AppRepository {
         }
     }
 
-
     //내 채팅방ID 찾기
     suspend fun getMyChatRoomId(): String? = suspendCancellableCoroutine { cont ->
         val uid = authManager.getCurrentUserId()
@@ -285,8 +289,6 @@ object AppRepository {
             }
     }
 
-
-
     /**
      * 수정된 사용자 정보 DB에 업데이트
      */
@@ -311,8 +313,7 @@ object AppRepository {
                 "position" to (updatedUser.position ?: "가족"),
 
                 // 프로필 이미지: 기존에 profile_image로 쓰던 것도 있어서 둘 다 기록
-                "profile_image" to updatedUser.profileImageUrl,
-                "profileImageUrl" to updatedUser.profileImageUrl,
+                "profile_image" to updatedUser.profile_image,
 
                 "fcmToken" to updatedUser.fcmToken,
                 "invitedChatRoomId" to updatedUser.invitedChatRoomId
@@ -332,7 +333,6 @@ object AppRepository {
             Log.e("AppRepository", "updateUser 실패", e)
             }
     }
-
 
     /**
      * 비밀번호 변경
@@ -592,7 +592,7 @@ object AppRepository {
 
             val data = hashMapOf(
                 "chatRoomId" to chatRoomId,
-                "chatRoomName" to "우리 가족 채팅방",      // 기본 방 이름
+                "chatRoomName" to "가족 채팅방",      // 기본 방 이름
                 "members" to listOf(inviterUserId),        // 방 만든 사람만 먼저 멤버로
                 "invitedUsers" to listOf<String>(),        // 초대된 사람들 uid 리스트 (초기엔 비어있음)
                 "createdAt" to Date()
@@ -627,6 +627,21 @@ object AppRepository {
                 }
             }
     }
+
+    //채팅방 이름 불러오기
+    suspend fun getChatRoomName(chatRoomId: String): String? {
+        return try {
+            val doc = db.collection("chatRooms")
+                .document(chatRoomId)
+                .get()
+                .await()
+
+            doc.getString("chatRoomName")
+        } catch (e: Exception) {
+            null
+        }
+    }
+
 
     // 채팅방 이름 변경
     suspend fun updateChatRoomName(chatRoomId: String, newName: String) {
@@ -821,6 +836,7 @@ object AppRepository {
             .add(message)
     }
 
+    //채팅 이미지 스토리지 업로드
     fun uploadImageToStorage(uri: Uri, onComplete: (String?) -> Unit) {
         val storageRef = FirebaseStorage.getInstance().reference
         val imageRef = storageRef.child("chat_images/${UUID.randomUUID()}.jpg")
@@ -835,6 +851,25 @@ object AppRepository {
                 onComplete(null)
             }
     }
+
+    //프로필 이미지 스토리지 업로드
+    suspend fun uploadProfileImage(uri: Uri): String {
+        return suspendCoroutine { continuation ->
+            val storageRef = FirebaseStorage.getInstance().reference
+            val imageRef = storageRef.child("profile_image/${UUID.randomUUID()}.jpg")
+
+            imageRef.putFile(uri)
+                .addOnSuccessListener {
+                    imageRef.downloadUrl.addOnSuccessListener { downloadUri ->
+                        continuation.resume(downloadUri.toString())
+                    }
+                }
+                .addOnFailureListener { e ->
+                    continuation.resumeWithException(e)
+                }
+        }
+    }
+
 
     // SettingsViewModel
     fun getSettingsFlow(): Flow<UserSettings> {
