@@ -97,7 +97,7 @@ fun DateEventsBottomSheet(
                         LazyColumn(
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            itemsIndexed(items = events, key = { _, event -> event.id }) { index, event ->
+                            itemsIndexed(items = events) { index, event ->
                                 EventListItem(
                                     event = event,
                                     onEditClick = { onEditEvent(event) },

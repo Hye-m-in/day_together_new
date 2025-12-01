@@ -143,7 +143,7 @@ fun HomeScreen(
                         showCustomYearMonthPicker = true
                     }
                 },
-                onRefreshQuestionClicked = homeViewModel::refreshQuestion,
+
                 onMonthlyTodayButtonClick = {
                     val todayDate = LocalDate.now()
                     currentYearMonth = YearMonth.from(todayDate)
