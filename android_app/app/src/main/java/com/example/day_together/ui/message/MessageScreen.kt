@@ -51,6 +51,9 @@ import com.example.day_together.data.repository.AppRepository
 import com.example.day_together.ui.dialogs.InviteMemberDialog
 import com.example.day_together.ui.theme.*
 
+import androidx.compose.foundation.shape.CircleShape
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MessageScreen(
@@ -133,7 +136,9 @@ fun MessageScreen(
                     onSendClick = {
                         val text = viewModel.uiState.value.messageText // 입력창 내용 가져오기
                         viewModel.onEvent(MessageEvent.SendMessage(text)) },
-                    onClipClick = { mediaPickerLauncher.launch("image/*") }
+                    onClipClick = { mediaPickerLauncher.launch("image/*") },
+
+                    familyMembers = uiState.familyMembers
                 )
             }
         }
@@ -148,7 +153,15 @@ fun ColumnScope.ChatScreenContent(
     onTextChange: (String) -> Unit,
     onSendClick: () -> Unit,
     onClipClick: () -> Unit,
+    // MessageScreen에서 uiState.familyMembers를 넘겨줌
+    familyMembers: List<FamilyMember> = emptyList(), // 파라미터 추가
 ) {
+
+    // 이름으로 프로필 이미지를 찾기 위한 Map 생성
+    val profileMap = remember(familyMembers) {
+        familyMembers.associate { it.name to it.profileImageUrl }
+    }
+
     if (messages.isEmpty()) {
         // 메세지가 없을 때
         EmptyChatMessagesView(
@@ -189,7 +202,9 @@ fun ColumnScope.ChatScreenContent(
 
                 MessageBubble(
                     message = message,
-                    isMine = message.sender == currentUserName
+                    isMine = message.sender == currentUserName,
+                    // 해당 메시지 보낸 사람의 프로필 URL 전달
+                    userProfileUrl = profileMap[message.sender]
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }
@@ -302,7 +317,13 @@ fun EmptyChatMessagesView(modifier: Modifier = Modifier) {
 
 
 @Composable
-fun MessageBubble(message: ChatMessage, isMine: Boolean) {
+fun MessageBubble(
+    message: ChatMessage,
+    isMine: Boolean,
+    userProfileUrl: String? = null
+    ) {
+
+
 
     // 전송 시간 포맷팅
     val timeText = remember(message.timestamp) {
@@ -312,8 +333,7 @@ fun MessageBubble(message: ChatMessage, isMine: Boolean) {
         formatter.format(localDate)
     }
 
-    // 시스템 메시지 여부 판단 변수 추가
-    // ChatMessage 구조에 따라 message.type == "system" 등으로 변경 필요할 수 있음
+    // 시스템 메시지 여부
     val isSystem = message.sender == "system"
 
     Column(
@@ -322,32 +342,64 @@ fun MessageBubble(message: ChatMessage, isMine: Boolean) {
             .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
     ) {
+        // 상대방 메시지일 때: 프로필 사진 + 이름 + 말풍선 구조로 변경
         if (!isMine) {
-            Text(
-                text = message.sender,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
-            )
-        }
+            Row(verticalAlignment = Alignment.Top) {
 
-        Row(verticalAlignment = Alignment.Bottom) {
-            if (!isMine) {
+                // 0. 시스템이면 구름 아이콘, 아니면 유저 프로필
+                val profileImageModel = if (isSystem) {
+                    R.drawable.ic_cloud6 // 시스템일 때 고정 구름 이미지
+                } else {
+                    userProfileUrl ?: R.drawable.ic_add_photo // 유저일 때
+                }
 
-                SenderBubble(
-                    message = message,
-                    isMine = false,
-                    isSystem = isSystem,
-                    modifier = Modifier.weight(1f, fill = false)
+                // 1. 프로필 이미지 (상대방일 때만 표시)
+                AsyncImage(
+                    model = profileImageModel,
+                    contentDescription = "프로필",
+                    modifier = Modifier
+                        .size(36.dp)
+                        // 시스템이 아닐 때만 이미지 동그랗게 자름, 시스템(구름)은 원래 모양 유지
+                        .run {
+                            if (isSystem) this else clip(CircleShape)
+                        },
+
+                    // 시스템 아이콘은 비율 유지(Fit), 유저 사진은 꽉 채우기(Crop)
+                    contentScale = if (isSystem) ContentScale.Fit else ContentScale.Crop,
+
+                    placeholder = painterResource(if (isSystem) R.drawable.ic_cloud6 else R.drawable.ic_add_photo),
+                    error = painterResource(if (isSystem) R.drawable.ic_cloud6 else R.drawable.ic_add_photo)
                 )
 
-                Spacer(modifier = Modifier.width(6.dp))
-                MessageTime(timeText)
+                Spacer(modifier = Modifier.width(8.dp))
 
-            } else {
+                // 2. 이름 + 말풍선 + 시간
+                Column {
+                    // 시스템이면 하루함께, 아니면 보낸 사람 이름 표시
+                    Text(
+                        text = if (isSystem) "하루함께" else message.sender,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        SenderBubble(
+                            message = message,
+                            isMine = false,
+                            isSystem = message.sender == "system",
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        MessageTime(timeText)
+                    }
+                }
+            }
+        } else {
+            // [기존 유지] 내 메시지일 때는 프로필 사진 없이 말풍선만 표시 (오른쪽 정렬)
+            Row(verticalAlignment = Alignment.Bottom) {
                 MessageTime(timeText)
                 Spacer(modifier = Modifier.width(6.dp))
-
                 SenderBubble(
                     message = message,
                     isMine = true,

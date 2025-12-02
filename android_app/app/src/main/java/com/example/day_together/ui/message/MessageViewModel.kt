@@ -305,10 +305,12 @@ open class MessageViewModel(
             // 1) 가족 멤버 목록
             val members: List<User> = repository.getFamilyMembers(chatRoomId)
 
+            // User 객체의 profile_image를 FamilyMember에 매핑
             val familyMembersUi = members.map { user ->
                 FamilyMember(
                     id = user.uid,
-                    name = user.name.ifBlank { "이름 없음" }
+                    name = user.name.ifBlank { "이름 없음" },
+                    profileImageUrl = user.profile_image.ifBlank { null } // 빈 문자열이면 null 처리
                 )
             }
 
