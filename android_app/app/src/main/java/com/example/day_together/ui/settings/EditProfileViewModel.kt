@@ -28,6 +28,9 @@ data class EditProfileUiState(
     // 원본 사용자 정보
     val user: User? = null,
 
+    // 탈퇴 성공 여부 상태
+    val isDeleteSuccess: Boolean = false,
+
     // UI 입력 필드 상태
     val profile_image: String = "",
     val nameInput: String = "",
@@ -120,6 +123,37 @@ class EditProfileViewModel(
             }
         }
     }
+
+    // 회원탈퇴 요청 함수
+    fun onDeleteAccountConfirmed() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+
+            val result = repository.deleteAccount()
+
+            when (result) {
+                is AuthResult.Success -> {
+                    // 탈퇴 성공 시 상태 업데이트
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isDeleteSuccess = true,
+                            userMessage = "회원탈퇴가 완료되었습니다."
+                        )
+                    }
+                }
+                is AuthResult.Failure -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            userMessage = result.message
+                        )
+                    }
+                }
+            }
+        }
+    }
+
 
     // 이벤트 핸들러: UI의 모든 입력 변경을 처리
 

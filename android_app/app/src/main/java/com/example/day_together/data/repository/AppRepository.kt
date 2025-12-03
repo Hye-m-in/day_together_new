@@ -8,9 +8,6 @@ import android.net.Uri
 import android.util.Log
 import com.example.day_together.AuthManager
 import com.example.day_together.ui.message.ChatMessage
-import com.example.day_together.ChatRoomManager
-import com.example.day_together.FirebaseService
-import com.example.day_together.data.model.CalendarEvent
 import com.example.day_together.data.model.Question
 import com.example.day_together.data.model.User
 import com.example.day_together.ui.gallery.MonthlyComment
@@ -35,8 +32,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.suspendCancellableCoroutine
 
-// Firebase Task를 Coroutine으로 사용하기 위한 import
-import kotlinx.coroutines.tasks.await
 
 import java.time.YearMonth
 
@@ -60,6 +55,36 @@ object AppRepository {
 
     // ChatRoomManager.db는 private이므로 접근 불가. Repository에서 직접 Firestore 인스턴스를 생성
     private val db = FirebaseFirestore.getInstance()
+
+
+    // 회원 탈퇴 (DB 삭제 -> Auth 삭제 -> 네이버 연동 해제)
+    suspend fun deleteAccount(): AuthResult {
+        val uid = authManager.getCurrentUserId() ?: return AuthResult.Failure("로그인 정보가 없습니다.")
+
+        return try {
+            // 1. Firestore 유저 정보 삭제
+            db.collection("users").document(uid)
+                .delete()
+                .await()
+
+            // 2. Firebase Auth 계정 삭제 (및 네이버 연동 해제)
+            // AuthManager에 새로 만든 deleteCurrentUser()를 호출해야 네이버도 같이 끊김
+            val authDeleted = authManager.deleteCurrentUser()
+
+            if (authDeleted) {
+                AuthResult.Success
+            } else {
+                AuthResult.Failure("계정 삭제에 실패했습니다. (보안을 위해 로그아웃 후 다시 로그인해서 시도해주세요)")
+            }
+        } catch (e: Exception) {
+            Log.e("AppRepository", "deleteAccount 실패", e)
+            AuthResult.Failure("회원탈퇴 중 오류가 발생했습니다: ${e.message}")
+        }
+    }
+
+
+
+
 
     /**
      * 이메일과 비밀번호로 로그인 요청
