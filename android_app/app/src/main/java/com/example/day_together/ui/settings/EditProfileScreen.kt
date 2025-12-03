@@ -266,7 +266,7 @@ fun EditProfileScreen(
                     }
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // [수정] 중복 제거 및 기능 연결된 회원탈퇴 버튼
+                    // 중복 제거 및 기능 연결된 회원탈퇴 버튼
                     TextButton(
                         onClick = { showDeleteDialog = true }
                     ) {
@@ -282,7 +282,7 @@ fun EditProfileScreen(
                 }
             }
 
-            // [추가] 회원탈퇴 확인 팝업 (AlertDialog)
+            // 회원탈퇴 확인 팝업 (AlertDialog)
             if (showDeleteDialog) {
                 AlertDialog(
                     onDismissRequest = { showDeleteDialog = false }, // 바깥 클릭 시 닫기
