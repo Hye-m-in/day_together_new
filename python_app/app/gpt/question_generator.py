@@ -16,7 +16,8 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # =============== 유틸 ===============
 def normalize(text: str) -> str:
     # 구두점/공백 제거 + 소문자화
-    t = re.sub(rf"[{string.punctuation}\s]+", "", text)
+    pattern = rf"[{re.escape(string.punctuation)}\s]+"
+    t = re.sub(pattern, "", text)
     return t.lower()
 
 def similarity(a: str, b: str) -> float:
@@ -30,83 +31,6 @@ def is_too_similar(new_q: str, old_qs: List[str], threshold: float) -> Tuple[boo
         if s > max_sim:
             max_sim, max_q = s, q
     return (max_sim >= threshold, max_sim, max_q)
-
-# =============== 프롬프트 빌더 ===============
-def build_prompt(
-    chat_room_name: str,
-    today: str,
-    recent_topics_hint: Optional[str],
-    #질문 개인화를 위한 인자 주입
-    weekly_summary: Optional[str] = None
-) -> Tuple[str, str]:
-    categories = ["가족대화","일상","취미·문화","주말계획","미래·새도전"]
-    tones = ["따뜻하게","유쾌하게","잔잔하게","호기심을 담아","격려하는 톤으로"]
-    timeframes = ["오늘","이번주","이번달","최근","어릴 때","곧 다가올 주말"]
-    formats = [
-        "개방형 한 문장 질문",
-        "선호 비교를 유도하는 질문",
-        "구체적 예시를 유도하는 질문"
-    ]
-    cat = random.choice(categories)
-    tone = random.choice(tones)
-    tf = random.choice(timeframes)
-    form = random.choice(formats)
-
-    recent_clause = ""
-    if recent_topics_hint:
-        recent_clause = (
-            f"최근에 다뤘던 주제는 피하고({recent_topics_hint}), 새로운 각도로 질문하세요."
-        )
-
-
-    #주간 요약 컨텍스트
-    weekly_block = ""
-    if weekly_summary:
-        weekly_block = f"""
-[최근 1주일 대화 요약]
-{weekly_summary}
-
-- 위 요약에서 나온 관심사, 이벤트, 분위기를 자연스럽게 반영하되,
-  특정 인물 하나를 콕 집어 언급하기보다는, 방 전체가 공감할 수 있는 질문으로 만들어 주세요.
-- 민감하거나 피해야 할 주제가 있다면 그 부분은 피해서 질문을 만들어 주세요.
-"""
-
-    system = (
-        "역할: 가족을 가깝게 만드는 따뜻하고 친절한 질문 생성기.\n"
-        "출력은 오직 JSON 한 덩어리만. JSON 외 텍스트/설명/코드블록 금지.\n"
-        "정치/의학 조언/갈등 유발/예·아니오 닫힌 질문 금지.\n"
-        "질문은 정확히 1개만 생성."
-    )
-    user = f"""
-[목표]
-- {chat_room_name}의 소통을 부드럽게 시작할 개방형 질문 1개 생성
-
-[문체/어미]
-- 자연스러운 구어체, ~해요/~했어요/~보셨어요? 와 같은 형태
-- '있나요?' 같은 조사+의문문 패턴은 피하기
-- 1~2문장, 문장당 25자 내외
-
-[금지 어구(반드시 피함)]
-- "가족들과", "가족끼리", "함께 한", "같이 한", "우리 가족", "다 함께"
-
-[권장 표현]
-- "요즘 당신/각자/너의 하루에서…", "느낀 점"
-- 구체 단서 1개 포함(시간대·장소·상황·사례)
-
-[출력 형식(JSON만)]
-{{
-  "category": "{cat}",
-  "tone": "{tone}",
-  "timeframe": "{tf}",
-  "question": "<개인의 현재 경험을 묻는 개방형 질문 1개>",
-  "follow_up": "<상대에게 자연스럽게 되묻는 1문장 제안>"
-}}
-
-[참고]
-- 오늘 날짜: {today}
-- 한국어로 작성
-""".strip()
-    return system, user
 
 # =============== 메인 함수 ===============
 def generate_daily_question(
@@ -124,6 +48,7 @@ def generate_daily_question(
 ) -> Dict[str, Any]:
     """
     오늘의 가족 질문 1개 생성(랜덤성+중복차단).
+    weekly_summary가 있으면 최근 1주일 대화 내용에 맞게 더 개인화함.
     디버깅 로그를 자세히 출력.
     """
     if recent_questions is None:
@@ -136,7 +61,7 @@ def generate_daily_question(
     for attempt in range(1, max_retries + 1):
         if debug:
             print(f"\n[시도 {attempt}/{max_retries}] ---------------------------")
-        system, user = build_prompt(chat_room_name, today, recent_hint)
+        system, user = build_prompt(chat_room_name, today, recent_hint, weekly_summary)
 
         try:
             resp = client.chat.completions.create(
@@ -213,8 +138,91 @@ def generate_daily_question(
         "category": "fallback",
         "tone": "따뜻하게",
         "timeframe": "오늘",
-        "question": "오늘 하루 중 가장 기분 좋았던 순간을 가족과 나눠볼까요?"
+        "question": "오늘 하루 중 가장 기분 좋았던 순간을 가족과 나눠볼까요?",
+        "follow_up": "다른 가족에게도 오늘 기분 좋았던 순간이 있었는지 물어봐 주세요."
     }
+
+
+# =============== 프롬프트 빌더 ===============
+def build_prompt(
+    chat_room_name: str,
+    today: str,
+    recent_topics_hint: Optional[str],
+    #질문 개인화를 위한 인자 주입
+    weekly_summary: Optional[str] = None
+) -> Tuple[str, str]:
+    categories = ["가족대화","일상","취미·문화","주말계획","미래·새도전"]
+    tones = ["따뜻하게","유쾌하게","잔잔하게","호기심을 담아","격려하는 톤으로"]
+    timeframes = ["오늘","이번주","이번달","최근","어릴 때","곧 다가올 주말"]
+    formats = [
+        "개방형 한 문장 질문",
+        "선호 비교를 유도하는 질문",
+        "구체적 예시를 유도하는 질문"
+    ]
+    cat = random.choice(categories)
+    tone = random.choice(tones)
+    tf = random.choice(timeframes)
+    form = random.choice(formats)
+
+    recent_clause = ""
+    if recent_topics_hint:
+        recent_clause = (
+            f"최근에 다뤘던 주제는 피하고({recent_topics_hint}), 새로운 각도로 질문하세요."
+        )
+
+
+    #주간 요약 컨텍스트
+    weekly_block = ""
+    if weekly_summary:
+        weekly_block = f"""
+[최근 1주일 대화 요약]
+{weekly_summary}
+
+- 위 요약에서 나온 관심사, 이벤트, 분위기를 자연스럽게 반영하되,
+  특정 인물 하나를 콕 집어 언급하기보다는, 방 전체가 공감할 수 있는 질문으로 만들어 주세요.
+- 민감하거나 피해야 할 주제가 있다면 그 부분은 피해서 질문을 만들어 주세요.
+"""
+
+    system = (
+        "역할: 가족을 가깝게 만드는 따뜻하고 친절한 질문 생성기.\n"
+        "출력은 오직 JSON 한 덩어리만. JSON 외 텍스트/설명/코드블록 금지.\n"
+        "정치/의학 조언/갈등 유발/예·아니오 닫힌 질문 금지.\n"
+        "질문은 정확히 1개만 생성."
+    )
+    user = f"""
+[목표]
+- {chat_room_name}의 소통을 부드럽게 시작할 개방형 질문 1개 생성
+
+[문체/어미]
+- 자연스러운 구어체, ~해요/~했어요/~보셨어요? 와 같은 형태
+- '있나요?' 같은 조사+의문문 패턴은 피하기
+- 1~2문장, 문장당 25자 내외
+
+[금지 어구(반드시 피함)]
+- "가족들과", "가족끼리", "함께 한", "같이 한", "우리 가족", "다 함께"
+
+[권장 표현]
+- "요즘 당신/각자/너의 하루에서…", "느낀 점"
+- 구체 단서 1개 포함(시간대·장소·상황·사례)
+
+[출력 형식(JSON만)]
+{{
+  "category": "{cat}",
+  "tone": "{tone}",
+  "timeframe": "{tf}",
+  "question": "<개인의 현재 경험을 묻는 개방형 질문 1개>",
+  "follow_up": "<상대에게 자연스럽게 되묻는 1문장 제안>"
+}}
+
+[참고]
+- 오늘 날짜: {today}
+- 한국어로 작성
+
+{weekly_block}
+{recent_clause}
+""".strip()
+    return system, user
+
 
 # =============== 실행 예시 ===============
 if __name__ == "__main__":
