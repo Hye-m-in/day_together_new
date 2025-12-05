@@ -92,6 +92,10 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
+    implementation(libs.androidx.runner)
+    implementation(libs.play.services.fido)
+    implementation(libs.androidx.espresso.core)
+    implementation(libs.play.services.fido)
 
     // Navigation
     val navVersion = "2.7.7"

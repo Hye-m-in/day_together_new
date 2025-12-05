@@ -43,7 +43,7 @@ data class MessageUiState(
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
     val chatRoomId: String? = null,
-    val chatRoomName: String? = "가족 채팅방",
+    val chatRoomName: String? = "",
     val currentUser: User? = null,
     val currentUserName: String = "사용자",
 
@@ -144,15 +144,14 @@ open class MessageViewModel(
         super.onCleared()
     }
 
-    private suspend fun loadChatRoomName(chatRoomId: String) {
-        try {
-            // AppRepository에 getChatRoomName이 없으므로 우선 기본값 사용
-            // 추후 Repository에 fun getChatRoomName(chatRoomId: String): String? 구현 필요
-            // val name = repository.getChatRoomName(chatRoomId) ?: "가족 채팅방"
-            val name = "가족 채팅방"
-            _uiState.update { it.copy(chatRoomName = name) }
-        } catch (e: Exception) {
-            Log.e("MessageViewModel", "채팅방 이름 불러오기 실패", e)
+    private fun loadChatRoomName(chatRoomId: String) {
+        viewModelScope.launch {
+            try {
+                val name = repository.getChatRoomName(chatRoomId) ?: "가족 채팅방"
+                _uiState.update { it.copy(chatRoomName = name) }
+            } catch (e: Exception) {
+                Log.e("MessageViewModel", "채팅방 이름 불러오기 실패", e)
+            }
         }
     }
 
@@ -358,10 +357,12 @@ open class MessageViewModel(
             // 1) 가족 멤버 목록
             val members: List<User> = repository.getFamilyMembers(chatRoomId)
 
+            // User 객체의 profile_image를 FamilyMember에 매핑
             val familyMembersUi = members.map { user ->
                 FamilyMember(
                     id = user.uid,
-                    name = user.name.ifBlank { "이름 없음" }
+                    name = user.name.ifBlank { "이름 없음" },
+                    profileImageUrl = user.profile_image.ifBlank { null } // 빈 문자열이면 null 처리
                 )
             }
 

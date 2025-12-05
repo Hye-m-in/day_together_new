@@ -48,7 +48,7 @@ fun ActualHomeScreenContent(
     onToggleCalendarView: () -> Unit,
     onMonthlyCalendarHeaderTitleClick: () -> Unit,
     onMonthlyCalendarHeaderIconClick: () -> Unit,
-    onRefreshQuestionClicked: () -> Unit,
+
     onMonthlyTodayButtonClick: () -> Unit,
     onEditEventRequest: (LocalDate, CalendarEvent) -> Unit,
     onDeleteEventRequest: (LocalDate, CalendarEvent) -> Unit,
@@ -129,11 +129,7 @@ fun ActualHomeScreenContent(
                     Spacer(modifier = Modifier.height(12.dp))
                     TodayQuestionContentCard(questionText = aiQuestion)
                     Spacer(modifier = Modifier.height(18.dp))
-                    RefreshQuestionButton(
-                        isAnsweredByAll = isQuestionAnsweredByAll,
-                        onRefreshQuestionClicked = onRefreshQuestionClicked,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    )
+
                     // '명언 문구' 섹션의 상단 간격 조절
                     Spacer(modifier = Modifier.height(70.dp))
                 }

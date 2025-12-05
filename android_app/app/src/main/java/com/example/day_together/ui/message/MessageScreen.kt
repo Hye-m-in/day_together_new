@@ -1,6 +1,5 @@
 package com.example.day_together.ui.message
 
-import androidx.compose.foundation.background
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -8,20 +7,16 @@ import java.util.TimeZone
 import java.time.ZoneId
 import java.time.LocalDate
 
-
 import android.Manifest
 import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-
-
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-
-
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -34,11 +29,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -49,6 +50,9 @@ import com.example.day_together.R
 import com.example.day_together.data.repository.AppRepository
 import com.example.day_together.ui.dialogs.InviteMemberDialog
 import com.example.day_together.ui.theme.*
+
+import androidx.compose.foundation.shape.CircleShape
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,7 +74,6 @@ fun MessageScreen(
             viewModel.publishTodayQuestion()
         }
     }
-
 
 
     // 런타임 권한 요청
@@ -141,7 +144,9 @@ fun MessageScreen(
                     onSendClick = {
                         val text = viewModel.uiState.value.messageText // 입력창 내용 가져오기
                         viewModel.onEvent(MessageEvent.SendMessage(text)) },
-                    onClipClick = { mediaPickerLauncher.launch("image/*") }
+                    onClipClick = { mediaPickerLauncher.launch("image/*") },
+
+                    familyMembers = uiState.familyMembers
                 )
             }
         }
@@ -156,7 +161,15 @@ fun ColumnScope.ChatScreenContent(
     onTextChange: (String) -> Unit,
     onSendClick: () -> Unit,
     onClipClick: () -> Unit,
+    // MessageScreen에서 uiState.familyMembers를 넘겨줌
+    familyMembers: List<FamilyMember> = emptyList(), // 파라미터 추가
 ) {
+
+    // 이름으로 프로필 이미지를 찾기 위한 Map 생성
+    val profileMap = remember(familyMembers) {
+        familyMembers.associate { it.name to it.profileImageUrl }
+    }
+
     if (messages.isEmpty()) {
         // 메세지가 없을 때
         EmptyChatMessagesView(
@@ -197,7 +210,9 @@ fun ColumnScope.ChatScreenContent(
 
                 MessageBubble(
                     message = message,
-                    isMine = message.sender == currentUserName
+                    isMine = message.sender == currentUserName,
+                    // 해당 메시지 보낸 사람의 프로필 URL 전달
+                    userProfileUrl = profileMap[message.sender]
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }
@@ -211,8 +226,6 @@ fun ColumnScope.ChatScreenContent(
         onClipClick = onClipClick
     )
 }
-
-
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -294,6 +307,7 @@ fun EmptyChatRoomScreen(onInviteClick: () -> Unit) {
     }
 }
 
+
 @Composable
 fun EmptyChatMessagesView(modifier: Modifier = Modifier) {
     Box(
@@ -310,10 +324,14 @@ fun EmptyChatMessagesView(modifier: Modifier = Modifier) {
 }
 
 
-
-
 @Composable
-fun MessageBubble(message: ChatMessage, isMine: Boolean) {
+fun MessageBubble(
+    message: ChatMessage,
+    isMine: Boolean,
+    userProfileUrl: String? = null
+    ) {
+
+
 
     // 전송 시간 포맷팅
     val timeText = remember(message.timestamp) {
@@ -336,6 +354,7 @@ fun MessageBubble(message: ChatMessage, isMine: Boolean) {
             .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
     ) {
+        // 상대방 메시지일 때: 프로필 사진 + 이름 + 말풍선 구조로 변경
         if (!isMine) {
             Text(
                 text = displayName,
@@ -345,23 +364,60 @@ fun MessageBubble(message: ChatMessage, isMine: Boolean) {
             )
         }
 
-        Row(verticalAlignment = Alignment.Bottom) {
-            if (!isMine) {
+                // 0. 시스템이면 구름 아이콘, 아니면 유저 프로필
+                val profileImageModel = if (isSystem) {
+                    R.drawable.ic_cloud6 // 시스템일 때 고정 구름 이미지
+                } else {
+                    userProfileUrl ?: R.drawable.ic_add_photo // 유저일 때
+                }
 
-                SenderBubble(
-                    message = message,
-                    isMine = false,
-                    isSystem = isSystem,
-                    modifier = Modifier.weight(1f, fill = false)
+                // 1. 프로필 이미지 (상대방일 때만 표시)
+                AsyncImage(
+                    model = profileImageModel,
+                    contentDescription = "프로필",
+                    modifier = Modifier
+                        .size(36.dp)
+                        // 시스템이 아닐 때만 이미지 동그랗게 자름, 시스템(구름)은 원래 모양 유지
+                        .run {
+                            if (isSystem) this else clip(CircleShape)
+                        },
+
+                    // 시스템 아이콘은 비율 유지(Fit), 유저 사진은 꽉 채우기(Crop)
+                    contentScale = if (isSystem) ContentScale.Fit else ContentScale.Crop,
+
+                    placeholder = painterResource(if (isSystem) R.drawable.ic_cloud6 else R.drawable.ic_add_photo),
+                    error = painterResource(if (isSystem) R.drawable.ic_cloud6 else R.drawable.ic_add_photo)
                 )
 
-                Spacer(modifier = Modifier.width(6.dp))
-                MessageTime(timeText)
+                Spacer(modifier = Modifier.width(8.dp))
 
-            } else {
+                // 2. 이름 + 말풍선 + 시간
+                Column {
+                    // 시스템이면 하루함께, 아니면 보낸 사람 이름 표시
+                    Text(
+                        text = if (isSystem) "하루함께" else message.sender,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        SenderBubble(
+                            message = message,
+                            isMine = false,
+                            isSystem = message.sender == "system",
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        MessageTime(timeText)
+                    }
+                }
+            }
+        } else {
+            // [기존 유지] 내 메시지일 때는 프로필 사진 없이 말풍선만 표시 (오른쪽 정렬)
+            Row(verticalAlignment = Alignment.Bottom) {
                 MessageTime(timeText)
                 Spacer(modifier = Modifier.width(6.dp))
-
                 SenderBubble(
                     message = message,
                     isMine = true,
@@ -494,13 +550,44 @@ fun MessageInputArea(
             OutlinedTextField(
                 value = text,
                 onValueChange = onTextChanged,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    // 자동 확장(min 1줄, max ~5줄). 5줄을 초과하면 내부 스크롤 발생
+                    .heightIn(min = 56.dp, max = 150.dp)
+                    // 하드웨어 엔터(키보드)의 Enter도 감지해서 전송하도록 처리
+                    .onPreviewKeyEvent { keyEvent ->
+                        val isEnterUp = keyEvent.key == Key.Enter && keyEvent.type == KeyEventType.KeyUp
+                        if (isEnterUp) {
+                            // 엔터 눌렀을 때 (하드웨어 키) 전송
+                            if (text.isNotBlank()) {
+                                onSendClick()
+                            }
+                            true
+                        } else {
+                            false
+                        }
+                    },
                 placeholder = { Text("메시지 입력") },
                 shape = RoundedCornerShape(24.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     unfocusedBorderColor = Color.Transparent,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary
-                )
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                ),
+                // 여러 줄 허용, 최대 5줄까지 확장
+                singleLine = false,
+                maxLines = 5,
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Send,
+                    keyboardType = KeyboardType.Text,
+                ),
+                keyboardActions = KeyboardActions(
+                    onSend = {
+                        // 소프트키보드의 전송(IME_ACTION_SEND)
+                        if (text.isNotBlank()) {
+                            onSendClick()
+                        }
+                    },
+                ),
             )
             IconButton(onClick = onSendClick, enabled = text.isNotBlank()) {
                 Icon(painterResource(id = R.drawable.ic_send_arrow), contentDescription = "전송")

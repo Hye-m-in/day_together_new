@@ -32,8 +32,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.suspendCancellableCoroutine
 
-// Firebase Task를 Coroutine으로 사용하기 위한 import
-import kotlinx.coroutines.tasks.await
 
 import java.time.YearMonth
 
@@ -42,6 +40,8 @@ import java.util.UUID
 import kotlin.coroutines.resume
 
 import com.google.firebase.auth.EmailAuthProvider
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 
 /**
@@ -55,6 +55,36 @@ object AppRepository {
 
     // ChatRoomManager.db는 private이므로 접근 불가. Repository에서 직접 Firestore 인스턴스를 생성
     private val db = FirebaseFirestore.getInstance()
+
+
+    // 회원 탈퇴 (DB 삭제 -> Auth 삭제 -> 네이버 연동 해제)
+    suspend fun deleteAccount(): AuthResult {
+        val uid = authManager.getCurrentUserId() ?: return AuthResult.Failure("로그인 정보가 없습니다.")
+
+        return try {
+            // 1. Firestore 유저 정보 삭제
+            db.collection("users").document(uid)
+                .delete()
+                .await()
+
+            // 2. Firebase Auth 계정 삭제 (및 네이버 연동 해제)
+            // AuthManager에 새로 만든 deleteCurrentUser()를 호출해야 네이버도 같이 끊김
+            val authDeleted = authManager.deleteCurrentUser()
+
+            if (authDeleted) {
+                AuthResult.Success
+            } else {
+                AuthResult.Failure("계정 삭제에 실패했습니다. (보안을 위해 로그아웃 후 다시 로그인해서 시도해주세요)")
+            }
+        } catch (e: Exception) {
+            Log.e("AppRepository", "deleteAccount 실패", e)
+            AuthResult.Failure("회원탈퇴 중 오류가 발생했습니다: ${e.message}")
+        }
+    }
+
+
+
+
 
     /**
      * 이메일과 비밀번호로 로그인 요청
@@ -248,7 +278,6 @@ object AppRepository {
         }
     }
 
-
     //내 채팅방ID 찾기
     suspend fun getMyChatRoomId(): String? = suspendCancellableCoroutine { cont ->
         val uid = authManager.getCurrentUserId()
@@ -285,8 +314,6 @@ object AppRepository {
             }
     }
 
-
-
     /**
      * 수정된 사용자 정보 DB에 업데이트
      */
@@ -311,8 +338,7 @@ object AppRepository {
                 "position" to (updatedUser.position ?: "가족"),
 
                 // 프로필 이미지: 기존에 profile_image로 쓰던 것도 있어서 둘 다 기록
-                "profile_image" to updatedUser.profileImageUrl,
-                "profileImageUrl" to updatedUser.profileImageUrl,
+                "profile_image" to updatedUser.profile_image,
 
                 "fcmToken" to updatedUser.fcmToken,
                 "invitedChatRoomId" to updatedUser.invitedChatRoomId
@@ -332,7 +358,6 @@ object AppRepository {
             Log.e("AppRepository", "updateUser 실패", e)
             }
     }
-
 
     /**
      * 비밀번호 변경
@@ -592,7 +617,7 @@ object AppRepository {
 
             val data = hashMapOf(
                 "chatRoomId" to chatRoomId,
-                "chatRoomName" to "우리 가족 채팅방",      // 기본 방 이름
+                "chatRoomName" to "가족 채팅방",      // 기본 방 이름
                 "members" to listOf(inviterUserId),        // 방 만든 사람만 먼저 멤버로
                 "invitedUsers" to listOf<String>(),        // 초대된 사람들 uid 리스트 (초기엔 비어있음)
                 "createdAt" to Date()
@@ -627,6 +652,21 @@ object AppRepository {
                 }
             }
     }
+
+    //채팅방 이름 불러오기
+    suspend fun getChatRoomName(chatRoomId: String): String? {
+        return try {
+            val doc = db.collection("chatRooms")
+                .document(chatRoomId)
+                .get()
+                .await()
+
+            doc.getString("chatRoomName")
+        } catch (e: Exception) {
+            null
+        }
+    }
+
 
     // 채팅방 이름 변경
     suspend fun updateChatRoomName(chatRoomId: String, newName: String) {
@@ -821,6 +861,7 @@ object AppRepository {
             .add(message)
     }
 
+    //채팅 이미지 스토리지 업로드
     fun uploadImageToStorage(uri: Uri, onComplete: (String?) -> Unit) {
         val storageRef = FirebaseStorage.getInstance().reference
         val imageRef = storageRef.child("chat_images/${UUID.randomUUID()}.jpg")
@@ -835,6 +876,25 @@ object AppRepository {
                 onComplete(null)
             }
     }
+
+    //프로필 이미지 스토리지 업로드
+    suspend fun uploadProfileImage(uri: Uri): String {
+        return suspendCoroutine { continuation ->
+            val storageRef = FirebaseStorage.getInstance().reference
+            val imageRef = storageRef.child("profile_image/${UUID.randomUUID()}.jpg")
+
+            imageRef.putFile(uri)
+                .addOnSuccessListener {
+                    imageRef.downloadUrl.addOnSuccessListener { downloadUri ->
+                        continuation.resume(downloadUri.toString())
+                    }
+                }
+                .addOnFailureListener { e ->
+                    continuation.resumeWithException(e)
+                }
+        }
+    }
+
 
     // SettingsViewModel
     fun getSettingsFlow(): Flow<UserSettings> {

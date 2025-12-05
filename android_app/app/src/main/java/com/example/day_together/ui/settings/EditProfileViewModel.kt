@@ -1,15 +1,19 @@
 package com.example.day_together.ui.settings
 
+import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.day_together.data.model.User
 import com.example.day_together.data.repository.AuthResult
 import com.example.day_together.data.repository.AppRepository
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 /**
  * 개인정보 수정 화면의 모든 UI 상태를 나타내는 데이터 클래스
@@ -24,10 +28,13 @@ data class EditProfileUiState(
     // 원본 사용자 정보
     val user: User? = null,
 
+    // 탈퇴 성공 여부 상태
+    val isDeleteSuccess: Boolean = false,
+
     // UI 입력 필드 상태
+    val profile_image: String = "",
     val nameInput: String = "",
     val birthDateInput: String = "",
-
 
 
     // '가족 역할' UI를 위한 상태
@@ -38,6 +45,9 @@ data class EditProfileUiState(
     val oldPasswordInput: String = "",
     val newPasswordInput: String = "",
     val confirmNewPasswordInput: String = "",
+    val newProfileImageUri: Uri ?= null,
+    val isOtherPositionSelected: Boolean = false, // '기타' 선택 여부
+    val otherPositionText: String = "", // '기타' 텍스트
 
     // 유효성 검사 에러 메시지
     val nameError: String? = null,
@@ -72,6 +82,7 @@ class EditProfileViewModel(
     private fun loadUserProfile() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
+
             // AppRepository.getCurrentUser()가 .toObject(User::class.java)를 사용하는지 확인
             val currentUser = repository.getCurrentUser()
             if (currentUser != null) {
@@ -103,7 +114,8 @@ class EditProfileViewModel(
                         // 변환된 가족 역할 UI 상태 업데이트
                         familyMemberSelections = selections,
                         otherFamilyMemberChecked = isOther,
-                        otherFamilyMemberText = otherText
+                        otherFamilyMemberText = otherText,
+                        profile_image = currentUser.profile_image
                     )
                 }
             } else {
@@ -111,6 +123,37 @@ class EditProfileViewModel(
             }
         }
     }
+
+    // 회원탈퇴 요청 함수
+    fun onDeleteAccountConfirmed() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+
+            val result = repository.deleteAccount()
+
+            when (result) {
+                is AuthResult.Success -> {
+                    // 탈퇴 성공 시 상태 업데이트
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isDeleteSuccess = true,
+                            userMessage = "회원탈퇴가 완료되었습니다."
+                        )
+                    }
+                }
+                is AuthResult.Failure -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            userMessage = result.message
+                        )
+                    }
+                }
+            }
+        }
+    }
+
 
     // 이벤트 핸들러: UI의 모든 입력 변경을 처리
 
@@ -153,6 +196,12 @@ class EditProfileViewModel(
     fun onConfirmNewPasswordChange(password: String) {
         val error = if (password.isNotEmpty() && password != _uiState.value.newPasswordInput) "새 비밀번호가 일치하지 않습니다." else null
         _uiState.update { it.copy(confirmNewPasswordInput = password, passwordError = error) }
+    }
+
+    /** 화면에서 이미지 선택 시 로컬 Uri를 저장(프리뷰) */
+    fun onProfileImageChanged(uri: Uri?) {
+        // 프리뷰용으로 로컬 Uri만 저장하고, 업로드는 별도 버튼(또는 onSaveClicked에서)으로 처리할 수 있음
+        _uiState.update { it.copy(newProfileImageUri = uri) }
     }
 
     /**
@@ -211,10 +260,24 @@ class EditProfileViewModel(
             }
 
             // 사용자 정보 업데이트 로직
+            var profileUrl = originalUser.profile_image
+
+            // 프로필 이미지 변경이 있는 경우에만 업로드
+            val newUri = currentState.newProfileImageUri
+            if (newUri != null) {
+                try {
+                    profileUrl = repository.uploadProfileImage(newUri)
+                } catch (e: Exception) {
+                    _uiState.update { it.copy(isLoading = false, userMessage = "이미지 업로드 실패") }
+                    return@launch
+                }
+            }
+
+            // --- 사용자 정보 업데이트 로직 ---
             val updatedUser = originalUser.copy(
                 name = currentState.nameInput,
-                position = position // 변환된 position 문자열 저장
-
+                position = position, // 변환된 position 문자열 저장
+                profile_image = profileUrl
             )
             repository.updateUser(updatedUser)
 
