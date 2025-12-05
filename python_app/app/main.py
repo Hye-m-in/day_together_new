@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, WebSocket,Body
 from fastapi.middleware.cors import CORSMiddleware
 from .services.firebase_client import db, fb_auth
+from apscheduler.triggers.interval import IntervalTrigger
 
 import google.auth.transport.requests
 import google.oauth2.id_token
@@ -24,85 +25,111 @@ from apscheduler.triggers.cron import CronTrigger
 import atexit
 
 from .services.firebase_admin_init import default_app  # 초기화만 호출됨
-from .models.schemas import GoogleTokenRequest, NaverTokenRequest, TokenResponse  # <<< 수정: TokenRequest → NaverTokenRequest로 분리
+from .models.schemas import GoogleTokenRequest, NaverTokenRequest, TokenResponse
 
 from fastapi.middleware.cors import CORSMiddleware
+
 
 # ---------------------------------------------------------
 # 1) 스케줄러 & 질문 생성 함수
 # ---------------------------------------------------------
+import traceback
 seoul_tz = pytz.timezone("Asia/Seoul")
 scheduler = BackgroundScheduler(timezone=seoul_tz)
 
 
 def generate_and_store_daily_question():
     print("[Question] 질문 생성 job 실행됨")
+    tomorrow = (datetime.now(seoul_tz) + timedelta(days=1)).date()
+    # 테스트용 (오늘 날짜로 저장)
+    #tomorrow = datetime.now(seoul_tz).date()
     try:
-        tomorrow = (datetime.now(seoul_tz) + timedelta(days=1)).date()
-
         chat_rooms = db.collection("chatRooms").stream()
-        for room in chat_rooms:
+    except Exception as e:
+        print(f"[Scheduler] chatRooms 조회 실패: {e}")
+        traceback.print_exc()
+        return
+    
+    for room in chat_rooms:
             room_id = room.id
             family_name = room.to_dict().get("familyName", "우리 가족")
+            
+            print(f"[Scheduler] 처리 시작: room_id={room_id}, family_name={family_name}")
 
-            data = qg.generate_daily_question(
-                chat_room_name=family_name,
-                recent_questions=[],
-            )
+            try:
+                # 1) GPT 질문 생성
+                data = qg.generate_daily_question(
+                    chat_room_name=family_name,
+                    recent_questions=[],
+                )
+                print(f"[Scheduler] GPT 질문 생성 성공: room_id={room_id}")
 
-            # 1) daily_questions 저장
-            db.collection("daily_questions").add({
-                "chatRoomId": room_id,
-                "question": data["question"],
-                "category": data["category"],
-                "tone": data["tone"],
-                "timeframe": data["timeframe"],
-                "created_at": firestore.SERVER_TIMESTAMP,
-                "target_date": tomorrow.isoformat(),
-            })
+                # 2) daily_questions 저장
+                db.collection("daily_questions").add({
+                    "chatRoomId": room_id,
+                    "question": data["question"],
+                    "category": data["category"],
+                    "tone": data["tone"],
+                    "timeframe": data["timeframe"],
+                    "created_at": firestore.SERVER_TIMESTAMP,
+                    "target_date": tomorrow.isoformat(),
+                    "sent_to_chat": False, # 채팅방에 출력 여부
+                })
+                print(f"[Scheduler] daily_questions 저장 완료: room_id={room_id}")
 
-            # 2) messages 저장
-            db.collection("chatRooms").document(room_id).collection("messages").add({
-                "sender": "system",
-                "content": data["question"],
-                "timestamp": firestore.SERVER_TIMESTAMP,
-                "type": "system",
-                "target_date": tomorrow.isoformat(),
-            })
+                """
+                6## 3) messages 저장
+                db.collection("chatRooms").document(room_id).collection("messages").add({
+                    "sender": "system",
+                    "content": data["question"],
+                    "timestamp": firestore.SERVER_TIMESTAMP,
+                    "type": "system",
+                    "target_date": tomorrow.isoformat(),
+                })
+                print(f"[Scheduler] messages 저장 완료: room_id={room_id}")
+                """
 
-            print(f"[Scheduler] Daily question saved for room {room_id}")
 
-        print("[Scheduler] All daily questions generated successfully")
+            except Exception as e:
+                print(f"[Scheduler] room_id={room_id} 처리 중 에러: {e}")
+                traceback.print_exc()
+                # continue 해서 다른 방은 계속 돌게
+                continue
 
-    except Exception as e:
-        print(f"[Scheduler] Error: {e}")
-
+    print("[Scheduler] All daily questions generated (job 완료)")
 
 # ---------------------------------------------------------
 # 2) FastAPI 앱 생성 (단 한 번만!)
 # ---------------------------------------------------------
 app = FastAPI()
-
-
 # ---------------------------------------------------------
 # 3) 앱 시작/종료 이벤트에 스케줄러 연결
 # ---------------------------------------------------------
+# 로컬/서버 공통으로 안전하게 종료하도록 등록
+atexit.register(lambda: scheduler.shutdown(wait=False))
+
 @app.on_event("startup")
 async def on_startup():
     print("[App] startup event 진입")
 
+    # 1) 테스트용: 1분마다 질문 생성 (target_date는 위에서 오늘로 바꿔두면 바로 테스트 가능)
     if not scheduler.running:
-        # 테스트용: 1분마다 실행
         scheduler.add_job(
             generate_and_store_daily_question,
             CronTrigger(hour=22, minute=0, timezone=seoul_tz)
+            #IntervalTrigger(minutes=1, timezone=seoul_tz)  # 1분마다 실행
+
         )
+
+        # 2) 테스트용: 1분마다 오늘 질문 발행
+        scheduler.add_job(
+            publish_all_today_questions_job,
+            CronTrigger(hour=9, minute=0, timezone=seoul_tz)
+            #IntervalTrigger(minutes=1, timezone=seoul_tz)
+        )
+
         scheduler.start()
         print("[Scheduler] Started")
-
-    # 로컬/서버 공통으로 안전하게 종료하도록 등록
-    atexit.register(lambda: scheduler.shutdown(wait=False))
-
 
 @app.on_event("shutdown")
 async def on_shutdown():
@@ -274,7 +301,7 @@ async def naver_login(body: NaverTokenRequest):
         print(f"[DEBUG] Writing Firestore users/{uid}")
         user_ref = db.collection("users").document(uid)
         user_ref.set({
-            "email":         email,
+            "email":         email.get("email"),
             "name":          profile.get("name"),
             "nickname":      profile.get("nickname"),
             "profile_image": profile.get("profile_image"),
@@ -290,10 +317,131 @@ async def naver_login(body: NaverTokenRequest):
     print(f"[DEBUG] Returning custom token for {uid}")
     return TokenResponse(custom_token=custom_token)
 
+# ----------gpt: 오늘 질문을 채팅방에 발행하는 API ----------
+@app.post("/chat-rooms/{room_id}/publish-today-question")
+def publish_today_question(room_id: str):
+    '''
+    1) daily_questions 에서 오늘(room_id)의 질문 1개 찾고
+    2) 아직 messages에 안 보냈고, 9시 이후라면 system 메시지로 추가
+    3) sent_to_chat 플래그 업데이트
+    '''
+
+    now = datetime.now(seoul_tz)
+    today = now.date()
+    today_str = today.isoformat()
+
+    # 9시 이전이면 차단
+    if now.hour < 9:
+        raise HTTPException(403, "아직 질문 공개 시간이 아닙니다.")
+
+    # 오늘 이 방의 질문 조회
+    qs = (
+        db.collection("daily_questions")
+          .where("chatRoomId", "==", room_id)
+          .where("target_date", "==", today_str)
+          .limit(1)
+          .stream()
+    )
+
+    doc = next(qs, None)
+    if not doc:
+        raise HTTPException(404, "오늘 질문이 없습니다.")
+
+    data = doc.to_dict()
+    question = data.get("question")
+
+    if not question:
+        raise HTTPException(500, "질문 데이터가 비어 있습니다.")
+        
+
+    # 한 번도 채팅방에 안 보냈을 경우만 메시지 생성
+    if not data.get("sent_to_chat"):
+        # messages에 system 메시지 추가
+        db.collection("chatRooms").document(room_id).collection("messages").add({
+            "sender": "system",
+            "content": question,
+            "timestamp": firestore.SERVER_TIMESTAMP,
+            "type": "system",
+            "target_date": today_str,
+        })
+
+        # daily_questions 플래그 업데이트
+        doc.reference.update({
+            "sent_to_chat": True,
+            "sent_at": firestore.SERVER_TIMESTAMP,
+        })
+
+    # 안드로이드용 응답
+    return {
+        "roomId": room_id,
+        "question": question,
+        "target_date": today_str,
+    }
+
+
+def publish_today_question_for_room(room_id: str):
+    now = datetime.now(seoul_tz)
+    today_str = now.date().isoformat()
+
+    qs = (
+        db.collection("daily_questions")
+          .where("chatRoomId", "==", room_id)
+          .where("target_date", "==", today_str)
+          .limit(1)
+          .stream()
+    )
+
+    doc = next(qs, None)
+    if not doc:
+        print(f"[PublishJob] room_id={room_id} 오늘 질문 없음")
+        return
+
+    data = doc.to_dict()
+    question = data.get("question")
+    if not question:
+        print(f"[PublishJob] room_id={room_id} 질문 없음")
+        return
+
+    if data.get("sent_to_chat") is True:
+        print(f"[PublishJob] room_id={room_id} 이미 발행됨, 스킵")
+        return
+
+    # messages에 system 메시지 추가
+    db.collection("chatRooms").document(room_id).collection("messages").add({
+        "sender": "system",
+        "content": question,
+        "timestamp": firestore.SERVER_TIMESTAMP,
+        "type": "system",
+        "target_date": today_str,
+    })
+
+    # daily_questions 플래그 업데이트
+    doc.reference.update({
+        "sent_to_chat": True,
+        "sent_at": firestore.SERVER_TIMESTAMP,
+    })
+
+    print(f"[PublishJob] room_id={room_id} 오늘 질문 발행 완료")
+
+def publish_all_today_questions_job():
+    print("[PublishJob] 전체 방 오늘 질문 발행 job 시작")
+
+    try:
+        chat_rooms = db.collection("chatRooms").stream()
+    except Exception as e:
+        print(f"[PublishJob] chatRooms 조회 실패: {e}")
+        traceback.print_exc()
+        return
+
+    for room in chat_rooms:
+        room_id = room.id
+        publish_today_question_for_room(room_id)
+
+    print("[PublishJob] 전체 방 오늘 질문 발행 job 완료")
 
 
 #----------gpt------------
-@app.post("/daily-question")
+"""@app.post("/daily-question")
 async def daily_question():
     seoul_tz = pytz.timezone("Asia/Seoul")
     tomorrow = (datetime.now(seoul_tz) + timedelta(days=1)).date()
@@ -302,6 +450,7 @@ async def daily_question():
     chat_rooms = db.collection("chatRooms").stream()
 
     results = {}
+
     for room in chat_rooms:
         room_id = room.id
         #roomid 가져오고 각 가족채팅방 이름도 가져오는데 이름이 없다면 이름없는방으로 ->무조건 있어야 함 
@@ -320,33 +469,33 @@ async def daily_question():
         recent_questions = [doc.to_dict().get("content", "") for doc in recent_docs]
 
 
-    # GPT 질문 생성
-    data = qg.generate_daily_question(
-        chat_room_name=chat_room_name, 
-        recent_questions=recent_questions
-    )
+        # GPT 질문 생성
+        data = qg.generate_daily_question(
+            chat_room_name=chat_room_name, 
+            recent_questions=recent_questions
+        )
 
-    # 1) daily_questions 컬렉션 저장 (로그/통계용)
-    db.collection("daily_questions").add({
-        "room_id": room_id,
-        "question": data["question"],
-        "category": data["category"],
-        "tone": data["tone"],
-        "timeframe": data["timeframe"],
-        "created_at": firestore.SERVER_TIMESTAMP,
-        "target_date": tomorrow.isoformat()
-    })
-    # 2) 해당 방 messages에 저장
-    db.collection("chatRooms").document(room_id).collection("messages").add({
-        "sender": "system",
-        "content": data["question"],
-        "timestamp": firestore.SERVER_TIMESTAMP,
-        "type": "system",
-        "target_date": tomorrow.isoformat()
-    })       
+        # 1) daily_questions 컬렉션 저장 (로그/통계용)
+        db.collection("daily_questions").add({
+            "room_id": room_id,
+            "question": data["question"],
+            "category": data["category"],
+            "tone": data["tone"],
+            "timeframe": data["timeframe"],
+            "created_at": firestore.SERVER_TIMESTAMP,
+            "target_date": tomorrow.isoformat()
+        })
+        # 2) 해당 방 messages에 저장
+        db.collection("chatRooms").document(room_id).collection("messages").add({
+            "sender": "system",
+            "content": data["question"],
+            "timestamp": firestore.SERVER_TIMESTAMP,
+            "type": "system",
+            "target_date": tomorrow.isoformat()
+        })       
 
-    print(f"[DailyQuestion API] 질문 저장 완료 → roomId={room_id}")
-    results[room_id] = data
+        print(f"[DailyQuestion API] 질문 저장 완료 → roomId={room_id}")
+        results[room_id] = data
 
 
-    return results
+    return results"""

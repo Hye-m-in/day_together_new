@@ -67,6 +67,14 @@ fun MessageScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
 
+    //chatRoomId가 설정되면 오늘 질문 한 번 불러오기
+    LaunchedEffect(uiState.chatRoomId) {
+        val roomId = uiState.chatRoomId
+        if (roomId != null) {
+            viewModel.publishTodayQuestion()
+        }
+    }
+
 
     // 런타임 권한 요청
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -333,9 +341,13 @@ fun MessageBubble(
         formatter.format(localDate)
     }
 
-    // 시스템 메시지 여부
+    // 시스템 메시지 여부 판단 변수 추가
     val isSystem = message.sender == "system"
-
+    // 오늘의 질문 채팅화면에서의 이름
+    val displayName = when{
+        isSystem -> "오늘의 질문"
+        else -> message.sender
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -344,7 +356,13 @@ fun MessageBubble(
     ) {
         // 상대방 메시지일 때: 프로필 사진 + 이름 + 말풍선 구조로 변경
         if (!isMine) {
-            Row(verticalAlignment = Alignment.Top) {
+            Text(
+                text = displayName,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
+            )
+        }
 
                 // 0. 시스템이면 구름 아이콘, 아니면 유저 프로필
                 val profileImageModel = if (isSystem) {

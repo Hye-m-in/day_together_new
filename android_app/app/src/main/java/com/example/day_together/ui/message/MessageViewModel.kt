@@ -12,6 +12,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.day_together.AuthManager
 import com.example.day_together.data.model.User
+import com.example.day_together.data.remote.ApiClient
 import com.example.day_together.data.repository.AppRepository
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 import java.util.*
 
 /**
@@ -53,6 +55,10 @@ data class MessageUiState(
     val creationDate: String = "",
     val familyMembers: List<FamilyMember> = emptyList(),
     val showInviteDialog: Boolean = false,
+
+    // 질문 관련
+    val todayQuestion: String? = null,
+    val isTodayQuestionLoading: Boolean = false,
 )
 
 /**
@@ -79,6 +85,52 @@ open class MessageViewModel(
 
     protected val _uiState = MutableStateFlow(MessageUiState())
     val uiState: StateFlow<MessageUiState> = _uiState.asStateFlow()
+
+
+    // 오늘 질문 불러오기
+    /*fun loadTodayQuestion() {
+        val roomId = _uiState.value.chatRoomId ?: return // 방 없으면 그냥 리턴
+
+        viewModelScope.launch {
+            //로딩 상태 on
+            _uiState.value = _uiState.value.copy(isTodayQuestionLoading = true)
+
+            try {
+                val res = ApiClient.questionService.getTodayQuestion(roomId)
+                _uiState.value = _uiState.value.copy(
+                    todayQuestion = res.question,
+                    isTodayQuestionLoading = false
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _uiState.value = _uiState.value.copy(
+                    todayQuestion = null,
+                    isTodayQuestionLoading = false
+                )
+            }
+        }
+    }*/
+
+    // ViewModel 안
+    fun publishTodayQuestion() {
+        val roomId = _uiState.value.chatRoomId ?: return
+
+        viewModelScope.launch {
+            try {
+                ApiClient.questionService.publishTodayQuestion(roomId)
+            } catch (e: HttpException) {
+                if (e.code() == 403 || e.code() == 404) {
+                    // 아직 시간 전 / 오늘 질문 없음 → 무시
+                } else {
+                    e.printStackTrace()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+
 
     private var messagesListener: ListenerRegistration? = null
 
