@@ -79,7 +79,9 @@ class GalleryViewModel(
             _uiState.update {
                 it.copy(
                     chatRoomId = chatRoomId,
-                    currentUserName = myName ?: "" // 없으면 빈 문자열
+                    currentUserName = myName ?: "", // 없으면 빈 문자열
+
+                    isLoading = chatRoomId != null //채팅방 ID가 있으면 상태 유지, 없으면 로딩 끝냄
                 )
             }
 

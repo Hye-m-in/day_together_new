@@ -5,8 +5,8 @@ import com.google.firebase.firestore.PropertyName
 // 앱 사용자의 정보를 담는 데이터 모델 -> Firestore의 문서(Document)와 1:1로 매핑
 
 data class User(
-    // 사용자의 고유 식별자 (Firebase Auth의 UID, Firestore에는 'member_id'로 저장됨)
-    @get:PropertyName("member_id") @set:PropertyName("member_id")
+    // 사용자의 고유 식별자 (Firebase Auth의 member_id)
+    @get:PropertyName("user_id") @set:PropertyName("user_id")
     var uid: String = "",
 
     // 사용자 이름 (닉네임)
@@ -26,8 +26,8 @@ data class User(
     var position: String? = null,
 
     // 프로필 이미지 URL
-    @get:PropertyName("profileImageUrl") @set:PropertyName("profileImageUrl")
-    var profileImageUrl: String = "",
+    @get:PropertyName("profile_image") @set:PropertyName("profile_image")
+    var profile_image: String = "",
 
     // 푸시 알림을 위한 FCM 토큰
     @get:PropertyName("fcmToken") @set:PropertyName("fcmToken")

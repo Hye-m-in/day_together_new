@@ -124,31 +124,63 @@ fun GalleryScreen(
     Day_togetherTheme {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { },
-                    actions = {
-                        IconButton(onClick = {
-                            // 다이얼로그를 열 때, 임시상태를 현재 ViewModel의 상태와 동기화
-                            tempSelectedYearMonth = uiState.currentDisplayYearMonth
-                            showYearMonthPickerDialog = true
-                        }) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_year_month_picker),
-                                contentDescription = "날짜 선택",
-                                tint = TextPrimary,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = ScreenBackground)
-                )
+
+
+                if (uiState.chatRoomId != null) {
+
+                    TopAppBar(
+
+                        title = { },
+                        actions = {
+                            IconButton(onClick = {
+                                // 다이얼로그를 열 때, 임시상태를 현재 ViewModel의 상태와 동기화
+                                tempSelectedYearMonth = uiState.currentDisplayYearMonth
+                                showYearMonthPickerDialog = true
+                            }) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_year_month_picker),
+                                    contentDescription = "날짜 선택",
+                                    tint = TextPrimary,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = ScreenBackground)
+                    )
+                }
             }
-        ) { innerPadding ->
+        )
+                { innerPadding ->
             if (uiState.isLoading) {
                 Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
-            } else if (uiState.allMonthlyPhotoGroups.all { it.photos.isEmpty() }) {
+            }
+
+
+            // 채팅방 생성 되기 전이면, 안내 문구 표시
+            else if (uiState.chatRoomId == null) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .padding(horizontal = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "가족채팅방 생성 후 이용 가능합니다.",
+                        color = TextPrimary,
+                        fontSize = 18.sp,
+
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+
+
+            else if (uiState.allMonthlyPhotoGroups.all { it.photos.isEmpty() }) {
                 Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                     Text("공유된 사진이 아직 없어요.", style = MaterialTheme.typography.bodyLarge)
                 }

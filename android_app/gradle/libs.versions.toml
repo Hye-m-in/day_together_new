@@ -24,6 +24,8 @@ firebaseFunctionsKtx = "21.2.1"
 media3CommonKtx = "1.7.1"
 firebaseCrashlyticsBuildtools = "3.0.4"
 firebaseStorageKtx = "22.0.0"
+runner = "1.6.1"
+playServicesFido = "20.0.1"
 #navigationComposeJvmstubs = "2.9.2"
 
 [libraries]
@@ -58,6 +60,8 @@ firebase-functions-ktx = { group = "com.google.firebase", name = "firebase-funct
 androidx-media3-common-ktx = { group = "androidx.media3", name = "media3-common-ktx", version.ref = "media3CommonKtx" }
 firebase-crashlytics-buildtools = { group = "com.google.firebase", name = "firebase-crashlytics-buildtools", version.ref = "firebaseCrashlyticsBuildtools" }
 firebase-storage-ktx = { group = "com.google.firebase", name = "firebase-storage-ktx", version.ref = "firebaseStorageKtx" }
+androidx-runner = { group = "androidx.test", name = "runner", version.ref = "runner" }
+play-services-fido = { group = "com.google.android.gms", name = "play-services-fido", version.ref = "playServicesFido" }
 #androidx-navigation-compose-jvmstubs = { group = "androidx.navigation", name = "navigation-compose-jvmstubs", version.ref = "navigationComposeJvmstubs" }
 
 [plugins]
