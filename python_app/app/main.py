@@ -26,8 +26,7 @@ import atexit
 
 from .services.firebase_admin_init import default_app  # 초기화만 호출됨
 from .models.schemas import GoogleTokenRequest, NaverTokenRequest, TokenResponse
-
-from fastapi.middleware.cors import CORSMiddleware
+from app import question_personalizer as qp
 
 
 # ---------------------------------------------------------
@@ -58,11 +57,12 @@ def generate_and_store_daily_question():
 
             try:
                 # 1) GPT 질문 생성
-                data = qg.generate_daily_question(
+                data = qp.generate_personalized_daily_question_for_room(
                     chat_room_name=family_name,
-                    recent_questions=[],
+                    chat_room_id=room_id,
+                    debug=False,
                 )
-                print(f"[Scheduler] GPT 질문 생성 성공: room_id={room_id}")
+                print(f"[Scheduler] GPT 개인화 질문 생성 성공: room_id={room_id}")
 
                 # 2) daily_questions 저장
                 db.collection("daily_questions").add({
@@ -439,63 +439,3 @@ def publish_all_today_questions_job():
 
     print("[PublishJob] 전체 방 오늘 질문 발행 job 완료")
 
-
-#----------gpt------------
-"""@app.post("/daily-question")
-async def daily_question():
-    seoul_tz = pytz.timezone("Asia/Seoul")
-    tomorrow = (datetime.now(seoul_tz) + timedelta(days=1)).date()
-
-    # 모든 chatRooms 가져오기
-    chat_rooms = db.collection("chatRooms").stream()
-
-    results = {}
-
-    for room in chat_rooms:
-        room_id = room.id
-        #roomid 가져오고 각 가족채팅방 이름도 가져오는데 이름이 없다면 이름없는방으로 ->무조건 있어야 함 
-        chat_room_name= room.to_dict().get("chatRoomName", "이름없는방")
-
-    # 최근 질문 5개 (이 방 전용) 가져오기
-        recent_docs = (
-            db.collection("chatRooms")
-              .document(room_id)
-              .collection("messages")
-              .where("type", "==", "system")
-              .order_by("timestamp", direction=firestore.Query.DESCENDING)
-              .limit(5)
-              .stream()
-        )
-        recent_questions = [doc.to_dict().get("content", "") for doc in recent_docs]
-
-
-        # GPT 질문 생성
-        data = qg.generate_daily_question(
-            chat_room_name=chat_room_name, 
-            recent_questions=recent_questions
-        )
-
-        # 1) daily_questions 컬렉션 저장 (로그/통계용)
-        db.collection("daily_questions").add({
-            "room_id": room_id,
-            "question": data["question"],
-            "category": data["category"],
-            "tone": data["tone"],
-            "timeframe": data["timeframe"],
-            "created_at": firestore.SERVER_TIMESTAMP,
-            "target_date": tomorrow.isoformat()
-        })
-        # 2) 해당 방 messages에 저장
-        db.collection("chatRooms").document(room_id).collection("messages").add({
-            "sender": "system",
-            "content": data["question"],
-            "timestamp": firestore.SERVER_TIMESTAMP,
-            "type": "system",
-            "target_date": tomorrow.isoformat()
-        })       
-
-        print(f"[DailyQuestion API] 질문 저장 완료 → roomId={room_id}")
-        results[room_id] = data
-
-
-    return results"""
