@@ -32,7 +32,13 @@ def is_too_similar(new_q: str, old_qs: List[str], threshold: float) -> Tuple[boo
     return (max_sim >= threshold, max_sim, max_q)
 
 # =============== 프롬프트 빌더 ===============
-def build_prompt(chat_room_name: str, today: str, recent_topics_hint: Optional[str]) -> Tuple[str, str]:
+def build_prompt(
+    chat_room_name: str,
+    today: str,
+    recent_topics_hint: Optional[str],
+    #질문 개인화를 위한 인자 주입
+    weekly_summary: Optional[str] = None
+) -> Tuple[str, str]:
     categories = ["가족대화","일상","취미·문화","주말계획","미래·새도전"]
     tones = ["따뜻하게","유쾌하게","잔잔하게","호기심을 담아","격려하는 톤으로"]
     timeframes = ["오늘","이번주","이번달","최근","어릴 때","곧 다가올 주말"]
@@ -51,6 +57,19 @@ def build_prompt(chat_room_name: str, today: str, recent_topics_hint: Optional[s
         recent_clause = (
             f"최근에 다뤘던 주제는 피하고({recent_topics_hint}), 새로운 각도로 질문하세요."
         )
+
+
+    #주간 요약 컨텍스트
+    weekly_block = ""
+    if weekly_summary:
+        weekly_block = f"""
+[최근 1주일 대화 요약]
+{weekly_summary}
+
+- 위 요약에서 나온 관심사, 이벤트, 분위기를 자연스럽게 반영하되,
+  특정 인물 하나를 콕 집어 언급하기보다는, 방 전체가 공감할 수 있는 질문으로 만들어 주세요.
+- 민감하거나 피해야 할 주제가 있다면 그 부분은 피해서 질문을 만들어 주세요.
+"""
 
     system = (
         "역할: 가족을 가깝게 만드는 따뜻하고 친절한 질문 생성기.\n"
@@ -93,6 +112,8 @@ def build_prompt(chat_room_name: str, today: str, recent_topics_hint: Optional[s
 def generate_daily_question(
     chat_room_name: str,
     recent_questions: Optional[List[str]] = None,
+    #질문 관련 새 인자
+    weekly_summary: Optional[str] = None,
     max_retries: int = 3,
     similarity_threshold: float = 0.88,
     temperature: float = 0.9,

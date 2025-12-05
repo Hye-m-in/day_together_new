@@ -63,6 +63,14 @@ fun MessageScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
 
+    //chatRoomId가 설정되면 오늘 질문 한 번 불러오기
+    LaunchedEffect(uiState.chatRoomId) {
+        val roomId = uiState.chatRoomId
+        if (roomId != null) {
+            viewModel.publishTodayQuestion()
+        }
+    }
+
 
 
     // 런타임 권한 요청
@@ -316,9 +324,12 @@ fun MessageBubble(message: ChatMessage, isMine: Boolean) {
     }
 
     // 시스템 메시지 여부 판단 변수 추가
-    // ChatMessage 구조에 따라 message.type == "system" 등으로 변경 필요할 수 있음
     val isSystem = message.sender == "system"
-
+    // 오늘의 질문 채팅화면에서의 이름
+    val displayName = when{
+        isSystem -> "오늘의 질문"
+        else -> message.sender
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -327,7 +338,7 @@ fun MessageBubble(message: ChatMessage, isMine: Boolean) {
     ) {
         if (!isMine) {
             Text(
-                text = message.sender,
+                text = displayName,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)

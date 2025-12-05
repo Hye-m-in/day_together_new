@@ -5,6 +5,8 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.create
+import com.example.day_together.data.remote.QuestionService
 
 // Retrofit 클라이언트를 싱글톤으로 관리하는 객체
 
@@ -33,5 +35,10 @@ object ApiClient {
     // AuthService 인터페이스를 구현한 인스턴스를 생성
     val authService: AuthService by lazy {
         retrofit.create(AuthService::class.java)
+    }
+    
+    //질문 관련
+    val questionService: QuestionService by lazy {
+        retrofit.create(QuestionService::class.java)
     }
 }
