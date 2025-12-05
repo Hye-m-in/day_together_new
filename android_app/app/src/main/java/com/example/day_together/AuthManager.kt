@@ -6,6 +6,17 @@ import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.messaging.FirebaseMessaging
 
+import kotlinx.coroutines.tasks.await
+
+import com.navercorp.nid.oauth.NidOAuthLogin
+import com.navercorp.nid.oauth.OAuthLoginCallback
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
+
+import android.util.Log
+
+
+
 
 object AuthManager {
 
@@ -128,6 +139,48 @@ object AuthManager {
         //실제 로그인 상태 반환
         return auth.currentUser != null
     }
+
+    // 현재 로그인된 사용자 삭제 (Auth) + 네이버 연동 해제 포함
+    suspend fun deleteCurrentUser(): Boolean {
+        return try {
+            val user = auth.currentUser ?: return false
+
+            // 네이버 연동 해제 시도 (로그인 여부와 상관없이 시도하되 에러는 무시)
+            try {
+                val isNaverUnlinked = unlinkNaver()
+                if (isNaverUnlinked) {
+                    Log.d("AuthManager", "네이버 연동 해제 성공")
+                }
+            } catch (e: Exception) {
+                Log.w("AuthManager", "네이버 연동 해제 건너뜀")
+            }
+
+            // Firebase Auth 계정 삭제
+            user.delete().await()
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    // 네이버 연동 해제 (Suspend Function)
+    private suspend fun unlinkNaver(): Boolean = suspendCoroutine { cont ->
+        NidOAuthLogin().callDeleteTokenApi(object : OAuthLoginCallback {
+            override fun onSuccess() {
+                cont.resume(true)
+            }
+            override fun onFailure(httpStatus: Int, message: String) {
+                Log.e("AuthManager", "네이버 탈퇴 실패: $message")
+                // 네이버 로그인이 안 되어 있거나 토큰이 없으면 실패로 간주되나, 앱 탈퇴 흐름을 막지 않기 위해 false 반환 후 진행
+                cont.resume(false)
+            }
+            override fun onError(errorCode: Int, message: String) {
+                onFailure(errorCode, message)
+            }
+        })
+    }
+
 
     // 에러 유형 메세지 매핑
     fun getFriendlyErrorMessage(e: Exception?): String {

@@ -33,11 +33,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.day_together.data.repository.AppRepository
 import com.example.day_together.ui.dialogs.InviteMemberDialog
 
+import coil.compose.AsyncImage
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.Color
+
 // 가족 멤버를 표현하는 데이터 클래스 정의
 data class FamilyMember(
     val id: String,
     val name: String,
-    val profileImageRes: Int = R.drawable.ic_add_photo // 기본 이미지 리소스 설정
+    val profileImageUrl: String? = null // URL이 없으면 null
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,7 +53,16 @@ fun ChatInfoScreen(
         AppRepository
     ))
 ) {
+
+
     val uiState by viewModel.uiState.collectAsState() // ViewModel 상태 구독
+
+
+    // 가족 목록에서 내 이름과 일치하는 멤버를 찾아 프로필 URL 가져오기
+    val myProfileImageUrl = remember(uiState.familyMembers, uiState.currentUserName) {
+        uiState.familyMembers.find { it.name == uiState.currentUserName }?.profileImageUrl
+    }
+
 
     // 초대 다이얼로그가 true일 때 화면에 표시
     if (uiState.showInviteDialog) {
@@ -94,14 +107,18 @@ fun ChatInfoScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_add_photo),
+                    // 기존 Image -> AsyncImage로 변경하여 내 프로필 사진 연동
+                    AsyncImage(
+                        model = myProfileImageUrl ?: R.drawable.ic_add_photo, // URL 없으면 기본 아이콘
                         contentDescription = "내 프로필 이미지",
                         modifier = Modifier
                             .size(80.dp)
                             .clip(CircleShape),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Crop,
+                        placeholder = painterResource(R.drawable.ic_add_photo),
+                        error = painterResource(R.drawable.ic_add_photo)
                     )
+
                     Spacer(modifier = Modifier.height(16.dp))
 
 
@@ -219,14 +236,20 @@ fun FamilyMemberItem(member: FamilyMember) {
             .padding(vertical = 12.dp, horizontal = 0.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Image(
-            painter = painterResource(id = member.profileImageRes),
+        // 이미지가 없으면(null) 기존 기본 아이콘(ic_add_photo) 표시
+        AsyncImage(
+            model = member.profileImageUrl ?: R.drawable.ic_add_photo,
             contentDescription = "${member.name} 프로필 이미지",
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape),
-            contentScale = ContentScale.Crop
+
+            contentScale = ContentScale.Crop,
+            // 로딩 중이거나 에러 시 보여줄 기본 이미지 설정
+            placeholder = painterResource(R.drawable.ic_add_photo),
+            error = painterResource(R.drawable.ic_add_photo)
         )
+
         Spacer(modifier = Modifier.width(16.dp))
 
         Text(

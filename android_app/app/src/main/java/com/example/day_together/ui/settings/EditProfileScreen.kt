@@ -58,12 +58,21 @@ import com.google.firebase.storage.FirebaseStorage
 fun EditProfileScreen(
     navController: NavController,
     viewModel: EditProfileViewModel = viewModel()
+
 ) {
+
+
+
+
     // ViewModel의 uiState를 구독하여 상태 변경 시 자동으로 UI를 업데이트
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
+
+    // 탈퇴 확인 다이얼로그 표시 여부 상태
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
     val isProfileImageChanged = uiState.newProfileImageUri != null
 
     val galleryLauncher = rememberLauncherForActivityResult(
@@ -75,9 +84,21 @@ fun EditProfileScreen(
         }
     )
 
+
+    // 회원탈퇴 성공 시 로그인 화면으로 이동 (앱 재시작 효과)
+    LaunchedEffect(key1 = uiState.isDeleteSuccess) {
+        if (uiState.isDeleteSuccess) {
+            Toast.makeText(context, "회원탈퇴가 완료되었습니다.", Toast.LENGTH_SHORT).show()
+
+            // 네비게이션 스택을 비우고 로그인 화면으로 이동
+            navController.navigate("login") {
+                popUpTo(0) { inclusive = true } // 백스택 모두 제거
+            }
+        }
+    }
+
     // 1. 부가 효과(Side Effect) 처리
     // 사용자에게 보여줄 메시지(Toast)나 화면 이동 같은 일회성 이벤트 처리
-
     // 저장 성공 여부를 감지하여 이전 화면으로 돌아감
     LaunchedEffect(key1 = uiState.isSaveSuccess) {
         if (uiState.isSaveSuccess) {
@@ -244,20 +265,60 @@ fun EditProfileScreen(
                         Text("완료", style = MaterialTheme.typography.labelLarge)
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    TextButton(onClick = { /* TODO: 회원 탈퇴 로직 연결 */ }) {
+
+                    // 중복 제거 및 기능 연결된 회원탈퇴 버튼
+                    TextButton(
+                        onClick = { showDeleteDialog = true }
+                    ) {
                         Text(
                             "회원탈퇴",
-                            style = MaterialTheme.typography.bodySmall.copy(textDecoration = TextDecoration.Underline, color = TextPrimary.copy(alpha = 0.7f))
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                textDecoration = TextDecoration.Underline,
+                                color = TextPrimary.copy(alpha = 0.7f)
+                            )
                         )
                     }
                     Spacer(modifier = Modifier.height(24.dp))
                 }
             }
+
+            // 회원탈퇴 확인 팝업 (AlertDialog)
+            if (showDeleteDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false }, // 바깥 클릭 시 닫기
+                    title = { Text(text = "회원 탈퇴") },
+                    text = { Text(text = "정말로 탈퇴하시겠습니까?\n탈퇴 시 모든 정보가 삭제되며 복구할 수 없습니다.") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                showDeleteDialog = false
+                                viewModel.onDeleteAccountConfirmed() // 뷰모델에 삭제 요청
+                            }
+                        ) {
+                            Text("확인", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = { showDeleteDialog = false } // 취소 시 다이얼로그 닫기
+                        ) {
+                            Text("취소")
+                        }
+                    },
+                    containerColor = ScreenBackground,
+                    textContentColor = TextPrimary,
+                    titleContentColor = TextPrimary
+                )
+            }
         }
     }
 }
 
-// --- 하위 컴포저블 ---
+
+
+
+
+// 하위 컴포저블
 
 @Composable
 private fun EditProfileTextField(
