@@ -354,48 +354,42 @@ fun MessageBubble(
             .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
     ) {
-        // 상대방 메시지일 때: 프로필 사진 + 이름 + 말풍선 구조로 변경
         if (!isMine) {
-            Text(
-                text = displayName,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
-            )
-        }
+            // 👈 상대방(가족 / 시스템) 메시지: 프로필 + 이름 + 말풍선 + 시간
 
-                // 0. 시스템이면 구름 아이콘, 아니면 유저 프로필
+            Row(verticalAlignment = Alignment.Bottom) {
+
+                // 0. 프로필 이미지 선택
                 val profileImageModel = if (isSystem) {
-                    R.drawable.ic_cloud6 // 시스템일 때 고정 구름 이미지
+                    R.drawable.ic_cloud6        // 시스템: 구름 아이콘
                 } else {
-                    userProfileUrl ?: R.drawable.ic_add_photo // 유저일 때
+                    userProfileUrl ?: R.drawable.ic_add_photo
                 }
 
-                // 1. 프로필 이미지 (상대방일 때만 표시)
+                // 1. 프로필 이미지
                 AsyncImage(
                     model = profileImageModel,
                     contentDescription = "프로필",
                     modifier = Modifier
                         .size(36.dp)
-                        // 시스템이 아닐 때만 이미지 동그랗게 자름, 시스템(구름)은 원래 모양 유지
                         .run {
                             if (isSystem) this else clip(CircleShape)
                         },
-
-                    // 시스템 아이콘은 비율 유지(Fit), 유저 사진은 꽉 채우기(Crop)
                     contentScale = if (isSystem) ContentScale.Fit else ContentScale.Crop,
-
-                    placeholder = painterResource(if (isSystem) R.drawable.ic_cloud6 else R.drawable.ic_add_photo),
-                    error = painterResource(if (isSystem) R.drawable.ic_cloud6 else R.drawable.ic_add_photo)
+                    placeholder = painterResource(
+                        if (isSystem) R.drawable.ic_cloud6 else R.drawable.ic_add_photo
+                    ),
+                    error = painterResource(
+                        if (isSystem) R.drawable.ic_cloud6 else R.drawable.ic_add_photo
+                    )
                 )
 
                 Spacer(modifier = Modifier.width(8.dp))
 
                 // 2. 이름 + 말풍선 + 시간
                 Column {
-                    // 시스템이면 하루함께, 아니면 보낸 사람 이름 표시
                     Text(
-                        text = if (isSystem) "하루함께" else message.sender,
+                        text = if (isSystem) "하루함께" else displayName,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 4.dp)
@@ -405,7 +399,7 @@ fun MessageBubble(
                         SenderBubble(
                             message = message,
                             isMine = false,
-                            isSystem = message.sender == "system",
+                            isSystem = isSystem,
                             modifier = Modifier.weight(1f, fill = false)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
@@ -414,7 +408,8 @@ fun MessageBubble(
                 }
             }
         } else {
-            // [기존 유지] 내 메시지일 때는 프로필 사진 없이 말풍선만 표시 (오른쪽 정렬)
+            // 👈 내 메시지: 오른쪽 정렬, 프로필 없음
+
             Row(verticalAlignment = Alignment.Bottom) {
                 MessageTime(timeText)
                 Spacer(modifier = Modifier.width(6.dp))
